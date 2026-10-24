@@ -1,9 +1,9 @@
 // Fonctionnement hors connexion : l'appli est gardée en cache, les données passent par le réseau
-const VERSION = 'famille-v1.7.1';
+const VERSION = 'famille-v1.7.2';
 const FICHIERS = [
   './', 'index.html', 'tablette.html', 'manifest.webmanifest', 'tablette.webmanifest',
   'css/app.css', 'css/tablette.css',
-  'js/app.js', 'js/tablette.js', 'js/store.js', 'js/supa.js', 'js/config.js', 'js/dates.js', 'js/voix.js', 'js/voix-locale.js', 'js/parole.js', 'js/icones.js',
+  'js/app.js', 'js/tablette.js', 'js/store.js', 'js/supa.js', 'js/config.js', 'js/dates.js', 'js/voix.js', 'js/theme.js', 'js/voix-locale.js', 'js/parole.js', 'js/icones.js',
   'icons/icone-192.png', 'icons/icone-512.png',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
 ];
