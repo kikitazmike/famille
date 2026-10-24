@@ -386,8 +386,10 @@ const fermerFenetre = () => { zoneFenetre.innerHTML = ''; };
 
 function choixPersonnes(selection, nom = 'qui') {
   return `<div class="puces" role="group" aria-label="Qui ?" style="flex-wrap:wrap">${personnes().map((p) => `
-    <label class="puce" style="cursor:pointer"><input type="checkbox" name="${nom}" value="${p.id}" ${selection.includes(p.id) ? 'checked' : ''} style="accent-color:${p.couleur};width:1.1rem;height:1.1rem">
-    <span class="pastille" style="background:${p.couleur}"></span>${esc(p.prenom)}</label>`).join('')}</div>`;
+    <label class="puce" style="cursor:pointer"><input type="checkbox" name="${nom}" value="${p.id}" data-c="quiPersonne" ${selection.includes(p.id) ? 'checked' : ''} style="accent-color:${p.couleur};width:1.1rem;height:1.1rem">
+    <span class="pastille" style="background:${p.couleur}"></span>${esc(p.prenom)}</label>`).join('')}
+    <label class="puce" style="cursor:pointer;border-color:var(--accent)"><input type="checkbox" name="tous" data-c="quiTous" ${personnes().length && personnes().every((p) => selection.includes(p.id)) ? 'checked' : ''} style="accent-color:var(--accent);width:1.1rem;height:1.1rem">
+    <span class="pastille" style="background:var(--accent)"></span>Tous</label></div>`;
 }
 
 function formulaireRdv(ev, prefill = {}) {
@@ -405,7 +407,7 @@ function formulaireRdv(ev, prefill = {}) {
       <label class="champ">Date<input type="date" name="date" required value="${isoDate(d)}"></label>
       <label class="case"><input type="checkbox" name="journee" ${journee ? 'checked' : ''} data-c="basculeJournee">Toute la journée</label>
       <div class="ligne heures ${journee ? 'cache' : ''}"><label class="champ">Début<input type="time" name="hdebut" value="${hhmm(d)}"></label><label class="champ">Fin<input type="time" name="hfin" value="${hhmm(f)}"></label></div>
-      <div class="champ">Qui ?<span class="aide">Personne de coché = pour toute la famille</span>${choixPersonnes(qui)}</div>
+      <div class="champ">Qui ?<span class="aide">« Tous » = toute la famille</span>${choixPersonnes(qui)}</div>
       <label class="champ">Lieu<input name="lieu" maxlength="120" value="${esc(ev && ev.lieu || '')}" placeholder="Facultatif"></label>
       <label class="champ">Répétition<select name="repetition" data-c="basculeRepetition">
         ${[['aucune', 'Aucune'], ['jour', 'Tous les jours'], ['semaine', 'Chaque semaine'], ['mois', 'Tous les mois'], ['annee', 'Tous les ans']].map(([v, l]) => `<option value="${v}" ${rep === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -652,6 +654,8 @@ const changements = {
   },
   rappelFait(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? isoDate(new Date()) : null } }).catch(erreur); },
   zoom(el) { majPrefs({ zoom: Number(el.value) }); },
+  quiTous(el) { el.form.querySelectorAll('input[name=qui]').forEach((x) => { x.checked = el.checked; }); },
+  quiPersonne(el) { const c = [...el.form.querySelectorAll('input[name=qui]')]; const t = el.form.querySelector('input[name=tous]'); if (t) t.checked = c.length > 0 && c.every((x) => x.checked); },
   basculeJournee(el) { el.form.querySelector('.heures').classList.toggle('cache', el.checked); },
   basculeRepetition(el) {
     el.form.querySelector('.jours-rep').classList.toggle('cache', el.value !== 'semaine');
