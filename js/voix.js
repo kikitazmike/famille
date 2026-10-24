@@ -96,6 +96,19 @@ export function comprendre(texte, prenoms = []) {
   const n = sansAccent(t);
   if (!t) return { type: 'inconnu' };
 
+  // Questions : « qu'est-ce qu'on a demain ? », « c'est quand l'anniversaire de Lucas ? »…
+  const nq = n.replace(/'\s+/g, "'").replace(/\?/g, '').trim();
+  if (/^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|quoi|quand|c'?est quand|quel|quelle|quels|quelles|est[- ]?ce qu|on a quoi|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]moi|lis|combien|on fait quoi|on mange|c'?est quoi)\b/.test(nq) || /\b(on a quoi|il y a quoi|c'?est quand|y a[- ]t[- ]il)\b/.test(nq) || /\?\s*$/.test(t)) {
+    const d = trouverDate(t);
+    let sujet = 'agenda';
+    if (/anniv/.test(nq)) sujet = 'anniv';
+    else if (/poubelle/.test(nq)) sujet = 'poubelle';
+    else if (/course|acheter|liste|manque/.test(nq)) sujet = 'courses';
+    else if (/\bnotes?\b/.test(nq)) sujet = 'notes';
+    const semaine = /\bsemaine\b/.test(nq);
+    return { type: 'question', sujet, date: d ? d.date : null, semaine, texte: t };
+  }
+
   // Notes
   let m = t.match(/^(?:nouvelle\s+note|prends?\s+(?:une\s+)?note|note|noter|écris|ecris)\s*[:,]?\s*(?:que\s+)?(.+)$/i);
   if (m) return { type: 'note', texte: majuscule(m[1]) };

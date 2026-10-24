@@ -180,3 +180,6 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .note-p .haut-n small { font-size: 14px; font-weight: 500; }
 .note-p .etiq { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--creux); color: var(--doux); }
 .note-p .bas-n span { display: flex; gap: 6px; }
+
+#fen .fen { max-height: 760px; overflow-y: auto; }
+#fen .fen > * { flex-shrink: 0; }

@@ -4,6 +4,7 @@ import { state, surChangement, chargerCache, viderCache, toutCharger, temps_reel
 import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, debutSemaine, hhmm, isoDate, majuscule, depuis, occurrences, prochainAnniv, prochaineTache, deux } from './dates.js';
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
+import { dire, taire, heureParlee, enumerer, paroleDisponible } from './parole.js';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
@@ -19,7 +20,7 @@ const zPage = document.getElementById('page');
 const zAlerte = document.getElementById('alerte');
 
 const REG = 'famille-tablette';
-const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale' }; } })();
+const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', parole: true, annonces: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', parole: true, annonces: true }; } })();
 const sauverReglages = () => { try { localStorage.setItem(REG, JSON.stringify(reglages)); } catch (e) { /* ignore */ } };
 
 const ui = { session: null, pret: false, vue: 'jour', ref: debutJour(new Date()), page: null, derniere: Date.now(), alerte: null, ecoute: false, meteo: null, photos: [], photoIdx: 0, reveilJusqua: 0, veilleForcee: false, auth: { erreur: null, info: null }, rejoindre: { erreur: null } };
@@ -439,7 +440,9 @@ function fenReglages() {
       <button class="gros-btn second" data-a="nouveauCode" ${ui.codeVisible ? '' : 'disabled'}>Changer le code</button></div>
     <div class="rangee"><label class="champ">Veille de<input type="time" value="${esc(reglages.veilleDebut)}" data-c="veilleDebut"></label><label class="champ">à<input type="time" value="${esc(reglages.veilleFin)}" data-c="veilleFin"></label></div>
     <label class="champ">Reconnaissance vocale<select data-c="modeVoix"><option value="locale" ${reglages.voix !== 'google' ? 'selected' : ''}>Locale sur la tablette (Vosk, sans Internet)</option><option value="google" ${reglages.voix === 'google' ? 'selected' : ''}>Google (plus précise, besoin d'Internet)</option></select></label>
-    <div class="rangee"><button class="gros-btn second" data-a="veilleMaintenant">${i('lune', 20)} Veille maintenant</button><button class="gros-btn second" data-a="pleinEcran">${i('plein', 20)} Plein écran</button></div>
+    <div class="rangee"><label class="champ">Voix de la tablette<select data-c="parole"><option value="1" ${reglages.parole ? 'selected' : ''}>Activée</option><option value="0" ${reglages.parole ? '' : 'selected'}>Coupée (muet)</option></select></label>
+      <label class="champ">Annonces automatiques<select data-c="annonces"><option value="1" ${reglages.annonces ? 'selected' : ''}>Oui (rdv, poubelles, anniv.)</option><option value="0" ${reglages.annonces ? '' : 'selected'}>Non</option></select></label></div>
+    <div class="rangee">${paroleDisponible() ? `<button class="gros-btn second" data-a="testerVoix">${i('micro', 20)} Test voix</button>` : ''}<button class="gros-btn second" data-a="veilleMaintenant">${i('lune', 20)} Veille</button><button class="gros-btn second" data-a="pleinEcran">${i('plein', 20)} Plein écran</button></div>
     <a class="gros-btn second" href="./" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Ouvrir l'appli téléphone</a>
     <button class="gros-btn danger" data-a="deconnexion">Déconnecter la tablette</button>`);
 }
@@ -465,15 +468,115 @@ async function parler() {
   if (c.type === 'course') {
     const lignes = c.noms.map((nom) => ({ id: nouvelId(), nom: nom.slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }));
     await ecrire(lignes.map((l) => ({ cle: 'courses', op: 'insert', ligne: l })));
+    parlerSi(`J'ai ajouté ${enumerer(c.noms)} aux courses.`);
     toast(`Ajouté aux courses : ${c.noms.join(', ')}`, () => ecrire(lignes.map((l) => ({ cle: 'courses', op: 'delete', ligne: { id: l.id } }))));
   } else if (c.type === 'note') {
     const l = { id: nouvelId(), texte: c.texte.slice(0, 2000), auteur: state.moi.id, created_at: new Date().toISOString() };
     await ecrire({ cle: 'notes', op: 'insert', ligne: l });
+    parlerSi('Note enregistrée.');
     toast('Note ajoutée.', () => ecrire({ cle: 'notes', op: 'delete', ligne: { id: l.id } }));
   } else if (c.type === 'rdv') {
     const qui = c.qui.map((p) => personnes().find((x) => x.prenom === p)).filter(Boolean).map((p) => p.id);
     formRdv({ titre: c.titre, debut: c.debut, journee: c.journee, qui });
-  } else toast(`Je n'ai pas compris : « ${t} ». Essaie « ajoute du pain » ou « note : … ».`);
+    parlerSi(`Rendez-vous ${c.titre}, ${jourParle(debutJour(c.debut))}${c.journee ? '' : ' à ' + heureParlee(c.debut)}. Vérifie et appuie sur Enregistrer.`);
+  } else if (c.type === 'question') {
+    const r = repondre(c); toast(r); parlerSi(r);
+  } else { parlerSi('Je n\'ai pas compris.'); toast(`Je n'ai pas compris : « ${t} ». Essaie « ajoute du pain » ou « note : … ».`); }
+}
+
+// ---------- La tablette parle ----------
+const veilleOuMuet = () => !reglages.parole || enVeille();
+function parlerSi(t) { if (reglages.parole) dire(t); }
+function jourParle(d) {
+  const auj = debutJour(new Date());
+  if (memeJour(d, auj)) return 'aujourd\'hui';
+  if (memeJour(d, ajouterJours(auj, 1))) return 'demain';
+  if (memeJour(d, ajouterJours(auj, 2))) return 'après-demain';
+  return `${JOURS[jourIso(d) - 1].toLowerCase()} ${d.getDate() === 1 ? '1er' : d.getDate()} ${MOIS[d.getMonth()]}`;
+}
+function quiParle(ev) {
+  const ids = liensDe(ev.id); const ps = personnes();
+  if (!ids.length || (ps.length && ps.every((p) => ids.includes(p.id)))) return '';
+  return ' pour ' + enumerer(ids.map((id) => membre(id)).filter(Boolean).map((m) => m.prenom));
+}
+function rdvParles(occs) {
+  return occs.sort((a, b) => a.debut - b.debut).map((o) => `${o.ev.journee_entiere ? 'toute la journée' : 'à ' + heureParlee(o.debut)}, ${o.ev.titre}${quiParle(o.ev)}`);
+}
+function repondre(c) {
+  const auj = debutJour(new Date());
+  const sansAcc = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (c.sujet === 'courses') {
+    const l = state.courses.filter((x) => !x.pris).map((x) => x.nom);
+    if (!l.length) return 'La liste de courses est vide.';
+    return `Sur la liste, il y a ${l.length} article${l.length > 1 ? 's' : ''} : ${enumerer(l.slice(0, 15))}${l.length > 15 ? ', et d\'autres' : ''}.`;
+  }
+  if (c.sujet === 'notes') {
+    const l = [...state.notes].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 3);
+    if (!l.length) return 'Il n\'y a aucune note.';
+    return `${l.length > 1 ? 'Les dernières notes' : 'La dernière note'} : ${l.map((x) => x.texte).join('. ')}.`;
+  }
+  if (c.sujet === 'poubelle') {
+    const l = state.rappels.filter((r) => r.type === 'tache').map((t) => ({ ...t, d: prochaineTache(t.jour_semaine || 1, t.fait_le) })).sort((a, b) => a.d - b.d);
+    if (!l.length) return 'Aucune poubelle n\'est programmée.';
+    return l.slice(0, 2).map((t) => `${memeJour(t.d, auj) ? 'Ce' + (t.moment ? ' ' + t.moment : ' jour') : (memeJour(t.d, ajouterJours(auj, 1)) ? 'Demain' : majuscule(JOURS[jourIso(t.d) - 1])) + (t.moment ? ' ' + t.moment : '')}, ${t.titre.toLowerCase()}`).join('. ') + '.';
+  }
+  if (c.sujet === 'anniv') {
+    const l = (state.anniv || []).map((a) => ({ ...a, p: prochainAnniv(a.mois_jour, a.annee) })).filter((a) => a.p).sort((a, b) => a.p.dans - b.p.dans);
+    if (!l.length) return 'Je ne connais aucun anniversaire.';
+    const q = sansAcc(c.texte);
+    const vise = l.find((a) => sansAcc(a.nom).split(/\s+/).some((mot) => mot.length > 2 && new RegExp(`\\b${mot}\\b`).test(q)));
+    const phrase = (a) => `l'anniversaire de ${a.nom}, ${a.p.dans === 0 ? 'c\'est aujourd\'hui' : a.p.dans === 1 ? 'c\'est demain' : `c'est ${jourParle(a.p.date)}, dans ${a.p.dans} jours`}${a.p.age ? `, pour ses ${a.p.age} ans` : ''}`;
+    if (vise) return majuscule(phrase(vise)) + '.';
+    return 'Le prochain, ' + l.slice(0, 3).map(phrase).join('. Ensuite, ') + '.';
+  }
+  // Agenda
+  if (c.semaine) {
+    const l = debutSemaine(c.date || auj); const parties = [];
+    for (let k = 0; k < 7; k++) { const j = ajouterJours(l, k); if (j < auj) continue; const o = rdvParles(occsJour(j)); if (o.length) parties.push(`${majuscule(jourParle(j))} : ${o.join(' ; ')}`); }
+    return parties.length ? parties.join('. ') + '.' : 'Rien de prévu cette semaine.';
+  }
+  const j = c.date || auj;
+  const o = rdvParles(occsJour(j));
+  if (!o.length) return `Rien de prévu ${jourParle(j)}.`;
+  return `${majuscule(jourParle(j))}, ${o.length} rendez-vous : ${o.join(' ; ')}.`;
+}
+
+// Annonces automatiques : rendez-vous, poubelles, anniversaires
+const DEJA = 'famille-annonces';
+function dejaAnnonce(cle) {
+  let l = []; try { l = JSON.parse(localStorage.getItem(DEJA) || '[]'); } catch (e) { l = []; }
+  if (l.includes(cle)) return true;
+  l.push(cle); try { localStorage.setItem(DEJA, JSON.stringify(l.slice(-200))); } catch (e) { /* ignore */ }
+  return false;
+}
+function annonces() {
+  if (!state.moi || !reglages.annonces || veilleOuMuet()) return;
+  const n = new Date(); const auj = debutJour(n); const jourCle = isoDate(auj);
+  // Rendez-vous : 15 min avant (ou le rappel choisi)
+  for (const o of occsJour(auj)) {
+    if (o.ev.journee_entiere) continue;
+    const avance = (o.ev.rappel_minutes != null && o.ev.rappel_minutes >= 0 ? o.ev.rappel_minutes : 15) * 60000;
+    if (n >= o.debut - avance && n < o.debut && !dejaAnnonce(`rdv:${o.ev.id}:${o.debut.getTime()}`)) {
+      const mn = Math.max(1, Math.round((o.debut - n) / 60000));
+      dire(`Rappel : ${o.ev.titre}${quiParle(o.ev)}, dans ${mn} minute${mn > 1 ? 's' : ''}, à ${heureParlee(o.debut)}.`); return;
+    }
+  }
+  // Poubelles : le soir à 19 h, le matin à 7 h 30
+  for (const t of state.rappels.filter((r) => r.type === 'tache')) {
+    const d = prochaineTache(t.jour_semaine || 1, t.fait_le);
+    if (!memeJour(d, auj)) continue;
+    const h = /matin/i.test(t.moment || '') ? 7.5 : /midi/i.test(t.moment || '') ? 11.5 : 19;
+    if (n.getHours() + n.getMinutes() / 60 >= h && !dejaAnnonce(`tache:${t.id}:${jourCle}`)) {
+      dire(`${/soir/i.test(t.moment || '') || h === 19 ? 'Ce soir' : 'Aujourd\'hui'}, pensez à sortir la ${t.titre.toLowerCase().replace(/^la\s+/, '')}.`); return;
+    }
+  }
+  // Anniversaires du jour, à 9 h
+  if (n.getHours() >= 9) {
+    for (const a of (state.anniv || [])) {
+      const p = prochainAnniv(a.mois_jour, a.annee);
+      if (p && p.dans === 0 && !dejaAnnonce(`anniv:${a.nom}:${jourCle}`)) { dire(`Aujourd'hui, c'est l'anniversaire de ${a.nom}${p.age ? `, ${p.age} ans` : ''} !`); return; }
+    }
+  }
 }
 
 // ---------- Actions ----------
@@ -509,6 +612,7 @@ const actions = {
   fermerPage() { ui.page = null; rendre(); },
   toujoursLa() { ui.alerte = null; ui.derniere = Date.now(); zAlerte.innerHTML = ''; },
   retourAccueil,
+  testerVoix() { dire('Bonjour ! Je suis la tablette de la famille.'); },
   modifCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) formCourse(c); },
   supprCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) confirmer('Supprimer cet article ?', `« ${c.nom} » sera retiré de la liste.`, 'Supprimer', () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: c.id } })); },
   viderPris() { const pris = state.courses.filter((c) => c.pris); confirmer('Vider les articles pris ?', `${pris.length} article(s) seront retirés de la liste.`, 'Vider', () => ecrire(pris.map((c) => ({ cle: 'courses', op: 'delete', ligne: { id: c.id } })))); },
@@ -543,6 +647,8 @@ const changements = {
   quiPersonne(el) { const c = [...el.form.querySelectorAll('input[name=qui]')]; el.form.querySelector('input[name=tous]').checked = c.length > 0 && c.every((x) => x.checked); },
   veilleDebut(el) { reglages.veilleDebut = el.value; sauverReglages(); },
   veilleFin(el) { reglages.veilleFin = el.value; sauverReglages(); },
+  parole(el) { reglages.parole = el.value === '1'; sauverReglages(); if (!reglages.parole) taire(); },
+  annonces(el) { reglages.annonces = el.value === '1'; sauverReglages(); },
   modeVoix(el) { reglages.voix = el.value; sauverReglages(); if (el.value === 'locale') preparerVoixLocale().catch(() => {}); rendre(); }
 };
 const formulaires = {
@@ -661,6 +767,7 @@ async function demarrer() {
   setInterval(() => { chargerAnniv(); chargerPhotos(); }, 6 * 3600000);
   setInterval(photoSuivante, 30000);
   setInterval(verifierInactivite, 10000);
+  setInterval(annonces, 20000);
   // recharge complète chaque nuit pour récupérer les mises à jour de l'appli
   setInterval(() => { const n = new Date(); if (n.getHours() === 4 && n.getMinutes() === 0) location.reload(); }, 60000);
 }
