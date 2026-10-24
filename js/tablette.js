@@ -5,7 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
-const VERSION_APPLI = '1.5.1';
+const VERSION_APPLI = '1.5.2';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
@@ -481,7 +481,7 @@ function verifierInactivite() {
 ['pointerdown', 'keydown'].forEach((t) => document.addEventListener(t, () => { ui.derniere = Date.now(); }, { capture: true }));
 
 function fenReglages() {
-  fenetre('Réglages de la tablette', `
+  fenetre(`Réglages · version ${VERSION_APPLI}`, `
     <div><div style="font-size:15px;color:var(--pale);text-align:center">Code famille</div><div class="code ${ui.codeVisible ? '' : 'flou'}" ${ui.codeVisible ? '' : 'aria-label="Code masqué"'}>${ui.codeVisible ? esc(state.config ? state.config.code : '') : '888888'}</div>
       <p style="margin:0;text-align:center;color:var(--pale)">À taper dans l'appli téléphone pour créer un compte.</p></div>
     <div class="rangee"><button class="gros-btn second" data-a="basculeCode">${ui.codeVisible ? 'Masquer le code' : 'Afficher le code'}</button>
@@ -838,7 +838,13 @@ async function demarrer() {
   setInterval(() => { const n = new Date(); if (n.getHours() === 4 && n.getMinutes() === 0) location.reload(); }, 60000);
 }
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// Mises à jour automatiques : on vérifie toutes les 15 min et on recharge dès qu'une nouvelle version est prête
+if ('serviceWorker' in navigator) {
+  const avaitVersion = !!navigator.serviceWorker.controller;
+  let recharge = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (avaitVersion && !recharge) { recharge = true; location.reload(); } });
+  navigator.serviceWorker.register('sw.js').then((reg) => { setInterval(() => reg.update().catch(() => {}), 15 * 60000); }).catch(() => {});
+}
 demarrer();
 
 // Prépare la voix locale en arrière-plan pour que le 1er « Parler » soit rapide
