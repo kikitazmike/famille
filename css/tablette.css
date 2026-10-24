@@ -183,3 +183,27 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 
 #fen .fen { max-height: 760px; overflow-y: auto; }
 #fen .fen > * { flex-shrink: 0; }
+
+.meteo.clic { cursor: pointer; }
+.meteo.clic:active { transform: scale(.98); }
+.meteo-2j { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.mcarte { background: #fff; border-radius: 28px; padding: 24px 26px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 1px 0 var(--trait); }
+.mhaut { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.mhaut .col { display: flex; flex-direction: column; min-width: 120px; }
+.mhaut h2 { margin: 0; font-size: 22px; font-weight: 500; }
+.mhaut .grand { font-size: 56px; font-weight: 300; line-height: 1.05; }
+.mhaut .desc, .mj .desc { color: var(--doux); font-size: 16px; }
+.mhaut .infos { display: flex; flex-direction: column; gap: 7px; font-size: 16px; color: var(--doux); margin-left: auto; }
+.mhaut .infos span { display: flex; align-items: center; gap: 7px; }
+.mhaut .infos b { color: var(--encre); font-weight: 600; }
+.mheures { display: flex; justify-content: space-between; gap: 6px; background: var(--creux); border-radius: 20px; padding: 12px 10px; }
+.mheures div { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 44px; }
+.mheures small { color: var(--pale); font-size: 13px; }
+.mheures b { font-size: 17px; font-weight: 600; }
+.meteo-sem { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
+.mj { background: #fff; border-radius: 24px; padding: 20px 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; box-shadow: 0 1px 0 var(--trait); }
+.mj.auj { background: #EEEBFC; }
+.mj b { font-size: 18px; font-weight: 600; }
+.mj .mm strong { font-size: 26px; font-weight: 600; }
+.mj .mm span { font-size: 20px; color: var(--pale); }
+.mj small { display: flex; align-items: center; gap: 4px; color: var(--doux); font-size: 14px; }

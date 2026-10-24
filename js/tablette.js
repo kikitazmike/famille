@@ -48,18 +48,26 @@ function moment() {
 
 // ---------- Météo (Open-Meteo, gratuit, sans clé) ----------
 const CODES = { 0: 'Ciel dégagé', 1: 'Peu nuageux', 2: 'Éclaircies', 3: 'Couvert', 45: 'Brouillard', 48: 'Brouillard givrant', 51: 'Bruine légère', 53: 'Bruine', 55: 'Bruine forte', 61: 'Pluie faible', 63: 'Pluie', 65: 'Forte pluie', 66: 'Pluie verglaçante', 67: 'Pluie verglaçante', 71: 'Neige faible', 73: 'Neige', 75: 'Forte neige', 77: 'Grains de neige', 80: 'Averses', 81: 'Averses', 82: 'Fortes averses', 85: 'Averses de neige', 86: 'Averses de neige', 95: 'Orage', 96: 'Orage et grêle', 99: 'Orage et grêle' };
+// Icône selon le code météo
+const iconeMeteo = (c) => (c === 0 ? 'soleil' : c <= 2 ? 'nuage' : c === 3 ? 'couvert' : c <= 48 ? 'brouillard' : c >= 95 ? 'orage' : (c >= 71 && c <= 77) || c === 85 || c === 86 ? 'neige' : 'pluie');
+const couleurMeteo = (c) => (c <= 2 ? '#D9774A' : c >= 95 ? '#7A5BC9' : c >= 51 ? '#3E7CB1' : '#7D8794');
 async function chargerMeteo() {
   try { const c = JSON.parse(localStorage.getItem('famille-meteo') || 'null'); if (c && !ui.meteo) ui.meteo = c; } catch (e) { /* ignore */ }
   const cfg = state.config || { latitude: 47.2184, longitude: -1.5536, ville: 'Nantes' };
   try {
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.latitude}&longitude=${cfg.longitude}&current=temperature_2m,weather_code&daily=sunrise,sunset,weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=2`;
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.latitude}&longitude=${cfg.longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code&hourly=temperature_2m,weather_code,precipitation_probability&daily=sunrise,sunset,weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,uv_index_max&timezone=auto&forecast_days=7`;
     const r = await fetch(u); if (!r.ok) return;
     const d = await r.json();
+    const dl = d.daily; const rd = (x) => (x == null ? null : Math.round(x));
+    const jours = (dl.time || []).map((t, k) => ({ date: t, code: dl.weather_code[k], min: rd(dl.temperature_2m_min[k]), max: rd(dl.temperature_2m_max[k]), pluie: dl.precipitation_probability_max ? rd(dl.precipitation_probability_max[k]) : null, mm: dl.precipitation_sum ? dl.precipitation_sum[k] : null, vent: dl.wind_speed_10m_max ? rd(dl.wind_speed_10m_max[k]) : null, uv: dl.uv_index_max ? rd(dl.uv_index_max[k]) : null, lever: dl.sunrise[k], coucher: dl.sunset[k] }));
+    const h = d.hourly || {};
+    const heures = (h.time || []).slice(0, 48).map((t, k) => ({ t, temp: rd(h.temperature_2m[k]), code: h.weather_code[k], pluie: h.precipitation_probability ? rd(h.precipitation_probability[k]) : null }));
+    const cur = d.current || {};
     ui.meteo = {
-      temp: Math.round(d.current.temperature_2m), code: d.current.weather_code, ville: cfg.ville,
-      lever: d.daily.sunrise[0], coucher: d.daily.sunset[0],
-      demain: { min: Math.round(d.daily.temperature_2m_min[1]), max: Math.round(d.daily.temperature_2m_max[1]), code: d.daily.weather_code[1], pluie: d.daily.precipitation_probability_max[1] },
-      le: Date.now()
+      temp: rd(cur.temperature_2m), code: cur.weather_code, ville: cfg.ville, ressenti: rd(cur.apparent_temperature), humidite: rd(cur.relative_humidity_2m), vent: rd(cur.wind_speed_10m),
+      lever: dl.sunrise[0], coucher: dl.sunset[0],
+      demain: jours[1] ? { min: jours[1].min, max: jours[1].max, code: jours[1].code, pluie: jours[1].pluie } : null,
+      jours, heures, le: Date.now()
     };
     localStorage.setItem('famille-meteo', JSON.stringify(ui.meteo));
     rendre();
@@ -90,8 +98,8 @@ function enteteHtml() {
   if (m) {
     const lever = m.lever ? new Date(m.lever) : null; const coucher = m.coucher ? new Date(m.coucher) : null;
     const duree = lever && coucher ? Math.round((coucher - lever) / 60000) : null;
-    meteo = `<div class="meteo">
-      <div><span style="color:#D9774A">${i('nuage', 46, 1.4)}</span><div class="col"><span class="temp">${m.temp}°</span><small class="desc">${esc(CODES[m.code] || '')} · ${esc(m.ville || '')}</small></div></div>
+    meteo = `<div class="meteo clic" data-a="ouvrirPage" data-v="meteo" role="button" tabindex="0" aria-label="Ouvrir la météo">
+      <div><span style="color:${couleurMeteo(m.code)}">${i(iconeMeteo(m.code), 46, 1.4)}</span><div class="col"><span class="temp">${m.temp}°</span><small class="desc">${esc(CODES[m.code] || '')} · ${esc(m.ville || '')}</small></div></div>
       <div class="sep"></div>
       ${lever ? `<div><span style="color:#D9774A">${i('lever', 34, 1.6)}</span><div class="col"><small>Lever</small><strong>${hhmm(lever)}</strong></div></div>` : ''}
       ${coucher ? `<div><span style="color:#D9774A">${i('coucher', 34, 1.6)}</span><div class="col"><small>Coucher</small><strong>${hhmm(coucher)}</strong></div></div>` : ''}
@@ -378,11 +386,50 @@ function pageRappels() {
     corps: `<div class="colonnes"><div><h3>Tâches de la maison</h3>${lt || '<p class="vide">Aucune tâche.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="tache">${i('ajouter', 20, 2.2)} Ajouter une tâche</button></div>
       <div><h3>Rappels</h3>${lr || '<p class="vide">Aucun rappel.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="rappel">${i('ajouter', 20, 2.2)} Ajouter un rappel</button></div></div>` };
 }
+function pageMeteo() {
+  const m = ui.meteo; const vue = ui.meteoVue || '2j';
+  const outils = `<div class="vues" role="tablist"><button role="tab" aria-selected="${vue === '2j'}" data-a="meteoVue" data-v="2j">Aujourd'hui et demain</button><button role="tab" aria-selected="${vue === 'sem'}" data-a="meteoVue" data-v="sem">Semaine</button></div>`;
+  if (!m || !m.jours) return { titre: 'Météo', outils, corps: '<p class="vide" style="font-size:20px">Météo indisponible pour le moment (pas d\'Internet ?).</p>' };
+  const titre = `Météo <small>· ${esc(m.ville || '')}</small>`;
+  const ico = (c, t) => `<span style="color:${couleurMeteo(c)}">${i(iconeMeteo(c), t, 1.5)}</span>`;
+  const nomJour = (iso, k) => { const d = new Date(iso + 'T12:00:00'); return k === 0 ? 'Aujourd\'hui' : k === 1 ? 'Demain' : `${majuscule(JOURS[jourIso(d) - 1])} ${d.getDate()}`; };
+  const maj = `<p style="margin:0;color:var(--pale);font-size:14px">Mise à jour à ${hhmm(new Date(m.le))} · source Open-Meteo</p>`;
+  if (vue === 'sem') {
+    const corps = `<div class="meteo-sem">${m.jours.map((j, k) => `<div class="mj ${k === 0 ? 'auj' : ''}">
+      <b>${nomJour(j.date, k)}</b>${ico(j.code, 56)}<span class="desc">${esc(CODES[j.code] || '')}</span>
+      <span class="mm"><strong>${j.max}°</strong> <span>${j.min}°</span></span>
+      <small>${i('goutte', 15)} ${j.pluie ?? '–'} %</small><small>${i('vent', 15)} ${j.vent ?? '–'} km/h</small></div>`).join('')}</div>${maj}`;
+    return { titre, outils, corps };
+  }
+  const maintenant = Date.now();
+  const bloc = (k) => {
+    const j = m.jours[k]; if (!j) return '';
+    const debut = new Date(j.date + 'T00:00:00').getTime(); const fin = debut + 86400000;
+    const hs = (m.heures || []).filter((x) => { const t = new Date(x.t).getTime(); return t >= debut && t < fin && t >= maintenant - 3600000 && new Date(x.t).getHours() >= 6 && new Date(x.t).getHours() % 2 === 0; }).slice(0, 9);
+    const lever = j.lever ? hhmm(new Date(j.lever)) : '–'; const coucher = j.coucher ? hhmm(new Date(j.coucher)) : '–';
+    const actuel = k === 0 && m.temp != null;
+    return `<div class="mcarte">
+      <div class="mhaut">${ico(actuel ? m.code : j.code, 92)}<div class="col"><h2>${nomJour(j.date, k)}</h2>
+        <span class="grand">${actuel ? m.temp + '°' : j.max + '°'}</span><span class="desc">${esc(CODES[actuel ? m.code : j.code] || '')}</span></div>
+        <div class="infos">
+          <span>${i('thermo', 20)} Max <b>${j.max}°</b> · Min <b>${j.min}°</b></span>
+          ${actuel && m.ressenti != null ? `<span>${i('thermo', 20)} Ressenti <b>${m.ressenti}°</b></span>` : ''}
+          <span>${i('goutte', 20)} Pluie <b>${j.pluie ?? '–'} %</b>${j.mm ? ` · ${String(Math.round(j.mm * 10) / 10).replace('.', ',')} mm` : ''}</span>
+          <span>${i('vent', 20)} Vent <b>${actuel && m.vent != null ? m.vent : j.vent ?? '–'} km/h</b></span>
+          ${actuel && m.humidite != null ? `<span>${i('goutte', 20)} Humidité <b>${m.humidite} %</b></span>` : ''}
+          <span>${i('lever', 20)} ${lever} · ${i('coucher', 20)} ${coucher}</span>
+        </div></div>
+      ${hs.length ? `<div class="mheures">${hs.map((x) => `<div><small>${new Date(x.t).getHours()} h</small>${ico(x.code, 30)}<b>${x.temp}°</b><small>${x.pluie ?? 0} %</small></div>`).join('')}</div>` : ''}
+    </div>`;
+  };
+  return { titre, outils, corps: `<div class="meteo-2j">${bloc(0)}${bloc(1)}</div>${maj}` };
+}
+
 function rendrePage() {
   if (!ui.page) { zPage.innerHTML = ''; return; }
   const act = document.activeElement;
   if (act && zPage.contains(act) && act.tagName === 'INPUT' && act.type === 'text' && act.value) return; // on ne coupe pas une saisie
-  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : pageRappels();
+  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : pageRappels();
   const garder = zPage.querySelector('.page-corps'); const defil = garder ? garder.scrollTop : 0;
   zPage.innerHTML = `<div class="page" role="dialog" aria-modal="true" aria-label="${ui.page}"><header><h1>${p.titre}</h1><div class="outils">${p.outils}<button class="btn rond grand" data-a="fermerPage" aria-label="Fermer et revenir à l'accueil">${i('fermer', 26, 2.2)}</button></div></header><div class="page-corps">${p.corps}</div></div>`;
   const c = zPage.querySelector('.page-corps'); if (c) c.scrollTop = defil;
@@ -505,6 +552,17 @@ function rdvParles(occs) {
 function repondre(c) {
   const auj = debutJour(new Date());
   const sansAcc = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (c.sujet === 'meteo') {
+    const m = ui.meteo;
+    if (!m || !m.jours) return 'Je n\'ai pas la météo pour le moment.';
+    const dit = (j, k) => `${k === 0 ? 'Aujourd\'hui' : k === 1 ? 'Demain' : majuscule(JOURS[jourIso(new Date(j.date + 'T12:00:00')) - 1])} : ${(CODES[j.code] || '').toLowerCase()}, maximum ${j.max} degrés, minimum ${j.min}${j.pluie != null ? `, ${j.pluie} % de risque de pluie` : ''}`;
+    if (c.semaine) return m.jours.map((j, k) => dit(j, k)).join('. ') + '.';
+    const k = c.date ? Math.round((debutJour(c.date) - auj) / 86400000) : 0;
+    const j = m.jours[k];
+    if (!j) return 'Je n\'ai la météo que pour les 7 prochains jours.';
+    if (k === 0 && m.temp != null) return `En ce moment à ${m.ville || 'la maison'}, il fait ${m.temp} degrés, ${(CODES[m.code] || '').toLowerCase()}. ${dit(j, 0)}.`;
+    return dit(j, k) + '.';
+  }
   if (c.sujet === 'courses') {
     const l = state.courses.filter((x) => !x.pris).map((x) => x.nom);
     if (!l.length) return 'La liste de courses est vide.';
@@ -608,7 +666,8 @@ const actions = {
     rendre();
   },
   allerJour(d) { const [y, m, j] = d.v.split('-').map(Number); ui.ref = new Date(y, m - 1, j); ui.vue = 'jour'; rendre(); },
-  ouvrirPage(d) { ui.page = d.v; rendre(); },
+  ouvrirPage(d) { ui.page = d.v; if (d.v === 'meteo') { ui.meteoVue = '2j'; if (!ui.meteo || Date.now() - (ui.meteo.le || 0) > 20 * 60000) chargerMeteo(); } rendre(); },
+  meteoVue(d) { ui.meteoVue = d.v; rendre(); },
   fermerPage() { ui.page = null; rendre(); },
   toujoursLa() { ui.alerte = null; ui.derniere = Date.now(); zAlerte.innerHTML = ''; },
   retourAccueil,

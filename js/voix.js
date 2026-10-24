@@ -96,12 +96,18 @@ export function comprendre(texte, prenoms = []) {
   const n = sansAccent(t);
   if (!t) return { type: 'inconnu' };
 
+  // « Météo », « la météo de demain »
+  if (/^(la\s+)?meteo\b/.test(n) || /^(donne|dis)[- ]moi la meteo/.test(n)) {
+    const d = trouverDate(t);
+    return { type: 'question', sujet: 'meteo', date: d ? d.date : null, semaine: /\bsemaine\b/.test(n), texte: t };
+  }
   // Questions : « qu'est-ce qu'on a demain ? », « c'est quand l'anniversaire de Lucas ? »…
   const nq = n.replace(/'\s+/g, "'").replace(/\?/g, '').trim();
-  if (/^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|quoi|quand|c'?est quand|quel|quelle|quels|quelles|est[- ]?ce qu|on a quoi|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]moi|lis|combien|on fait quoi|on mange|c'?est quoi)\b/.test(nq) || /\b(on a quoi|il y a quoi|c'?est quand|y a[- ]t[- ]il)\b/.test(nq) || /\?\s*$/.test(t)) {
+  if (/^(qu'?\s*est[- ]?ce|il va|il fait|va[- ]t[- ]il|fait[- ]il|qu'?y a[- ]t[- ]il|quoi|quand|c'?est quand|quel|quelle|quels|quelles|est[- ]?ce qu|on a quoi|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]moi|lis|combien|on fait quoi|on mange|c'?est quoi)\b/.test(nq) || /\b(on a quoi|il y a quoi|c'?est quand|y a[- ]t[- ]il)\b/.test(nq) || /\?\s*$/.test(t)) {
     const d = trouverDate(t);
     let sujet = 'agenda';
-    if (/anniv/.test(nq)) sujet = 'anniv';
+    if (/meteo|quel temps|temps fait|temps va|temps demain|pleuv|pluie|temperature|degres|froid|chaud|soleil|neige|beau|moche|nuage|vent/.test(nq)) sujet = 'meteo';
+    else if (/anniv/.test(nq)) sujet = 'anniv';
     else if (/poubelle/.test(nq)) sujet = 'poubelle';
     else if (/course|acheter|liste|manque/.test(nq)) sujet = 'courses';
     else if (/\bnotes?\b/.test(nq)) sujet = 'notes';
