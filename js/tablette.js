@@ -4,7 +4,8 @@ import { state, surChangement, chargerCache, viderCache, toutCharger, temps_reel
 import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, debutSemaine, hhmm, isoDate, majuscule, depuis, occurrences, prochainAnniv, prochaineTache, deux } from './dates.js';
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
-import { dire, taire, heureParlee, enumerer, paroleDisponible } from './parole.js';
+import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
+const VERSION_APPLI = '1.5.1';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
@@ -490,6 +491,7 @@ function fenReglages() {
     <div class="rangee"><label class="champ">Voix de la tablette<select data-c="parole"><option value="1" ${reglages.parole ? 'selected' : ''}>Activée</option><option value="0" ${reglages.parole ? '' : 'selected'}>Coupée (muet)</option></select></label>
       <label class="champ">Annonces automatiques<select data-c="annonces"><option value="1" ${reglages.annonces ? 'selected' : ''}>Oui (rdv, poubelles, anniv.)</option><option value="0" ${reglages.annonces ? '' : 'selected'}>Non</option></select></label></div>
     <div class="rangee">${paroleDisponible() ? `<button class="gros-btn second" data-a="testerVoix">${i('micro', 20)} Test voix</button>` : ''}<button class="gros-btn second" data-a="veilleMaintenant">${i('lune', 20)} Veille</button><button class="gros-btn second" data-a="pleinEcran">${i('plein', 20)} Plein écran</button></div>
+    <p style="margin:0;text-align:center;color:var(--pale);font-size:13px">Version ${VERSION_APPLI}</p>
     <a class="gros-btn second" href="./" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Ouvrir l'appli téléphone</a>
     <button class="gros-btn danger" data-a="deconnexion">Déconnecter la tablette</button>`);
 }
@@ -671,7 +673,12 @@ const actions = {
   fermerPage() { ui.page = null; rendre(); },
   toujoursLa() { ui.alerte = null; ui.derniere = Date.now(); zAlerte.innerHTML = ''; },
   retourAccueil,
-  testerVoix() { dire('Bonjour ! Je suis la tablette de la famille.'); },
+  testerVoix() {
+    if (!reglages.parole) return toast('La voix est coupée : choisis « Activée » juste au-dessus.');
+    let parti = false;
+    dire('Bonjour ! Je suis la tablette de la famille.', { onDebut: () => { parti = true; }, onErreur: (e) => toast(`La voix n'a pas pu parler (${e}). Vérifie le volume et la synthèse vocale d'Android.`) });
+    setTimeout(() => { if (!parti) toast(`Pas de son ? ${nbVoixFr()} voix française trouvée. Monte le volume média, puis réessaie.`); }, 2500);
+  },
   modifCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) formCourse(c); },
   supprCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) confirmer('Supprimer cet article ?', `« ${c.nom} » sera retiré de la liste.`, 'Supprimer', () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: c.id } })); },
   viderPris() { const pris = state.courses.filter((c) => c.pris); confirmer('Vider les articles pris ?', `${pris.length} article(s) seront retirés de la liste.`, 'Vider', () => ecrire(pris.map((c) => ({ cle: 'courses', op: 'delete', ligne: { id: c.id } })))); },

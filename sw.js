@@ -1,5 +1,5 @@
 // Fonctionnement hors connexion : l'appli est gardée en cache, les données passent par le réseau
-const VERSION = 'famille-v1.5.0';
+const VERSION = 'famille-v1.5.1';
 const FICHIERS = [
   './', 'index.html', 'tablette.html', 'manifest.webmanifest', 'tablette.webmanifest',
   'css/app.css', 'css/tablette.css',
@@ -31,7 +31,7 @@ self.addEventListener('fetch', (e) => {
   }
   // Pages et scripts de l'appli : réseau d'abord (mises à jour rapides), cache si hors ligne
   if (memeSite) {
-    e.respondWith(fetch(req).then((r) => {
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then((r) => {
       if (r.ok) { const copie = r.clone(); caches.open(VERSION).then((c) => c.put(req, copie)); }
       return r;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then((r) => r || caches.match('index.html'))));
