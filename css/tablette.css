@@ -247,3 +247,4 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .msg-p p { margin: 0; font-size: 21px; line-height: 1.35; }
 .msg-bas { display: flex; gap: 8px; justify-content: space-between; }
 .fen textarea { font: inherit; font-size: 18px; border: 1px solid var(--trait); border-radius: 14px; padding: 12px 14px; background: #fff; resize: vertical; }
+.pp.heure-ch { background: #C62828; color: #fff; box-shadow: none; font-weight: 600; }

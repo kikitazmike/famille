@@ -6,7 +6,7 @@ import {
 } from './store.js';
 import {
   JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, debutSemaine, hhmm, isoDate, dateLongue,
-  majuscule, depuis, occurrences, libelleRepetition, prochainAnniv, prochaineTache, deux
+  majuscule, depuis, occurrences, libelleRepetition, prochainAnniv, prochaineTache, deux, changementHeure
 } from './dates.js';
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
@@ -146,7 +146,7 @@ function ecranAgenda() {
   }).join('');
 
   const titreJour = memeJour(ui.jour, auj) ? 'Aujourd\'hui' : memeJour(ui.jour, ajouterJours(auj, 1)) ? 'Demain' : majuscule(dateLongue(ui.jour));
-  return `${entete('Agenda', state.moi ? `Bonjour ${state.moi.prenom}` : '')}${messagesPourMoiHtml()}${mesTachesHtml()}${semaine}${puces}
+  return `${entete('Agenda', state.moi ? `Bonjour ${state.moi.prenom}` : '')}${changementHeureHtml()}${messagesPourMoiHtml()}${mesTachesHtml()}${semaine}${puces}
     <h2 class="titre-section">${esc(titreJour)}</h2>
     <div class="liste">${items || '<p class="vide">Rien de prévu ce jour-là.</p>'}</div>
     <div class="flottants">${voixDisponible() ? `<button class="fab rond ${ui.ecoute ? 'ecoute' : ''}" data-a="dicter" data-v="rdv" aria-label="Dicter un rendez-vous">${i('micro', 22, 2)}</button>` : ''}
@@ -482,6 +482,10 @@ function formulaireNote(n, texte = '') {
     </form>`);
 }
 
+function changementHeureHtml() {
+  const ch = changementHeure(); if (!ch) return '';
+  return `<div class="carte" style="background:#C62828;color:#fff;margin-bottom:.5rem;font-weight:600">⏰ ${ch.demain ? 'Cette nuit' : 'Aujourd\'hui'} : passage à l'heure d'${ch.sens < 0 ? 'hiver' : 'été'}, ${ch.sens < 0 ? '−1 h' : '+1 h'} (${ch.avant} → ${ch.apres}). Pense aux horloges du four, de la voiture…</div>`;
+}
 // ---------- Messages, tâches de chacun, articles habituels ----------
 const pourMoi = (m) => state.moi && (!m.pour || m.pour === state.moi.id) && m.de !== state.moi.id;
 const nbMessagesPourMoi = () => state.messages.filter((m) => !m.lu_le && pourMoi(m)).length;

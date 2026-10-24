@@ -90,3 +90,18 @@ export function prochaineTache(jourSemaine, faitLe) {
   if (faitLe && isoDate(d) === faitLe) d = ajouterJours(d, 7);
   return d;
 }
+
+// Changement d'heure aujourd'hui ou demain ? → { jour, sens: -1 | 1, demain: bool, avant, apres } ou null
+export function changementHeure(maintenant = new Date()) {
+  const auj = debutJour(maintenant);
+  for (let k = 0; k <= 1; k++) {
+    const d = ajouterJours(auj, k);
+    const o0 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0).getTimezoneOffset();
+    const o1 = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59).getTimezoneOffset();
+    if (o0 !== o1) {
+      const sens = o1 > o0 ? -1 : 1; // hiver : on recule d'1 h ; été : on avance d'1 h
+      return { jour: d, sens, demain: k === 1, avant: sens < 0 ? '3 h' : '2 h', apres: sens < 0 ? '2 h' : '3 h' };
+    }
+  }
+  return null;
+}

@@ -1,7 +1,7 @@
 // Écran de la tablette (affichage fixe à la maison)
 import { sb, messageErreur } from './supa.js';
 import { state, surChangement, chargerCache, viderCache, toutCharger, temps_reel, arreterTempsReel, ecrire as ecrireBase, nouvelId, membre, personnes, liensDe, urlImage, chargerAnniv } from './store.js';
-import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, debutSemaine, hhmm, isoDate, majuscule, depuis, occurrences, prochainAnniv, prochaineTache, deux } from './dates.js';
+import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, debutSemaine, hhmm, isoDate, majuscule, depuis, occurrences, prochainAnniv, prochaineTache, deux, changementHeure } from './dates.js';
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { VERSION } from './config.js';
@@ -519,7 +519,9 @@ function blocHabituels(aPrendre) {
 function pastillesPlus() {
   const nl = state.messages.filter((m) => !m.lu_le).length;
   const al = new Date().getHours() >= 16 ? alerteDemain() : null;
-  return `${nl ? `<span class="pp msg" data-a="ouvrirPage" data-v="messages" role="button">${i('notes', 14, 2)}${nl} message${nl > 1 ? 's' : ''}</span>` : ''}${al ? `<span class="pp alerte" data-a="ouvrirPage" data-v="meteo" role="button">⚠ ${esc(al.court)}</span>` : ''}`;
+  const ch = changementHeure();
+  const heure = ch ? `<span class="pp heure-ch" title="Changement d'heure">⏰ ${ch.demain ? 'Cette nuit' : 'Aujourd\'hui'} : heure d'${ch.sens < 0 ? 'hiver' : 'été'}, ${ch.sens < 0 ? '−1 h' : '+1 h'} (${ch.avant} → ${ch.apres})</span>` : '';
+  return `${heure}${nl ? `<span class="pp msg" data-a="ouvrirPage" data-v="messages" role="button">${i('notes', 14, 2)}${nl} message${nl > 1 ? 's' : ''}</span>` : ''}${al ? `<span class="pp alerte" data-a="ouvrirPage" data-v="meteo" role="button">⚠ ${esc(al.court)}</span>` : ''}`;
 }
 function pageMessages() {
   const l = state.messages.slice().sort((a, b) => (!!a.lu_le - !!b.lu_le) || (a.created_at < b.created_at ? 1 : -1));
@@ -740,7 +742,9 @@ function repondre(c) {
     const n = new Date();
     const o = occsJour(auj).filter((x) => x.ev.journee_entiere || x.fin > n);
     const rdv = o.length ? ` Aujourd'hui, ${o.length} rendez-vous : ${rdvParles(o).join(' ; ')}.` : ' Pas de rendez-vous aujourd\'hui.';
-    return bonjour + met + rdv;
+    const ch = changementHeure();
+    const chg = ch ? ` Attention, cette nuit ${ch.demain ? 'c\'est' : 'c\'était'} le passage à l'heure d'${ch.sens < 0 ? 'hiver' : 'été'} : ${ch.sens < 0 ? 'on recule' : 'on avance'} d'une heure, pensez aux horloges du four et de la voiture.` : '';
+    return bonjour + met + rdv + chg;
   }
   if (c.sujet === 'messages') {
     const l = state.messages.filter((x) => !x.lu_le).sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
