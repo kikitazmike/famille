@@ -84,7 +84,7 @@ function onglets() {
   const o = [['agenda', 'Agenda', 'agenda'], ['courses', 'Courses', 'courses'], ['notes', 'Notes', 'notes'], ['anniv', 'Anniv.', 'anniv'], ['plus', 'Plus', 'plus']];
   const actif = ui.route === 'reglages' ? 'plus' : ui.route;
   return `<div class="onglets"><nav aria-label="Navigation">${o.map(([r, l, ic]) =>
-    `<a href="#/${r}" ${actif === r ? 'aria-current="page"' : ''}>${i(ic, 24)}${l}</a>`).join('')}</nav></div>`;
+    `<a href="#/${r}" ${actif === r ? 'aria-current="page"' : ''} style="position:relative">${i(ic, 24)}${l}${r === 'plus' && nbMessagesPourMoi() ? `<span class="badge">${nbMessagesPourMoi()}</span>` : ''}</a>`).join('')}</nav></div>`;
 }
 
 function bandeau() {
@@ -146,7 +146,7 @@ function ecranAgenda() {
   }).join('');
 
   const titreJour = memeJour(ui.jour, auj) ? 'Aujourd\'hui' : memeJour(ui.jour, ajouterJours(auj, 1)) ? 'Demain' : majuscule(dateLongue(ui.jour));
-  return `${entete('Agenda', state.moi ? `Bonjour ${state.moi.prenom}` : '')}${semaine}${puces}
+  return `${entete('Agenda', state.moi ? `Bonjour ${state.moi.prenom}` : '')}${messagesPourMoiHtml()}${mesTachesHtml()}${semaine}${puces}
     <h2 class="titre-section">${esc(titreJour)}</h2>
     <div class="liste">${items || '<p class="vide">Rien de prévu ce jour-là.</p>'}</div>
     <div class="flottants">${voixDisponible() ? `<button class="fab rond ${ui.ecoute ? 'ecoute' : ''}" data-a="dicter" data-v="rdv" aria-label="Dicter un rendez-vous">${i('micro', 22, 2)}</button>` : ''}
@@ -173,6 +173,7 @@ function ecranCourses() {
       ${voixDisponible() ? `<button type="button" class="icone-btn doux ${ui.ecoute ? 'ecoute' : ''}" data-a="dicter" data-v="course" aria-label="Dicter un article">${i('micro', 20, 2)}</button>` : ''}
       <button type="submit" class="icone-btn doux" aria-label="Ajouter">${i('ajouter', 20, 2.2)}</button>
     </form>
+    ${habituelsHtml(aPrendre)}
     <h2 class="titre-section">À prendre</h2>
     <div class="liste">${aPrendre.map(ligne).join('') || '<p class="vide">La liste est vide.</p>'}</div>
     ${pris.length ? `<h2 class="titre-section">Déjà pris</h2><div class="liste">${pris.map(ligne).join('')}</div>
@@ -239,8 +240,20 @@ function ecranPlus() {
       <button class="icone-btn" data-a="ouvrirRappel" data-id="${r.id}" aria-label="Modifier ${esc(r.titre)}">${i('modifier', 18)}</button></div>`;
   }).join('');
   if (ui.photos === null) { ui.photos = []; chargerPhotos(); }
+  const lignesCorvees = corvees().map((c) => { const p = c.pour ? membre(c.pour) : null; const moi = state.moi && c.pour === state.moi.id; return `<div class="article ${c.fait ? 'pris' : ''}">
+      <label><input type="checkbox" data-c="corveeFaite" data-id="${c.id}" data-v="${c.cle}" ${c.fait ? 'checked' : ''}>
+        <span class="pastille" style="background:${p ? p.couleur : 'var(--accent)'};width:.9rem;height:.9rem"></span>
+        <span style="display:flex;flex-direction:column"><span>${esc(c.titre)}</span><small style="color:var(--pale);font-size:.8rem">${esc([moi ? 'Toi' : p ? p.prenom : 'Tout le monde', c.quand].join(' · '))}</small></span></label>
+      <button class="icone-btn" data-a="ouvrirRappel" data-id="${c.id}" aria-label="Modifier ${esc(c.titre)}">${i('modifier', 18)}</button></div>`; }).join('');
+  const msgs = state.messages.slice().sort((a, b) => (!!a.lu_le - !!b.lu_le) || (a.created_at < b.created_at ? 1 : -1)).slice(0, 20);
   return `${entete('Plus', 'La maison')}
-    <h2 class="titre-section">Tâches de la maison</h2>
+    <h2 class="titre-section">Messages</h2>
+    <div class="liste">${msgs.map(messageHtml).join('') || '<p class="vide">Aucun message.</p>'}</div>
+    <button class="bouton second" data-a="nouveauMessage">${i('ajouter', 18, 2.2)}Écrire un message</button>
+    <h2 class="titre-section">Tâches de chacun</h2>
+    <div class="liste">${lignesCorvees || '<p class="vide">Aucune tâche attribuée.</p>'}</div>
+    <button class="bouton second" data-a="nouveauRappel" data-v="corvee">${i('ajouter', 18, 2.2)}Ajouter une tâche pour quelqu'un</button>
+    <h2 class="titre-section">Poubelles et tâches de la semaine</h2>
     <div class="liste">${lignesTaches || '<p class="vide">Aucune tâche.</p>'}</div>
     <button class="bouton second" data-a="nouveauRappel" data-v="tache">${i('ajouter', 18, 2.2)}Ajouter une tâche</button>
     <h2 class="titre-section">Rappels</h2>
@@ -469,8 +482,69 @@ function formulaireNote(n, texte = '') {
     </form>`);
 }
 
+// ---------- Messages, tâches de chacun, articles habituels ----------
+const pourMoi = (m) => state.moi && (!m.pour || m.pour === state.moi.id) && m.de !== state.moi.id;
+const nbMessagesPourMoi = () => state.messages.filter((m) => !m.lu_le && pourMoi(m)).length;
+function messageHtml(m) {
+  const p = m.pour ? membre(m.pour) : null; const d = m.de ? membre(m.de) : null;
+  const de = d ? (d.type === 'appareil' ? 'la tablette' : (state.moi && d.id === state.moi.id ? 'toi' : d.prenom)) : '';
+  return `<div class="article message ${m.lu_le ? 'pris' : ''}" style="border-left:4px solid ${p ? p.couleur : 'var(--accent)'}">
+    <span style="flex:1;display:flex;flex-direction:column;gap:.15rem"><small style="color:var(--pale);font-size:.78rem">Pour ${esc(p ? (state.moi && p.id === state.moi.id ? 'toi' : p.prenom) : 'tout le monde')}${de ? ' · de ' + esc(de) : ''} · ${esc(depuis(m.created_at))}</small><span style="font-size:1.05rem">${esc(m.texte)}</span></span>
+    <button class="icone-btn ${m.lu_le ? '' : 'doux'}" data-a="msgLu" data-id="${m.id}" aria-label="${m.lu_le ? 'Marquer non lu' : 'Marquer comme lu'}">${i('coche', 18, 2.4)}</button>
+    <button class="icone-btn" data-a="supprMessage" data-id="${m.id}" aria-label="Supprimer">${i('poubelle', 18)}</button></div>`;
+}
+function messagesPourMoiHtml() {
+  const l = state.messages.filter((m) => !m.lu_le && pourMoi(m)).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 3);
+  return l.length ? `<div class="liste" style="margin-bottom:.5rem">${l.map(messageHtml).join('')}</div>` : '';
+}
+function corvees() {
+  const auj = debutJour(new Date()); const ji = jourIso(auj); const lundi = debutSemaine(auj);
+  return state.rappels.filter((r) => r.type === 'corvee').map((r) => {
+    const jour = r.jour_semaine ? ajouterJours(lundi, r.jour_semaine - 1) : auj;
+    const cle = isoDate(jour); const aujourdhui = !r.jour_semaine || r.jour_semaine === ji;
+    return { ...r, cle, fait: r.fait_le === cle, aujourdhui, quand: !r.jour_semaine ? 'tous les jours' : aujourdhui ? 'aujourd\'hui' : `chaque ${JOURS[r.jour_semaine - 1]}` };
+  }).sort((a, b) => (b.aujourdhui - a.aujourdhui) || (a.fait - b.fait));
+}
+function mesTachesHtml() {
+  if (!state.moi) return '';
+  const l = corvees().filter((c) => c.aujourdhui && !c.fait && (!c.pour || c.pour === state.moi.id));
+  return l.length ? `<div class="carte" style="margin-bottom:.5rem;display:flex;flex-direction:column;gap:.3rem"><small style="color:var(--pale);font-weight:600;font-size:.75rem;letter-spacing:.05em;text-transform:uppercase">Mes tâches du jour</small>${l.map((c) => `<label style="display:flex;gap:.6rem;align-items:center;font-size:1rem"><input type="checkbox" data-c="corveeFaite" data-id="${c.id}" data-v="${c.cle}" style="width:1.3rem;height:1.3rem;accent-color:var(--accent)">${esc(c.titre)}</label>`).join('')}</div>` : '';
+}
+function habituelsHtml(aPrendre) {
+  const dans = new Set(aPrendre.map((c) => (c.nom || '').trim().toLowerCase()));
+  const l = state.habituels.filter((h) => !h.masque && h.nb >= 2 && !dans.has(h.cle)).sort((a, b) => b.nb - a.nb).slice(0, 12);
+  if (!l.length && !ui.gererHab) return '';
+  return `<div style="display:flex;align-items:center;justify-content:space-between"><h2 class="titre-section">Souvent achetés</h2><button class="lien" data-a="gererHabituels" style="background:none;border:none;color:var(--accent-texte);font-weight:600">${ui.gererHab ? 'Terminé' : 'Gérer'}</button></div>
+    <div class="habituels">${l.map((h) => ui.gererHab ? `<span class="hab gere">${esc(h.nom)}<button data-a="masquerHabituel" data-id="${h.id}" aria-label="Ne plus proposer ${esc(h.nom)}">${i('fermer', 14, 2.4)}</button></span>` : `<button class="hab" data-a="ajoutHabituel" data-id="${h.id}">+ ${esc(h.nom)}</button>`).join('') || '<span class="vide">Rien à proposer.</span>'}</div>`;
+}
+// Notification quand un message arrive pour moi
+const msgVus = new Set();
+let msgInit = false;
+function verifierMessages() {
+  if (!state.moi) return;
+  const neufs = state.messages.filter((m) => !msgVus.has(m.id));
+  neufs.forEach((m) => msgVus.add(m.id));
+  if (!msgInit) { msgInit = true; return; }
+  const p = lirePrefs();
+  neufs.filter((m) => pourMoi(m) && !m.lu_le && Date.now() - new Date(m.created_at).getTime() < 15 * 60000).forEach(async (m) => {
+    const d = m.de ? membre(m.de) : null; const titre = `Message${d ? ' de ' + (d.type === 'appareil' ? 'la tablette' : d.prenom) : ''}`;
+    toast(`${titre} : ${m.texte}`);
+    if (!('Notification' in window) || Notification.permission !== 'granted' || p.notifs === false) return;
+    try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.showNotification(titre, { body: m.texte, icon: 'icons/icone-192.png', tag: 'msg' + m.id }); else new Notification(titre, { body: m.texte }); } catch (e) { /* ignore */ }
+  });
+}
+
 function formulaireRappel(r, type) {
   type = r ? r.type : type;
+  if (type === 'corvee') {
+    return ouvrirFenetre(r ? 'Modifier la tâche' : 'Nouvelle tâche pour quelqu\'un', `
+    <form data-form="rappel" data-id="${r ? r.id : ''}" data-type="corvee" style="display:flex;flex-direction:column;gap:.9rem">
+      <label class="champ">Tâche<input name="titre" required maxlength="200" value="${esc(r ? r.titre : '')}" placeholder="Vaisselle, aspirateur, ranger sa chambre…"></label>
+      <label class="champ">Pour<select name="pour"><option value="">Tout le monde</option>${personnes().map((p) => `<option value="${p.id}" ${r && r.pour === p.id ? 'selected' : ''}>${esc(p.prenom)}</option>`).join('')}</select></label>
+      <label class="champ">Quand<select name="jour"><option value="0" ${r && !r.jour_semaine ? 'selected' : ''}>Tous les jours</option>${JOURS.map((j, k) => `<option value="${k + 1}" ${r && r.jour_semaine === k + 1 ? 'selected' : ''}>Chaque ${j}</option>`).join('')}</select></label>
+      <div class="actions"><button class="bouton" type="submit">Enregistrer</button>${r ? `<button class="bouton danger" type="button" data-a="supprRappel" data-id="${r.id}">Supprimer</button>` : '<button class="bouton second" type="button" data-a="fermer">Annuler</button>'}</div>
+    </form>`);
+  }
   const tache = type === 'tache';
   ouvrirFenetre(r ? (tache ? 'Modifier la tâche' : 'Modifier le rappel') : (tache ? 'Nouvelle tâche' : 'Nouveau rappel'), `
     <form data-form="rappel" data-id="${r ? r.id : ''}" data-type="${type}" style="display:flex;flex-direction:column;gap:.9rem">
@@ -524,6 +598,14 @@ async function dicter(contexte) {
     const l = { id: nouvelId(), texte: c.texte.slice(0, 2000), auteur: state.moi.id, created_at: new Date().toISOString() };
     try { await ecrire({ cle: 'notes', op: 'insert', ligne: l }); } catch (e) { return erreur(e); }
     toast('Note ajoutée.', () => ecrire({ cle: 'notes', op: 'delete', ligne: { id: l.id } }));
+  } else if (c.type === 'message') {
+    const p = c.pour ? personnes().find((x) => x.prenom === c.pour) : null;
+    const l = { id: nouvelId(), de: state.moi.id, pour: p ? p.id : null, texte: c.texte.slice(0, 500), source: 'voix', created_at: new Date().toISOString() };
+    msgVus.add(l.id);
+    try { await ecrire({ cle: 'messages', op: 'insert', ligne: l }); } catch (e) { return erreur(e); }
+    toast(`Message pour ${p ? p.prenom : 'tout le monde'} : ${c.texte}`, () => ecrire({ cle: 'messages', op: 'delete', ligne: { id: l.id } }));
+  } else if (c.type === 'minuteur') {
+    toast('Le minuteur fonctionne sur la tablette : dis-le-lui directement.');
   } else if (c.type === 'rdv') {
     const qui = c.qui.map((p) => personnes().find((x) => x.prenom === p)).filter(Boolean).map((p) => p.id);
     formulaireRdv(null, { titre: c.titre, debut: c.debut, journee: c.journee, qui: qui.length ? qui : undefined });
@@ -561,6 +643,15 @@ function planifierRappels() {
 
 // ---------------- Actions ----------------
 const actions = {
+  nouveauMessage() { ouvrirFenetre('Nouveau message', `<form data-form="message" style="display:flex;flex-direction:column;gap:.9rem">
+      <label class="champ">Pour<select name="pour"><option value="">Tout le monde</option>${personnes().filter((p) => !state.moi || p.id !== state.moi.id).map((p) => `<option value="${p.id}">${esc(p.prenom)}</option>`).join('')}</select></label>
+      <label class="champ">Message<textarea name="texte" required maxlength="500" rows="3" placeholder="Sortir le chien, le repas est prêt…"></textarea></label>
+      <div class="actions"><button class="bouton" type="submit">Envoyer</button><button class="bouton second" type="button" data-a="fermer">Annuler</button></div></form>`); },
+  msgLu(d) { const m = state.messages.find((x) => x.id === d.id); if (m) ecrire({ cle: 'messages', op: 'update', ligne: { id: m.id, lu_le: m.lu_le ? null : new Date().toISOString() } }).catch(erreur); },
+  supprMessage(d) { confirmer('Supprimer ce message ?', 'Il sera supprimé pour toute la famille.', 'Supprimer', () => ecrire({ cle: 'messages', op: 'delete', ligne: { id: d.id } })); },
+  ajoutHabituel(d) { const h = state.habituels.find((x) => x.id === d.id); if (!h) return; const l = { id: nouvelId(), nom: h.nom, source: 'app', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }; ecrire({ cle: 'courses', op: 'insert', ligne: l }).catch(erreur); toast(`Ajouté : ${h.nom}`, () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: l.id } })); },
+  gererHabituels() { ui.gererHab = !ui.gererHab; rendre(); },
+  masquerHabituel(d) { ecrire({ cle: 'habituels', op: 'update', ligne: { id: d.id, masque: true } }).catch(erreur); },
   annulerToast() { if (ui.annulerToast) ui.annulerToast(); zoneToast.innerHTML = ''; ui.annulerToast = null; },
   fermer: fermerFenetre,
   fermerVoile(d, el, e) { if (e.target === el) fermerFenetre(); },
@@ -644,6 +735,7 @@ const actions = {
 };
 
 const changements = {
+  corveeFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? el.dataset.v : null } }).catch(erreur); },
   async prendre(el) {
     const c = state.courses.find((x) => x.id === el.dataset.id); if (!c) return;
     ecrire({ cle: 'courses', op: 'update', ligne: { id: c.id, pris: el.checked, pris_le: el.checked ? new Date().toISOString() : null } }).catch(erreur);
@@ -759,11 +851,19 @@ const formulaires = {
       else await ecrire({ cle: 'notes', op: 'insert', ligne: { id: nouvelId(), auteur: state.moi.id, created_at: new Date().toISOString(), ...ligne } });
     } catch (e) { erreur(e); }
   },
+  async message(form) {
+    const fd = new FormData(form); const texte = (fd.get('texte') || '').trim(); if (!texte) return toast('Écris un message.');
+    fermerFenetre();
+    const l = { id: nouvelId(), de: state.moi.id, pour: fd.get('pour') || null, texte: texte.slice(0, 500), source: 'app', created_at: new Date().toISOString() };
+    msgVus.add(l.id);
+    try { await ecrire({ cle: 'messages', op: 'insert', ligne: l }); toast('Message envoyé.'); } catch (e) { erreur(e); }
+  },
   async rappel(form) {
     const fd = new FormData(form); const titre = (fd.get('titre') || '').trim();
     if (!titre) return toast('Donne un titre.');
     const type = form.dataset.type;
-    const ligne = type === 'tache'
+    const ligne = type === 'corvee' ? { titre, type, pour: fd.get('pour') || null, jour_semaine: Number(fd.get('jour')) || null }
+      : type === 'tache'
       ? { titre, type, jour_semaine: Number(fd.get('jour')), moment: fd.get('moment') || null, couleur: fd.get('couleur') || null }
       : { titre, type, echeance: fd.get('echeance') || null, pour: fd.get('pour') || null };
     fermerFenetre();
@@ -837,7 +937,7 @@ async function demarrer() {
   const { data } = await sb.auth.getSession();
   ui.session = data.session;
   if (ui.session) { state.userId = ui.session.user.id; chargerCache(); ui.pret = state.membres.length > 0; }
-  surChangement(() => rendre());
+  surChangement(() => { rendre(); verifierMessages(); });
   sb.auth.onAuthStateChange((evt, session) => {
     if (evt === 'PASSWORD_RECOVERY') { ui.recup = true; }
     const avant = ui.session && ui.session.user.id;

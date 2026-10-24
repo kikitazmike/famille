@@ -5,20 +5,21 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
-const VERSION_APPLI = '1.6.1';
+const VERSION_APPLI = '1.7.0';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
 
 const cadre = document.getElementById('cadre');
 const scene = document.getElementById('scene');
-scene.innerHTML = '<div id="vue"></div><div id="page"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="tst" aria-live="polite"></div>';
+scene.innerHTML = '<div id="vue"></div><div id="page"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div>';
 const vue = document.getElementById('vue');
 const zVeille = document.getElementById('veille');
 const zFen = document.getElementById('fen');
 const zToast = document.getElementById('tst');
 const zPage = document.getElementById('page');
 const zAlerte = document.getElementById('alerte');
+const zMin = document.getElementById('minut');
 
 const REG = 'famille-tablette';
 const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', parole: true, annonces: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', parole: true, annonces: true }; } })();
@@ -109,7 +110,7 @@ function enteteHtml() {
   }
   return `<header class="haut"><div class="horloge"><span class="heure">${deux(n.getHours())}<span class="dp">:</span>${deux(n.getMinutes())}</span>
       <div class="date"><b>${majuscule(JOURS[jourIso(n) - 1])}</b><span>${n.getDate()} ${MOIS[n.getMonth()]} ${n.getFullYear()}</span>
-      <div class="pastilles">${pp}</div></div></div>${meteo}</header>`;
+      <div class="pastilles">${pp}${pastillesPlus()}</div></div></div>${meteo}</header>`;
 }
 
 function occsJour(jour) {
@@ -227,7 +228,7 @@ function cartesHtml() {
       ${!courses.length ? '<span class="vide">Rien à acheter</span>' : ''}</div>
     <div class="carte notes clic" data-a="ouvrirPage" data-v="notes" role="button" tabindex="0" aria-label="Ouvrir les notes"><h2>Notes</h2>
       ${notes.map((no) => { const a = membre(no.auteur); return `<div class="mininote"><span>${esc(no.texte)}</span><small style="color:${a ? a.couleur : 'var(--pale)'}">${esc(a ? a.prenom : '')} · ${esc(depuis(no.created_at))}</small></div>`; }).join('') || '<span class="vide">Aucune note</span>'}</div>
-    <div class="carte clic" data-a="ouvrirPage" data-v="rappels" role="button" tabindex="0" aria-label="Ouvrir les rappels"><h2>Rappels</h2>
+    <div class="carte clic" data-a="ouvrirPage" data-v="rappels" role="button" tabindex="0" aria-label="Ouvrir les rappels"><h2>Rappels${(() => { const c = corvees().filter((x) => x.aujourdhui); return c.length ? ` <small>· tâches ${c.filter((x) => x.fait).length}/${c.length}</small>` : ''; })()}</h2>
       ${rappels.map((r) => {
         let s = ''; if (r.echeance) { const d = new Date(r.echeance + 'T00:00:00'); const k = Math.round((d - auj) / 86400000); s = k < 0 ? 'En retard' : k === 0 ? 'Aujourd\'hui' : k <= 14 ? `Dans ${k} jours` : `Avant le ${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'short' })}`; }
         const p = r.pour ? membre(r.pour) : null;
@@ -360,6 +361,7 @@ function pageCourses() {
     <button class="btn rond rouge" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 20)}</button></div>`; };
   return { titre: `Courses <small>· ${aPrendre.length} à prendre</small>`, outils: `${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`,
     corps: `<form class="ajout-p" data-form="ajoutCourse" autocomplete="off"><input name="nom" maxlength="120" placeholder="Ajouter un article (plusieurs : séparés par des virgules)" aria-label="Nouvel article"><button class="gros-btn">${i('ajouter', 20, 2.2)} Ajouter</button></form>
+    ${blocHabituels(aPrendre)}
     <div class="colonnes"><div><h3>À prendre</h3>${aPrendre.map(ligne).join('') || '<p class="vide">La liste est vide.</p>'}</div>
       <div><h3>Déjà pris</h3>${pris.map(ligne).join('') || '<p class="vide">Rien pour l\'instant.</p>'}${pris.length ? '<button class="gros-btn danger" data-a="viderPris">Vider les articles pris</button>' : ''}</div></div>` };
 }
@@ -383,8 +385,11 @@ function pageRappels() {
   const lr = rappels.map((r) => { const p = r.pour ? membre(r.pour) : null; let e = ''; if (r.echeance) { const d = new Date(r.echeance + 'T00:00:00'); const k = Math.round((d - auj) / 86400000); e = k < 0 ? 'en retard' : `avant le ${d.getDate()} ${MOIS[d.getMonth()]}${k <= 14 ? ` · ${quand(d)}` : ''}`; }
     return `<div class="ligne-p ${r.fait_le ? 'fait' : ''}"><label><input type="checkbox" data-c="rappelFait" data-id="${r.id}" ${r.fait_le ? 'checked' : ''}><span class="tx"><b>${esc(r.titre)}</b><small>${esc([e, p ? 'pour ' + p.prenom : ''].filter(Boolean).join(' · '))}</small></span></label>
     <button class="btn rond" data-a="modifRappel" data-id="${r.id}" aria-label="Modifier ${esc(r.titre)}">${i('modifier', 20)}</button><button class="btn rond rouge" data-a="supprRappel" data-id="${r.id}" aria-label="Supprimer ${esc(r.titre)}">${i('poubelle', 20)}</button></div>`; }).join('');
+  const lc = corvees().map((c) => { const p = c.pour ? membre(c.pour) : null; return `<div class="ligne-p ${c.fait ? 'fait' : ''}"><label><input type="checkbox" data-c="corveeFaite" data-id="${c.id}" data-v="${c.cle}" ${c.fait ? 'checked' : ''}><span class="pt" style="background:${p ? p.couleur : 'var(--accent)'};width:14px;height:14px"></span><span class="tx"><b>${esc(c.titre)}</b><small>${esc([p ? p.prenom : 'Tout le monde', c.quand].join(' · '))}</small></span></label>
+    <button class="btn rond" data-a="modifRappel" data-id="${c.id}" aria-label="Modifier ${esc(c.titre)}">${i('modifier', 20)}</button><button class="btn rond rouge" data-a="supprRappel" data-id="${c.id}" aria-label="Supprimer ${esc(c.titre)}">${i('poubelle', 20)}</button></div>`; }).join('');
   return { titre: 'Rappels et maison', outils: '',
-    corps: `<div class="colonnes"><div><h3>Tâches de la maison</h3>${lt || '<p class="vide">Aucune tâche.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="tache">${i('ajouter', 20, 2.2)} Ajouter une tâche</button></div>
+    corps: `<div class="colonnes"><div><h3>Tâches de chacun</h3>${lc || '<p class="vide">Aucune tâche attribuée.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="corvee">${i('ajouter', 20, 2.2)} Ajouter une tâche pour quelqu'un</button>
+      <h3 style="margin-top:18px">Poubelles et tâches de la semaine</h3>${lt || '<p class="vide">Aucune tâche.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="tache">${i('ajouter', 20, 2.2)} Ajouter une tâche de la semaine</button></div>
       <div><h3>Rappels</h3>${lr || '<p class="vide">Aucun rappel.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="rappel">${i('ajouter', 20, 2.2)} Ajouter un rappel</button></div></div>` };
 }
 function pageAide() {
@@ -394,6 +399,10 @@ function pageAide() {
     ${bloc('courses', '#2E8B57', 'Courses', 'ajoute, rajoute, mets, achète, il faut, il manque, on n\'a plus de', ['Ajoute du pain et des œufs', 'Il manque du café', 'Lait'], 'Aussi : faut, il faut acheter, on a plus de, y a plus de, on a besoin de, pense à acheter, n\'oublie pas d\'acheter, prends, courses… Un mot seul est ajouté aux courses.')}
     ${bloc('notes', '#C9822B', 'Notes', 'note, nouvelle note, prends note, écris', ['Note : appeler le plombier', 'Écris acheter un cadeau pour mamie'], 'Aussi : mémo, pense-bête, retiens que, n\'oublie pas que, souviens-toi que.')}
     ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, prends rendez-vous, réunion, rappelle-moi, j\'ai… — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
+    ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
+    ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
+    ${bloc('soleil', '#D9774A', 'Le point du jour', '', ['Bonjour', 'Le point de la journée', 'C\'est quoi ma journée ?'], 'Donne la météo et les rendez-vous du jour, seulement quand tu le demandes.')}
+    ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels.')}
     ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
   </div>
   <p style="margin:0;color:var(--pale);font-size:15px">Tu peux ajouter « tablette », « tu peux », « s'il te plaît », « je voudrais »… ils sont ignorés. Parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;
@@ -443,7 +452,7 @@ function rendrePage() {
   if (!ui.page) { zPage.innerHTML = ''; return; }
   const act = document.activeElement;
   if (act && zPage.contains(act) && act.tagName === 'INPUT' && act.type === 'text' && act.value) return; // on ne coupe pas une saisie
-  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : pageRappels();
+  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : ui.page === 'messages' ? pageMessages() : pageRappels();
   const garder = zPage.querySelector('.page-corps'); const defil = garder ? garder.scrollTop : 0;
   zPage.innerHTML = `<div class="page" role="dialog" aria-modal="true" aria-label="${ui.page}"><header><h1>${p.titre}</h1><div class="outils">${p.outils}<button class="btn rond grand" data-a="fermerPage" aria-label="Fermer et revenir à l'accueil">${i('fermer', 26, 2.2)}</button></div></header><div class="page-corps">${p.corps}</div></div>`;
   const c = zPage.querySelector('.page-corps'); if (c) c.scrollTop = defil;
@@ -464,6 +473,13 @@ function formNote(n) {
 }
 function formRappel(r, type) {
   type = r ? r.type : type; const tache = type === 'tache';
+  if (type === 'corvee') {
+    return fenetre(r ? 'Modifier la tâche' : 'Nouvelle tâche pour quelqu\'un', `<form data-form="rappel" data-id="${r ? r.id : ''}" data-type="corvee" style="display:flex;flex-direction:column;gap:14px">
+    <label class="champ">Tâche<input name="titre" required maxlength="200" value="${esc(r ? r.titre : '')}" placeholder="Vaisselle, aspirateur, ranger sa chambre…"></label>
+    <div class="rangee"><label class="champ">Pour<select name="pour"><option value="">Tout le monde</option>${personnes().map((p) => `<option value="${p.id}" ${r && r.pour === p.id ? 'selected' : ''}>${esc(p.prenom)}</option>`).join('')}</select></label>
+      <label class="champ">Quand<select name="jour"><option value="0" ${r && !r.jour_semaine ? 'selected' : ''}>Tous les jours</option>${JOURS.map((j, k) => `<option value="${k + 1}" ${r && r.jour_semaine === k + 1 ? 'selected' : ''}>Chaque ${j}</option>`).join('')}</select></label></div>
+    <div class="rangee"><button class="gros-btn">Enregistrer</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+  }
   fenetre(r ? (tache ? 'Modifier la tâche' : 'Modifier le rappel') : (tache ? 'Nouvelle tâche' : 'Nouveau rappel'), `<form data-form="rappel" data-id="${r ? r.id : ''}" data-type="${type}" style="display:flex;flex-direction:column;gap:14px">
     <label class="champ">${tache ? 'Tâche' : 'Rappel'}<input name="titre" required maxlength="200" value="${esc(r ? r.titre : '')}" placeholder="${tache ? 'Poubelle jaune, arroser…' : 'Contrôle technique, facture…'}"></label>
     ${tache ? `<div class="rangee"><label class="champ">Jour<select name="jour">${JOURS.map((j, k) => `<option value="${k + 1}" ${r && r.jour_semaine === k + 1 ? 'selected' : ''}>${majuscule(j)}</option>`).join('')}</select></label>
@@ -472,6 +488,134 @@ function formRappel(r, type) {
     : `<div class="rangee"><label class="champ">Avant le<input type="date" name="echeance" value="${esc(r && r.echeance || '')}"></label>
       <label class="champ">Pour<select name="pour"><option value="">Tous</option>${personnes().map((p) => `<option value="${p.id}" ${r && r.pour === p.id ? 'selected' : ''}>${esc(p.prenom)}</option>`).join('')}</select></label></div>`}
     <div class="rangee"><button class="gros-btn">Enregistrer</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+}
+
+// ---------- Tâches de chacun (type « corvee ») ----------
+function corvees() {
+  const auj = debutJour(new Date()); const ji = jourIso(auj); const lundi = debutSemaine(auj);
+  return state.rappels.filter((r) => r.type === 'corvee').map((r) => {
+    const jour = r.jour_semaine ? ajouterJours(lundi, r.jour_semaine - 1) : auj;
+    const cle = isoDate(jour);
+    const aujourdhui = !r.jour_semaine || r.jour_semaine === ji;
+    const quand = !r.jour_semaine ? 'tous les jours' : aujourdhui ? 'aujourd\'hui' : `chaque ${JOURS[r.jour_semaine - 1]}`;
+    return { ...r, cle, fait: r.fait_le === cle, aujourdhui, quand };
+  }).sort((a, b) => (b.aujourdhui - a.aujourdhui) || (a.fait - b.fait) || ((membre(a.pour) || {}).prenom || '~').localeCompare((membre(b.pour) || {}).prenom || '~'));
+}
+
+// ---------- Articles habituels ----------
+function blocHabituels(aPrendre) {
+  const dans = new Set(aPrendre.map((c) => (c.nom || '').trim().toLowerCase()));
+  const l = state.habituels.filter((h) => !h.masque && h.nb >= 2 && !dans.has(h.cle)).sort((a, b) => b.nb - a.nb || (a.dernier < b.dernier ? 1 : -1)).slice(0, 18);
+  if (!l.length && !ui.gererHab) return '';
+  return `<div class="habituels"><div class="hab-tete"><h3>Souvent achetés <small>· un appui pour ajouter</small></h3><button class="btn" data-a="gererHabituels">${ui.gererHab ? 'Terminé' : 'Gérer'}</button></div>
+    <div class="hab-liste">${l.map((h) => ui.gererHab ? `<span class="hab gere">${esc(h.nom)}<button data-a="masquerHabituel" data-id="${h.id}" aria-label="Ne plus proposer ${esc(h.nom)}">${i('fermer', 16, 2.2)}</button></span>` : `<button class="hab" data-a="ajoutHabituel" data-id="${h.id}">${i('ajouter', 16, 2.4)}${esc(h.nom)}</button>`).join('') || '<span class="vide">Rien à proposer.</span>'}</div></div>`;
+}
+
+// ---------- Messages pour la famille ----------
+function pastillesPlus() {
+  const nl = state.messages.filter((m) => !m.lu_le).length;
+  const al = new Date().getHours() >= 16 ? alerteDemain() : null;
+  return `${nl ? `<span class="pp msg" data-a="ouvrirPage" data-v="messages" role="button">${i('notes', 14, 2)}${nl} message${nl > 1 ? 's' : ''}</span>` : ''}${al ? `<span class="pp alerte" data-a="ouvrirPage" data-v="meteo" role="button">⚠ ${esc(al.court)}</span>` : ''}`;
+}
+function pageMessages() {
+  const l = state.messages.slice().sort((a, b) => (!!a.lu_le - !!b.lu_le) || (a.created_at < b.created_at ? 1 : -1));
+  const carte = (m) => { const p = m.pour ? membre(m.pour) : null; const d = m.de ? membre(m.de) : null;
+    return `<article class="msg-p ${m.lu_le ? 'lu' : ''}" style="border-left-color:${p ? p.couleur : 'var(--accent)'}"><div class="msg-haut"><b>Pour ${esc(p ? p.prenom : 'tout le monde')}</b><small>${esc([d ? (d.type === 'appareil' ? 'depuis la tablette' : 'de ' + d.prenom) : '', depuis(m.created_at)].filter(Boolean).join(' · '))}</small></div>
+      <p>${esc(m.texte)}</p><div class="msg-bas"><button class="btn ${m.lu_le ? '' : 'fort'}" data-a="msgLu" data-id="${m.id}">${i('coche', 18, 2.4)}${m.lu_le ? 'Lu' : 'Marquer comme lu'}</button><button class="btn rond rouge" data-a="supprMessage" data-id="${m.id}" aria-label="Supprimer">${i('poubelle', 20)}</button></div></article>`; };
+  return { titre: `Messages <small>· ${l.filter((m) => !m.lu_le).length} non lu${l.filter((m) => !m.lu_le).length > 1 ? 's' : ''}</small>`,
+    outils: `${l.some((m) => m.lu_le) ? '<button class="btn" data-a="viderLus">Effacer les lus</button>' : ''}<button class="btn fort" data-a="nouveauMessage">${i('ajouter', 18, 2.2)}Nouveau message</button>`,
+    corps: l.length ? `<div class="grille-msg">${l.map(carte).join('')}</div>` : '<p class="vide" style="font-size:20px">Aucun message. Dis par exemple « dis à Lucas de sortir le chien ».</p>' };
+}
+function formMessage() {
+  fenetre('Nouveau message', `<form data-form="message" style="display:flex;flex-direction:column;gap:14px">
+    <label class="champ">Pour<select name="pour"><option value="">Tout le monde</option>${personnes().map((p) => `<option value="${p.id}">${esc(p.prenom)}</option>`).join('')}</select></label>
+    <label class="champ">Message<textarea name="texte" required maxlength="500" rows="3" placeholder="Sortir le chien, le repas est prêt…"></textarea></label>
+    <div class="rangee"><button class="gros-btn">Envoyer</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+}
+// Annonce des nouveaux messages arrivés des téléphones
+function verifierMessages() {
+  if (!ui.msgVus) return;
+  const neufs = state.messages.filter((m) => !ui.msgVus.has(m.id));
+  neufs.forEach((m) => ui.msgVus.add(m.id));
+  const recents = neufs.filter((m) => !m.lu_le && Date.now() - new Date(m.created_at).getTime() < 15 * 60000);
+  if (!recents.length) return;
+  const m = recents[recents.length - 1]; const p = m.pour ? membre(m.pour) : null; const d = m.de ? membre(m.de) : null;
+  const t = `Nouveau message pour ${p ? p.prenom : 'tout le monde'}${d && d.type === 'personne' ? ', de ' + d.prenom : ''} : ${m.texte}`;
+  toast(t);
+  if (reglages.annonces && !veilleOuMuet()) dire(t);
+}
+
+// ---------- Alerte météo pour demain ----------
+function alerteDemain() {
+  const j = ui.meteo && ui.meteo.jours && ui.meteo.jours[1]; if (!j) return null;
+  const c = j.code; const parts = []; const courts = [];
+  if (c >= 95) { parts.push('risque d\'orage'); courts.push('orage'); }
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) { parts.push('de la neige est prévue'); courts.push('neige'); }
+  else if (j.pluie != null && j.pluie >= 60) { parts.push(`risque de pluie à ${j.pluie} %, pensez au parapluie`); courts.push(`pluie ${j.pluie} %`); }
+  if (j.min != null && j.min <= 1) { parts.push(`risque de gel, ${j.min} degré${Math.abs(j.min) > 1 ? 's' : ''} au plus bas, pensez à la voiture`); courts.push(`gel ${j.min}°`); }
+  if (j.vent != null && j.vent >= 60) { parts.push(`vent fort jusqu'à ${j.vent} kilomètres heure`); courts.push(`vent ${j.vent} km/h`); }
+  if (!parts.length) return null;
+  return { court: 'Demain : ' + courts.join(', '), long: 'Alerte météo pour demain : ' + parts.join(', ') + '.' };
+}
+
+// ---------- Minuteurs (sur la tablette) ----------
+const MIN_CLE = 'famille-minuteurs';
+ui.minuteurs = (() => { try { return JSON.parse(localStorage.getItem(MIN_CLE) || '[]').filter((m) => m.fin > Date.now() - 3 * 60000); } catch (e) { return []; } })();
+const sauverMin = () => { try { localStorage.setItem(MIN_CLE, JSON.stringify(ui.minuteurs)); } catch (e) { /* ignore */ } };
+const fmtMin = (s) => { const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const x = s % 60; return h ? `${h}:${deux(m)}:${deux(x)}` : `${m}:${deux(x)}`; };
+function dureeParlee(s) {
+  const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const x = s % 60; const p = [];
+  if (h) p.push(`${h} heure${h > 1 ? 's' : ''}`); if (m) p.push(`${m} minute${m > 1 ? 's' : ''}`); if (x && !h) p.push(`${x} seconde${x > 1 ? 's' : ''}`);
+  return p.join(' ') || '0 seconde';
+}
+function commandeMinuteur(c) {
+  const actifs = ui.minuteurs.filter((m) => !m.sonne);
+  if (c.action === 'lancer') {
+    ui.minuteurs.push({ id: nouvelId(), nom: c.nom || '', fin: Date.now() + c.secondes * 1000, total: c.secondes, sonne: false });
+    sauverMin(); rendreMin();
+    return `Minuteur${c.nom ? ' ' + c.nom.toLowerCase() : ''} de ${dureeParlee(c.secondes)} lancé.`;
+  }
+  if (c.action === 'stop') {
+    if (!ui.minuteurs.length) return 'Aucun minuteur en cours.';
+    const sonnent = ui.minuteurs.filter((m) => m.sonne);
+    ui.minuteurs = sonnent.length ? ui.minuteurs.filter((m) => !m.sonne) : []; sauverMin(); rendreMin();
+    return sonnent.length ? 'Minuteur arrêté.' : (actifs.length > 1 ? 'Tous les minuteurs sont arrêtés.' : 'Minuteur arrêté.');
+  }
+  if (c.action === 'reste') {
+    if (!actifs.length) return 'Aucun minuteur en cours.';
+    return actifs.map((m) => `Il reste ${dureeParlee(Math.max(1, Math.round((m.fin - Date.now()) / 1000)))}${m.nom ? ' pour ' + m.nom.toLowerCase() : ''}`).join('. ') + '.';
+  }
+  return 'Combien de temps ? Dis par exemple : minuteur 10 minutes.';
+}
+function rendreMin() {
+  if (!ui.minuteurs.length) { if (zMin.innerHTML) zMin.innerHTML = ''; return; }
+  zMin.innerHTML = ui.minuteurs.map((m) => {
+    const r = Math.max(0, Math.ceil((m.fin - Date.now()) / 1000)); const pc = m.sonne ? 100 : Math.round((1 - r / m.total) * 100);
+    return `<div class="minut ${m.sonne ? 'sonne' : ''}" style="--pc:${pc}%"><span class="ic">${i('cloche', 22, 2)}</span><span class="mn">${esc(m.nom || 'Minuteur')}</span><b>${m.sonne ? 'Terminé !' : fmtMin(r)}</b>
+      ${m.sonne ? `<button class="btn fort" data-a="minStop" data-id="${m.id}">Arrêter</button>` : `<button class="btn rond" data-a="minPlus" data-id="${m.id}" aria-label="Une minute de plus">+1</button><button class="btn rond" data-a="minStop" data-id="${m.id}" aria-label="Arrêter le minuteur">${i('fermer', 18, 2.2)}</button>`}</div>`;
+  }).join('');
+}
+let audioCtx = null;
+document.addEventListener('pointerdown', () => { try { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (e) { /* ignore */ } }, { capture: true });
+function bip() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = audioCtx.currentTime;
+    [0, 0.25, 0.5].forEach((dt) => { const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type = 'sine'; o.frequency.value = 880; g.gain.setValueAtTime(0.0001, t0 + dt); g.gain.exponentialRampToValueAtTime(0.6, t0 + dt + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.18); o.connect(g); g.connect(audioCtx.destination); o.start(t0 + dt); o.stop(t0 + dt + 0.2); });
+  } catch (e) { /* ignore */ }
+}
+let dernierBip = 0;
+function tickMinuteurs() {
+  if (!ui.minuteurs.length) return;
+  const now = Date.now(); let change = false;
+  for (const m of ui.minuteurs) {
+    if (!m.sonne && m.fin <= now) { m.sonne = true; change = true; if (reglages.parole) setTimeout(() => dire(`Le minuteur${m.nom ? ' ' + m.nom.toLowerCase() : ''} de ${dureeParlee(m.total)} est terminé !`), 1200); }
+  }
+  const avant = ui.minuteurs.length;
+  ui.minuteurs = ui.minuteurs.filter((m) => !(m.sonne && now - m.fin > 3 * 60000)); // la sonnerie s'arrête seule après 3 minutes
+  if (change || avant !== ui.minuteurs.length) sauverMin();
+  if (ui.minuteurs.some((m) => m.sonne) && now - dernierBip > 1500) { dernierBip = now; bip(); }
+  rendreMin();
 }
 
 // ---------- Retour automatique à l'accueil ----------
@@ -542,6 +686,15 @@ async function parler() {
     formRdv({ titre: c.titre, debut: c.debut, journee: c.journee, qui });
     toast(`« ${t} » → rendez-vous à vérifier.`);
     parlerSi(`Rendez-vous ${c.titre}, ${jourParle(debutJour(c.debut))}${c.journee ? '' : ' à ' + heureParlee(c.debut)}. Vérifie et appuie sur Enregistrer.`);
+  } else if (c.type === 'minuteur') {
+    const r = commandeMinuteur(c); toast(`« ${t} » → ${r}`); parlerSi(r);
+  } else if (c.type === 'message') {
+    const p = c.pour ? personnes().find((x) => x.prenom === c.pour) : null;
+    const l = { id: nouvelId(), de: state.moi.id, pour: p ? p.id : null, texte: c.texte.slice(0, 500), source: 'tablette', created_at: new Date().toISOString() };
+    ui.msgVus.add(l.id);
+    await ecrire({ cle: 'messages', op: 'insert', ligne: l });
+    const r = `Message pour ${p ? p.prenom : 'tout le monde'} : ${c.texte}`;
+    toast(`« ${t} » → ${r}`, () => ecrire({ cle: 'messages', op: 'delete', ligne: { id: l.id } })); parlerSi(`C'est noté, message pour ${p ? p.prenom : 'tout le monde'}.`);
   } else if (c.type === 'question') {
     const r = repondre(c); toast(`« ${t} » → ${r}`); parlerSi(r);
   } else { parlerSi('Je n\'ai pas compris.'); toast(`Je n'ai pas compris : « ${t} ». Essaie « ajoute du pain » ou « note : … ».`); }
@@ -568,6 +721,27 @@ function rdvParles(occs) {
 function repondre(c) {
   const auj = debutJour(new Date());
   const sansAcc = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (c.sujet === 'resume') {
+    const h = new Date().getHours();
+    const bonjour = h < 5 || h >= 18 ? 'Bonsoir !' : 'Bonjour !';
+    const m = ui.meteo; const j0 = m && m.jours && m.jours[0];
+    const met = j0 ? ` Météo : ${m.temp != null ? `${m.temp} degrés en ce moment, ` : ''}${(CODES[j0.code] || '').toLowerCase()}, maximum ${j0.max}, minimum ${j0.min}${j0.pluie != null ? `, ${j0.pluie} % de risque de pluie` : ''}.` : '';
+    const n = new Date();
+    const o = occsJour(auj).filter((x) => x.ev.journee_entiere || x.fin > n);
+    const rdv = o.length ? ` Aujourd'hui, ${o.length} rendez-vous : ${rdvParles(o).join(' ; ')}.` : ' Pas de rendez-vous aujourd\'hui.';
+    return bonjour + met + rdv;
+  }
+  if (c.sujet === 'messages') {
+    const l = state.messages.filter((x) => !x.lu_le).sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+    if (!l.length) return 'Aucun nouveau message.';
+    return `${l.length} message${l.length > 1 ? 's' : ''} : ` + l.slice(0, 5).map((x) => { const p = x.pour ? membre(x.pour) : null; const d = x.de ? membre(x.de) : null; return `pour ${p ? p.prenom : 'tout le monde'}${d && d.type === 'personne' ? ', de ' + d.prenom : ''} : ${x.texte}`; }).join('. ') + '.';
+  }
+  if (c.sujet === 'taches') {
+    const l = corvees().filter((x) => x.aujourdhui && !x.fait);
+    if (!l.length) return 'Toutes les tâches du jour sont faites.';
+    return 'À faire aujourd\'hui : ' + l.map((x) => `${x.titre}${x.pour ? ' pour ' + (membre(x.pour) || {}).prenom : ''}`).join(', ') + '.';
+  }
+  if (c.sujet === 'minuteur') return commandeMinuteur({ action: 'reste' });
   if (c.sujet === 'meteo') {
     const m = ui.meteo;
     if (!m || !m.jours) return 'Je n\'ai pas la météo pour le moment.';
@@ -644,6 +818,9 @@ function annonces() {
       dire(`${/soir/i.test(t.moment || '') || h === 19 ? 'Ce soir' : 'Aujourd\'hui'}, pensez à sortir la ${t.titre.toLowerCase().replace(/^la\s+/, '')}.`); return;
     }
   }
+  // Alerte météo pour demain, à 19 h 30
+  const al = alerteDemain();
+  if (al && n.getHours() * 60 + n.getMinutes() >= 19 * 60 + 30 && !dejaAnnonce(`meteo:${jourCle}`)) { dire(al.long); return; }
   // Anniversaires du jour, à 9 h
   if (n.getHours() >= 9) {
     for (const a of (state.anniv || [])) {
@@ -684,6 +861,15 @@ const actions = {
   allerJour(d) { const [y, m, j] = d.v.split('-').map(Number); ui.ref = new Date(y, m - 1, j); ui.vue = 'jour'; rendre(); },
   ouvrirPage(d) { ui.page = d.v; if (d.v === 'meteo') { ui.meteoVue = '2j'; if (!ui.meteo || Date.now() - (ui.meteo.le || 0) > 20 * 60000) chargerMeteo(); } rendre(); },
   meteoVue(d) { ui.meteoVue = d.v; rendre(); },
+  minPlus(d) { const m = ui.minuteurs.find((x) => x.id === d.id); if (m) { m.fin += 60000; m.total += 60; sauverMin(); rendreMin(); } },
+  minStop(d) { ui.minuteurs = ui.minuteurs.filter((x) => x.id !== d.id); sauverMin(); rendreMin(); },
+  ajoutHabituel(d) { const h = state.habituels.find((x) => x.id === d.id); if (!h) return; const l = { id: nouvelId(), nom: h.nom, source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }; ecrire({ cle: 'courses', op: 'insert', ligne: l }); toast(`Ajouté : ${h.nom}`, () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: l.id } })); },
+  gererHabituels() { ui.gererHab = !ui.gererHab; rendre(); },
+  masquerHabituel(d) { ecrire({ cle: 'habituels', op: 'update', ligne: { id: d.id, masque: true } }); },
+  nouveauMessage() { formMessage(); },
+  msgLu(d) { const m = state.messages.find((x) => x.id === d.id); if (m) ecrire({ cle: 'messages', op: 'update', ligne: { id: m.id, lu_le: m.lu_le ? null : new Date().toISOString() } }); },
+  supprMessage(d) { confirmer('Supprimer ce message ?', 'Il sera supprimé pour toute la famille.', 'Supprimer', () => ecrire({ cle: 'messages', op: 'delete', ligne: { id: d.id } })); },
+  viderLus() { confirmer('Effacer les messages lus ?', 'Les messages déjà lus seront supprimés.', 'Effacer', () => ecrire(state.messages.filter((m) => m.lu_le).map((m) => ({ cle: 'messages', op: 'delete', ligne: { id: m.id } })))); },
   parlerAide() { ui.page = null; rendre(); parler(); },
   fermerPage() { ui.page = null; rendre(); },
   toujoursLa() { ui.alerte = null; ui.derniere = Date.now(); zAlerte.innerHTML = ''; },
@@ -723,6 +909,7 @@ const actions = {
 const changements = {
   prendre(el) { ecrire({ cle: 'courses', op: 'update', ligne: { id: el.dataset.id, pris: el.checked, pris_le: el.checked ? new Date().toISOString() : null } }); },
   tacheFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.dataset.v } }); toast('Bien joué ! C\'est noté pour cette semaine.'); },
+  corveeFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? el.dataset.v : null } }); },
   rappelFait(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? isoDate(new Date()) : null } }); },
   quiTous(el) { el.form.querySelectorAll('input[name=qui]').forEach((x) => { x.checked = el.checked; }); },
   quiPersonne(el) { const c = [...el.form.querySelectorAll('input[name=qui]')]; el.form.querySelector('input[name=tous]').checked = c.length > 0 && c.every((x) => x.checked); },
@@ -787,10 +974,18 @@ const formulaires = {
     if (form.dataset.id) await ecrire({ cle: 'notes', op: 'update', ligne: { id: form.dataset.id, ...ligne } });
     else await ecrire({ cle: 'notes', op: 'insert', ligne: { id: nouvelId(), auteur: state.moi.id, created_at: new Date().toISOString(), ...ligne } });
   },
+  async message(form) {
+    const fd = new FormData(form); const texte = (fd.get('texte') || '').trim(); if (!texte) return toast('Écris un message.');
+    fermer();
+    const l = { id: nouvelId(), de: state.moi.id, pour: fd.get('pour') || null, texte: texte.slice(0, 500), source: 'tablette', created_at: new Date().toISOString() };
+    ui.msgVus.add(l.id);
+    await ecrire({ cle: 'messages', op: 'insert', ligne: l }); toast('Message envoyé.');
+  },
   async rappel(form) {
     const fd = new FormData(form); const titre = (fd.get('titre') || '').trim(); if (!titre) return toast('Donne un titre.');
     const type = form.dataset.type;
-    const ligne = type === 'tache' ? { titre, type, jour_semaine: Number(fd.get('jour')), moment: fd.get('moment') || null, couleur: fd.get('couleur') || null }
+    const ligne = type === 'corvee' ? { titre, type, pour: fd.get('pour') || null, jour_semaine: Number(fd.get('jour')) || null }
+      : type === 'tache' ? { titre, type, jour_semaine: Number(fd.get('jour')), moment: fd.get('moment') || null, couleur: fd.get('couleur') || null }
       : { titre, type, echeance: fd.get('echeance') || null, pour: fd.get('pour') || null };
     fermer();
     if (form.dataset.id) await ecrire({ cle: 'rappels', op: 'update', ligne: { id: form.dataset.id, ...ligne } });
@@ -834,7 +1029,8 @@ async function demarrer() {
   const { data } = await sb.auth.getSession();
   ui.session = data.session;
   if (ui.session) { state.userId = ui.session.user.id; chargerCache(); ui.pret = state.membres.length > 0; }
-  surChangement(() => rendre());
+  ui.msgVus = new Set(state.messages.map((m) => m.id));
+  surChangement(() => { rendre(); verifierMessages(); });
   sb.auth.onAuthStateChange((evt, s) => {
     const avant = ui.session && ui.session.user.id; ui.session = s;
     if (s && s.user.id !== avant) { state.userId = s.user.id; demarrerDonnees(); } else if (!s) rendre();
@@ -849,6 +1045,7 @@ async function demarrer() {
   setInterval(photoSuivante, 30000);
   setInterval(verifierInactivite, 10000);
   setInterval(annonces, 20000);
+  setInterval(tickMinuteurs, 1000); rendreMin();
   // recharge complète chaque nuit pour récupérer les mises à jour de l'appli
   setInterval(() => { const n = new Date(); if (n.getHours() === 4 && n.getMinutes() === 0) location.reload(); }, 60000);
 }

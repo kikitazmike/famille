@@ -6,11 +6,12 @@ const CACHE = 'famille-cache-v1';
 const OUTBOX = 'famille-outbox-v1';
 const TABLES = {
   membres: 'membres', evenements: 'evenements', liens: 'evenement_membres',
-  courses: 'courses', notes: 'notes', rappels: 'rappels'
+  courses: 'courses', notes: 'notes', rappels: 'rappels',
+  habituels: 'courses_habituels', messages: 'famille_messages'
 };
 
 export const state = {
-  membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [],
+  membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [],
   config: null, anniv: [], moi: null, userId: null, enLigne: navigator.onLine, enAttente: 0
 };
 
@@ -42,7 +43,7 @@ export function chargerCache() {
 }
 export function viderCache() {
   try { localStorage.removeItem(CACHE); localStorage.removeItem(OUTBOX); } catch (e) { /* ignore */ }
-  Object.assign(state, { membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], config: null, anniv: [], moi: null });
+  Object.assign(state, { membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [], config: null, anniv: [], moi: null });
 }
 
 function majMoi() {

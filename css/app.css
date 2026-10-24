@@ -175,3 +175,12 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .choix-prenom button { min-height: 5.5rem; border-radius: 1.1rem; border: 2px solid var(--trait); background: var(--carte); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35rem; }
 .choix-prenom button[aria-checked="true"] { border-color: var(--accent); background: var(--accent-doux); }
 .choix-prenom button:disabled { opacity: .45; }
+
+/* Messages, articles habituels */
+.onglets .badge { position: absolute; top: .15rem; right: calc(50% - 1.4rem); min-width: 1.1rem; height: 1.1rem; padding: 0 .25rem; border-radius: 999px; background: #C8446F; color: #fff; font-size: .68rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.habituels { display: flex; flex-wrap: wrap; gap: .45rem; }
+.hab { display: inline-flex; align-items: center; gap: .3rem; min-height: 2.4rem; padding: 0 .85rem; border-radius: 999px; border: 1px solid var(--trait, rgba(0,0,0,.08)); background: var(--carte); color: inherit; font-size: .95rem; font-weight: 500; }
+.hab.gere { background: rgba(200, 68, 111, .1); }
+.hab.gere button { border: none; background: none; color: #C8446F; display: flex; padding: 0; }
+.article.message { align-items: flex-start; }
+.article.message.pris label span, .article.message.pris span { text-decoration: none; }

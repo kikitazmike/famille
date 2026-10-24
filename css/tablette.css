@@ -18,7 +18,7 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .date { display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; }
 .date b { font-size: 30px; font-weight: 500; }
 .date > span { font-size: 22px; font-weight: 300; color: var(--doux); }
-.pastilles { display: flex; gap: 6px; margin-top: 8px; flex-wrap: nowrap; }
+.pastilles { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; max-width: 480px; }
 .pp { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--trait); font-size: 13px; white-space: nowrap; }
 .pp.ajd { background: var(--accent); color: #fff; box-shadow: none; }
 .pp .pt { width: 8px; height: 8px; border-radius: 50%; }
@@ -216,3 +216,34 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .acarte .adeb b { color: var(--encre); font-weight: 600; }
 .acarte ul { margin: 0; padding-left: 20px; font-size: 18px; display: flex; flex-direction: column; gap: 4px; }
 .acarte .aplus { margin: 0; color: var(--pale); font-size: 14px; line-height: 1.45; }
+
+/* Minuteurs */
+#minut { position: absolute; left: 24px; bottom: 24px; z-index: 45; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.minut { pointer-events: auto; display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 20px; padding: 10px 12px 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,.18); font-size: 18px; position: relative; overflow: hidden; min-width: 300px; }
+.minut::before { content: ''; position: absolute; left: 0; bottom: 0; height: 4px; width: var(--pc); background: var(--accent); }
+.minut .ic { color: var(--accent); display: flex; }
+.minut .mn { flex: 1; color: var(--doux); }
+.minut b { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.minut.sonne { background: #C8446F; color: #fff; animation: pulse 1s infinite; }
+.minut.sonne .ic, .minut.sonne .mn { color: #fff; }
+/* Articles habituels */
+.habituels { background: #fff; border-radius: 22px; padding: 14px 18px; box-shadow: 0 1px 0 var(--trait); display: flex; flex-direction: column; gap: 10px; }
+.hab-tete { display: flex; align-items: center; justify-content: space-between; }
+.hab-tete h3 { margin: 0; font-size: 18px; font-weight: 600; }
+.hab-tete small { font-weight: 400; color: var(--pale); }
+.hab-liste { display: flex; flex-wrap: wrap; gap: 8px; }
+.hab { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--trait); background: var(--creux); color: var(--encre); font-size: 16px; font-weight: 500; }
+.hab.gere { background: #FBEAEA; border-color: #F0CACA; }
+.hab.gere button { border: none; background: none; color: #A8481F; display: flex; padding: 0; }
+/* Messages */
+.pp.msg { background: #E4EEFB; color: #1F4E79; cursor: pointer; }
+.pp.alerte { background: #FDEBD8; color: #9A4A12; cursor: pointer; }
+.grille-msg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.msg-p { background: #fff; border-radius: 22px; padding: 16px 18px; border-left: 6px solid var(--accent); display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 0 var(--trait); }
+.msg-p.lu { opacity: .6; }
+.msg-haut { display: flex; flex-direction: column; }
+.msg-haut b { font-size: 17px; }
+.msg-haut small { color: var(--pale); font-size: 14px; }
+.msg-p p { margin: 0; font-size: 21px; line-height: 1.35; }
+.msg-bas { display: flex; gap: 8px; justify-content: space-between; }
+.fen textarea { font: inherit; font-size: 18px; border: 1px solid var(--trait); border-radius: 14px; padding: 12px 14px; background: #fff; resize: vertical; }
