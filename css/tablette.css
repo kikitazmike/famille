@@ -117,7 +117,9 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .gros-btn { height: 56px; border: none; border-radius: 16px; background: var(--accent); color: #fff; font-size: 18px; font-weight: 600; padding: 0 24px; }
 .gros-btn.second { background: var(--creux); color: var(--encre); }
 .gros-btn.danger { background: transparent; color: #B3261E; }
-.code { font-size: 56px; letter-spacing: .3em; text-align: center; font-weight: 300; }
+.code { font-size: 56px; letter-spacing: .3em; text-align: center; font-weight: 300; transition: filter .2s; }
+.code.flou { filter: blur(12px); user-select: none; -webkit-user-select: none; }
+.gros-btn:disabled { opacity: .45; }
 .erreur { background: #FBE4E2; color: #8C1D18; border-radius: 14px; padding: 12px 16px; font-size: 16px; }
 .info { background: var(--accent-doux); color: var(--accent-texte); border-radius: 14px; padding: 12px 16px; font-size: 16px; }
 .toast { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); background: #3A332B; color: #FBF7F1; padding: 14px 20px; border-radius: 18px; font-size: 18px; z-index: 40; display: flex; gap: 14px; align-items: center; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }

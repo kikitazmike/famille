@@ -1,5 +1,5 @@
 // Fonctionnement hors connexion : l'appli est gardée en cache, les données passent par le réseau
-const VERSION = 'famille-v1.1.0';
+const VERSION = 'famille-v1.2.0';
 const FICHIERS = [
   './', 'index.html', 'tablette.html', 'manifest.webmanifest', 'tablette.webmanifest',
   'css/app.css', 'css/tablette.css',

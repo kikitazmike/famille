@@ -251,9 +251,10 @@ function ecranPlus() {
     <div class="photos">${(ui.photos || []).map((p) => `<figure>${p.url ? `<img src="${esc(p.url)}" alt="">` : ''}<button data-a="supprPhoto" data-v="${esc(p.nom)}" aria-label="Supprimer la photo">${i('fermer', 16, 2.2)}</button></figure>`).join('')}</div>
     <label class="bouton second">${i('image', 18)}Ajouter des photos<input type="file" accept="image/*" multiple class="sr" data-c="ajoutPhotos"></label>
     <h2 class="titre-section">Code famille</h2>
-    <div class="carte"><div class="code">${esc(state.config ? state.config.code : '······')}</div>
+    <div class="carte"><div class="code ${ui.codeVisible ? '' : 'flou'}" ${ui.codeVisible ? '' : 'aria-label="Code masqué"'}>${ui.codeVisible ? esc(state.config ? state.config.code : '') : '888888'}</div>
       <p class="aide" style="text-align:center;margin:0 0 .5rem">À donner à un membre de la famille pour qu'il crée son compte.</p>
-      <button class="bouton second plein" data-a="nouveauCode">Changer le code</button></div>
+      <div class="actions"><button class="bouton second" data-a="basculeCode">${ui.codeVisible ? 'Masquer le code' : 'Afficher le code'}</button>
+      <button class="bouton second" data-a="nouveauCode" ${ui.codeVisible ? '' : 'disabled title="Affiche d\'abord le code"'}>Changer le code</button></div></div>
     <div class="groupe">
       <a class="item" href="#/reglages" style="text-decoration:none;color:inherit"><span style="display:flex;gap:.7rem;align-items:center">${i('reglages', 20)}Réglages</span>${i('droite', 18)}</a>
       <a class="item" href="tablette.html" style="text-decoration:none;color:inherit"><span style="display:flex;gap:.7rem;align-items:center">${i('ecran', 20)}Écran de la tablette</span>${i('droite', 18)}</a>
@@ -592,7 +593,9 @@ const actions = {
   nouveauRappel(d) { formulaireRappel(null, d.v); },
   ouvrirRappel(d) { const r = state.rappels.find((x) => x.id === d.id); if (r) formulaireRappel(r); },
   supprRappel(d) { confirmer('Supprimer ?', 'Cet élément sera supprimé pour toute la famille.', 'Supprimer', () => ecrire({ cle: 'rappels', op: 'delete', ligne: { id: d.id } })); },
+  basculeCode() { ui.codeVisible = !ui.codeVisible; rendre(); },
   nouveauCode() {
+    if (!ui.codeVisible) return toast('Affiche d\'abord le code.');
     confirmer('Changer le code famille ?', 'L\'ancien code ne marchera plus. Les comptes déjà inscrits ne sont pas touchés.', 'Changer', async () => {
       const { data, error } = await sb.rpc('nouveau_code_famille'); if (error) throw error;
       state.config = { ...state.config, code: data }; rendre(); toast('Nouveau code : ' + data);
@@ -793,6 +796,7 @@ function lireRoute() {
   const r = (location.hash.replace(/^#\/?/, '') || 'agenda').split('?')[0];
   ui.route = ['agenda', 'courses', 'notes', 'anniv', 'plus', 'reglages'].includes(r) ? r : 'agenda';
   if (ui.route === 'plus') ui.photos = null;
+  ui.codeVisible = false;
   if (ui.route === 'anniv') chargerAnniv();
   window.scrollTo(0, 0);
   rendre();

@@ -309,7 +309,7 @@ async function chargerPhotos() {
 function fenetre(titre, corps) {
   zFen.innerHTML = `<div class="voile" data-a="fermerVoile"><div class="fen" role="dialog" aria-modal="true"><h2>${esc(titre)}<button class="btn rond" data-a="fermer" aria-label="Fermer">${i('fermer')}</button></h2>${corps}</div></div>`;
 }
-const fermer = () => { zFen.innerHTML = ''; };
+const fermer = () => { zFen.innerHTML = ''; ui.codeVisible = false; };
 
 function formRdv(pre = {}, ev = null) {
   const d = ev ? new Date(ev.debut) : pre.debut || (() => { const x = new Date(ui.ref); const h = new Date().getHours(); x.setHours(Math.min(h + 1, 21), 0, 0, 0); return x; })();
@@ -322,7 +322,8 @@ function formRdv(pre = {}, ev = null) {
     <div class="rangee"><label class="champ">Date<input type="date" name="date" value="${isoDate(d)}" required></label>
       <label class="champ">Début<input type="time" name="h1" value="${journee ? '' : hhmm(d)}"></label><label class="champ">Fin<input type="time" name="h2" value="${journee ? '' : hhmm(f)}"></label></div>
     <p style="margin:-6px 0 0;font-size:13px;color:var(--pale)">Laisse « Début » vide pour toute la journée.</p>
-    <div class="champ">Qui ? <span style="font-weight:400;color:var(--pale);font-size:13px">(personne coché = toute la famille)</span><div class="choix">${personnes().map((p) => `<label><input type="checkbox" name="qui" value="${p.id}" ${qui.includes(p.id) ? 'checked' : ''}><span style="width:12px;height:12px;border-radius:50%;background:${p.couleur}"></span>${esc(p.prenom)}</label>`).join('')}</div></div>
+    <div class="champ">Qui ? <span style="font-weight:400;color:var(--pale);font-size:13px">(« Tous » = toute la famille)</span><div class="choix">${personnes().map((p) => `<label><input type="checkbox" name="qui" value="${p.id}" data-c="quiPersonne" ${qui.includes(p.id) ? 'checked' : ''}><span style="width:12px;height:12px;border-radius:50%;background:${p.couleur}"></span>${esc(p.prenom)}</label>`).join('')}
+      <label style="border-color:var(--accent)"><input type="checkbox" name="tous" data-c="quiTous" ${personnes().length && personnes().every((p) => qui.includes(p.id)) ? 'checked' : ''}><span style="width:12px;height:12px;border-radius:50%;background:var(--accent)"></span>Tous</label></div></div>
     <div class="rangee"><label class="champ">Lieu<input name="lieu" maxlength="120" value="${esc(ev && ev.lieu || '')}" placeholder="Facultatif"></label>
       <label class="champ">Répétition<select name="repetition">${[['aucune', 'Aucune'], ['jour', 'Tous les jours'], ['semaine', 'Chaque semaine'], ['mois', 'Tous les mois'], ['annee', 'Tous les ans']].map(([v, l]) => `<option value="${v}" ${rep === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     ${ev && rep !== 'aucune' ? '<p style="margin:0;font-size:14px;color:var(--doux)">Ce rendez-vous se répète : la modification s\'applique à toutes les fois.</p>' : ''}
@@ -429,9 +430,10 @@ function verifierInactivite() {
 
 function fenReglages() {
   fenetre('Réglages de la tablette', `
-    <div><div style="font-size:15px;color:var(--pale);text-align:center">Code famille</div><div class="code">${esc(state.config ? state.config.code : '')}</div>
+    <div><div style="font-size:15px;color:var(--pale);text-align:center">Code famille</div><div class="code ${ui.codeVisible ? '' : 'flou'}" ${ui.codeVisible ? '' : 'aria-label="Code masqué"'}>${ui.codeVisible ? esc(state.config ? state.config.code : '') : '888888'}</div>
       <p style="margin:0;text-align:center;color:var(--pale)">À taper dans l'appli téléphone pour créer un compte.</p></div>
-    <button class="gros-btn second" data-a="nouveauCode">Changer le code</button>
+    <div class="rangee"><button class="gros-btn second" data-a="basculeCode">${ui.codeVisible ? 'Masquer le code' : 'Afficher le code'}</button>
+      <button class="gros-btn second" data-a="nouveauCode" ${ui.codeVisible ? '' : 'disabled'}>Changer le code</button></div>
     <div class="rangee"><label class="champ">Veille de<input type="time" value="${esc(reglages.veilleDebut)}" data-c="veilleDebut"></label><label class="champ">à<input type="time" value="${esc(reglages.veilleFin)}" data-c="veilleFin"></label></div>
     <div class="rangee"><button class="gros-btn second" data-a="veilleMaintenant">${i('lune', 20)} Veille maintenant</button><button class="gros-btn second" data-a="pleinEcran">${i('plein', 20)} Plein écran</button></div>
     <a class="gros-btn second" href="./" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Ouvrir l'appli téléphone</a>
@@ -503,10 +505,17 @@ const actions = {
   nouveauRappel(d) { formRappel(null, d.v); },
   modifRappel(d) { const r = state.rappels.find((x) => x.id === d.id); if (r) formRappel(r); },
   supprRappel(d) { const r = state.rappels.find((x) => x.id === d.id); if (r) confirmer('Supprimer ?', `« ${r.titre} » sera supprimé pour toute la famille.`, 'Supprimer', () => ecrire({ cle: 'rappels', op: 'delete', ligne: { id: r.id } })); },
-  reglages: fenReglages,
+  reglages() { ui.codeVisible = false; fenReglages(); },
   fermer,
   fermerVoile(d, el, e) { if (e.target === el) fermer(); },
-  async nouveauCode() { const { data, error } = await sb.rpc('nouveau_code_famille'); if (error) return toast(messageErreur(error)); state.config = { ...state.config, code: data }; fenReglages(); },
+  basculeCode() { ui.codeVisible = !ui.codeVisible; fenReglages(); },
+  nouveauCode() {
+    if (!ui.codeVisible) return toast('Affiche d\'abord le code.');
+    confirmer('Changer le code famille ?', 'L\'ancien code ne marchera plus. Les comptes déjà inscrits ne sont pas touchés.', 'Changer le code', async () => {
+      const { data, error } = await sb.rpc('nouveau_code_famille'); if (error) return toast(messageErreur(error));
+      state.config = { ...state.config, code: data }; ui.codeVisible = true; fenReglages(); toast('Nouveau code : ' + data);
+    });
+  },
   veilleMaintenant() { ui.veilleForcee = true; ui.reveilJusqua = 0; fermer(); rendre(); },
   pleinEcran() { reglages.pleinEcran = true; sauverReglages(); allerPleinEcran(true); fermer(); },
   reveil() { ui.veilleForcee = false; ui.reveilJusqua = Date.now() + 5 * 60000; zVeille.innerHTML = ''; rendre(); },
@@ -516,6 +525,8 @@ const changements = {
   prendre(el) { ecrire({ cle: 'courses', op: 'update', ligne: { id: el.dataset.id, pris: el.checked, pris_le: el.checked ? new Date().toISOString() : null } }); },
   tacheFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.dataset.v } }); toast('Bien joué ! C\'est noté pour cette semaine.'); },
   rappelFait(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? isoDate(new Date()) : null } }); },
+  quiTous(el) { el.form.querySelectorAll('input[name=qui]').forEach((x) => { x.checked = el.checked; }); },
+  quiPersonne(el) { const c = [...el.form.querySelectorAll('input[name=qui]')]; el.form.querySelector('input[name=tous]').checked = c.length > 0 && c.every((x) => x.checked); },
   veilleDebut(el) { reglages.veilleDebut = el.value; sauverReglages(); },
   veilleFin(el) { reglages.veilleFin = el.value; sauverReglages(); }
 };
