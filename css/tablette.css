@@ -207,3 +207,12 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .mj .mm strong { font-size: 26px; font-weight: 600; }
 .mj .mm span { font-size: 20px; color: var(--pale); }
 .mj small { display: flex; align-items: center; gap: 4px; color: var(--doux); font-size: 14px; }
+
+.btn.rond.aide { font-size: 20px; font-weight: 700; background: var(--accent-doux); color: var(--accent-texte); }
+.aide-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.acarte { background: #fff; border-radius: 24px; padding: 20px 24px; box-shadow: 0 1px 0 var(--trait); display: flex; flex-direction: column; gap: 8px; }
+.acarte h2 { margin: 0; font-size: 22px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+.acarte .adeb { margin: 0; color: var(--doux); font-size: 15px; }
+.acarte .adeb b { color: var(--encre); font-weight: 600; }
+.acarte ul { margin: 0; padding-left: 20px; font-size: 18px; display: flex; flex-direction: column; gap: 4px; }
+.acarte .aplus { margin: 0; color: var(--pale); font-size: 14px; line-height: 1.45; }

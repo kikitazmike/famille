@@ -5,7 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
-const VERSION_APPLI = '1.5.3';
+const VERSION_APPLI = '1.6.0';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
@@ -207,7 +207,7 @@ function agendaHtml() {
   return `<section class="agenda" aria-label="Agenda de la famille">
     <div class="barre-outils"><div class="gauche"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>${periode}</div>
       <div class="outils">${titre}
-        ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button>` : ''}
+        ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button><button class="btn rond aide" data-a="ouvrirPage" data-v="aide" aria-label="Ce que je comprends à la voix">?</button>` : ''}
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
         <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
@@ -387,6 +387,19 @@ function pageRappels() {
     corps: `<div class="colonnes"><div><h3>Tâches de la maison</h3>${lt || '<p class="vide">Aucune tâche.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="tache">${i('ajouter', 20, 2.2)} Ajouter une tâche</button></div>
       <div><h3>Rappels</h3>${lr || '<p class="vide">Aucun rappel.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="rappel">${i('ajouter', 20, 2.2)} Ajouter un rappel</button></div></div>` };
 }
+function pageAide() {
+  const bloc = (ic, coul, titre, debut, ex, plus = '') => `<div class="acarte"><h2><span style="color:${coul}">${i(ic, 26, 1.8)}</span>${titre}</h2>
+    ${debut ? `<p class="adeb">Commence par : <b>${debut}</b></p>` : ''}<ul>${ex.map((x) => `<li>« ${x} »</li>`).join('')}</ul>${plus ? `<p class="aplus">${plus}</p>` : ''}</div>`;
+  const corps = `<div class="aide-grille">
+    ${bloc('courses', '#2E8B57', 'Courses', 'ajoute, rajoute, mets, achète, il faut, il manque, on n\'a plus de', ['Ajoute du pain et des œufs', 'Il manque du café', 'Lait'], 'Un mot seul est aussi ajouté aux courses.')}
+    ${bloc('notes', '#C9822B', 'Notes', 'note, nouvelle note, prends note, écris', ['Note : appeler le plombier', 'Écris acheter un cadeau pour mamie'])}
+    ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, événement — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
+    ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
+  </div>
+  <p style="margin:0;color:var(--pale);font-size:15px">Astuce : parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;
+  return { titre: 'Ce que je comprends <small>· à la voix</small>', outils: voixOk() ? `<button class="btn fort" data-a="parlerAide">${i('micro', 18, 2)}Parler</button>` : '', corps };
+}
+
 function pageMeteo() {
   const m = ui.meteo; const vue = ui.meteoVue || '2j';
   const outils = `<div class="vues" role="tablist"><button role="tab" aria-selected="${vue === '2j'}" data-a="meteoVue" data-v="2j">Aujourd'hui et demain</button><button role="tab" aria-selected="${vue === 'sem'}" data-a="meteoVue" data-v="sem">Semaine</button></div>`;
@@ -430,7 +443,7 @@ function rendrePage() {
   if (!ui.page) { zPage.innerHTML = ''; return; }
   const act = document.activeElement;
   if (act && zPage.contains(act) && act.tagName === 'INPUT' && act.type === 'text' && act.value) return; // on ne coupe pas une saisie
-  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : pageRappels();
+  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : pageRappels();
   const garder = zPage.querySelector('.page-corps'); const defil = garder ? garder.scrollTop : 0;
   zPage.innerHTML = `<div class="page" role="dialog" aria-modal="true" aria-label="${ui.page}"><header><h1>${p.titre}</h1><div class="outils">${p.outils}<button class="btn rond grand" data-a="fermerPage" aria-label="Fermer et revenir à l'accueil">${i('fermer', 26, 2.2)}</button></div></header><div class="page-corps">${p.corps}</div></div>`;
   const c = zPage.querySelector('.page-corps'); if (c) c.scrollTop = defil;
@@ -670,6 +683,7 @@ const actions = {
   allerJour(d) { const [y, m, j] = d.v.split('-').map(Number); ui.ref = new Date(y, m - 1, j); ui.vue = 'jour'; rendre(); },
   ouvrirPage(d) { ui.page = d.v; if (d.v === 'meteo') { ui.meteoVue = '2j'; if (!ui.meteo || Date.now() - (ui.meteo.le || 0) > 20 * 60000) chargerMeteo(); } rendre(); },
   meteoVue(d) { ui.meteoVue = d.v; rendre(); },
+  parlerAide() { ui.page = null; rendre(); parler(); },
   fermerPage() { ui.page = null; rendre(); },
   toujoursLa() { ui.alerte = null; ui.derniere = Date.now(); zAlerte.innerHTML = ''; },
   retourAccueil,
