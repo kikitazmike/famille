@@ -188,14 +188,14 @@ function agendaHtml() {
   const enCours = occs.filter((o) => !o.ev.journee_entiere && o.debut <= n && o.fin > n).length;
   const onglet = enJour ? (memeJour(jour, auj) ? 'auj' : memeJour(jour, ajouterJours(auj, 1)) ? 'demain' : '') : ui.vue;
   const vues = [['auj', 'Aujourd\'hui'], ['demain', 'Demain'], ['semaine', 'Semaine'], ['mois', 'Mois']];
-  let titre;
-  if (ui.vue === 'mois') titre = `<b class="periode">${majuscule(MOIS[ui.ref.getMonth()])} ${ui.ref.getFullYear()}</b>`;
-  else if (ui.vue === 'semaine') { const l = debutSemaine(ui.ref); const d = ajouterJours(l, 6); titre = `<b class="periode">${memeJour(l, debutSemaine(n)) ? 'Cette semaine' : `Du ${l.getDate()} ${l.getMonth() !== d.getMonth() ? MOIS[l.getMonth()].slice(0, 3) + '.' : ''} au ${d.getDate()} ${MOIS[d.getMonth()].slice(0, 3)}.`}</b>`; }
-  else titre = `${onglet ? '' : `<b class="periode">${majuscule(JOURS[jourIso(jour) - 1])} ${jour.getDate()} ${MOIS[jour.getMonth()]}</b>`}<span>${occs.length} rdv</span>${memeJour(jour, auj) && enCours ? `<span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent)"></span>${enCours} en cours</span>` : ''}`;
+  let titre = ''; let periode = '';
+  if (ui.vue === 'mois') periode = `<b class="periode">${majuscule(MOIS[ui.ref.getMonth()])} ${ui.ref.getFullYear()}</b>`;
+  else if (ui.vue === 'semaine') { const l = debutSemaine(ui.ref); const d = ajouterJours(l, 6); periode = `<b class="periode">${memeJour(l, debutSemaine(n)) ? 'Cette semaine' : `Du ${l.getDate()} ${l.getMonth() !== d.getMonth() ? MOIS[l.getMonth()].slice(0, 3) + '.' : ''} au ${d.getDate()} ${MOIS[d.getMonth()].slice(0, 3)}.`}</b>`; }
+  else { if (!onglet) periode = `<b class="periode">${majuscule(JOURS[jourIso(jour) - 1])} ${jour.getDate()} ${MOIS[jour.getMonth()]}</b>`; titre = `<span>${occs.length} rdv</span>${memeJour(jour, auj) && enCours ? `<span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent)"></span>${enCours} en cours</span>` : ''}`; }
   const corps = ui.vue === 'semaine' ? vueSemaine() : ui.vue === 'mois' ? vueMois() : vueJour(jour, memeJour(jour, auj));
   const nom = ui.vue === 'semaine' ? 'semaine' : ui.vue === 'mois' ? 'mois' : 'jour';
   return `<section class="agenda" aria-label="Agenda de la famille">
-    <div class="barre-outils"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>
+    <div class="barre-outils"><div class="gauche"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>${periode}</div>
       <div class="outils">${titre}
         ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button>` : ''}
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
@@ -422,7 +422,7 @@ function verifierInactivite() {
   if (!state.moi || enVeille()) return;
   const calme = Date.now() - ui.derniere;
   if (ui.alerte) { if (Date.now() - ui.alerte > 60000) retourAccueil(); return; }
-  if (horsAccueil() && calme > 5 * 60000) {
+  if (horsAccueil() && calme > 4 * 60000) {
     ui.alerte = Date.now();
     zAlerte.innerHTML = `<div class="voile" style="z-index:50"><div class="fen" role="alertdialog" aria-modal="true" style="width:520px;align-items:center;text-align:center">
       <h2 style="justify-content:center">Toujours là ?</h2><p style="margin:0;font-size:18px;color:var(--doux)">Sans réponse, l'écran revient à l'accueil dans une minute.</p>

@@ -37,7 +37,7 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .barre-outils { display: flex; align-items: center; justify-content: space-between; }
 .vues { display: flex; gap: 4px; background: var(--creux); border-radius: 14px; padding: 4px; }
 .vues button { height: 40px; padding: 0 18px; border: none; border-radius: 11px; background: transparent; color: var(--doux); font-size: 15px; font-weight: 500; }
-.vues button[aria-selected="true"] { background: #fff; color: var(--encre); font-weight: 600; box-shadow: 0 1px 2px rgba(60, 40, 10, .12); }
+.vues button[aria-selected="true"] { background: #EEEBFC; color: var(--accent-texte); font-weight: 600; box-shadow: 0 1px 2px rgba(60, 40, 10, .12); }
 .outils { display: flex; align-items: center; gap: 14px; font-size: 15px; color: var(--doux); }
 .btn { height: 44px; padding: 0 16px; border: none; border-radius: 14px; background: var(--accent-doux); color: var(--accent-texte); font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
 .btn.fort { background: var(--accent); color: #fff; }
@@ -141,7 +141,8 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 
 /* Navigation de l'agenda */
 .fleches { display: flex; gap: 6px; }
-.periode { font-weight: 600; color: var(--encre); font-size: 16px; white-space: nowrap; }
+.gauche { display: flex; align-items: center; gap: 12px; }
+.periode { font-weight: 600; color: #1F4E79; font-size: 18px; white-space: nowrap; background: #DCEBFA; padding: 9px 18px; border-radius: 14px; box-shadow: inset 0 2px 4px rgba(31, 78, 121, .18), inset 0 -1px 0 rgba(255, 255, 255, .7); }
 .vue-semaine .j, .vue-mois .c, .carte.clic { cursor: pointer; }
 .vue-semaine .j:active, .vue-mois .c:active { box-shadow: inset 0 0 0 2px var(--accent); }
 .carte.clic:active { transform: scale(.985); }
