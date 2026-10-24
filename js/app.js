@@ -709,7 +709,7 @@ const formulaires = {
     a.occupe = true; a.erreur = null; a.info = null; rendre();
     let r;
     if (a.mode === 'connexion') r = await sb.auth.signInWithPassword({ email, password: mdp });
-    else if (a.mode === 'inscription') r = await sb.auth.signUp({ email, password: mdp, options: { emailRedirectTo: location.origin + location.pathname } });
+    else if (a.mode === 'inscription') r = await sb.auth.signUp({ email, password: mdp, options: { emailRedirectTo: location.origin + location.pathname, data: { app: 'famille' } } });
     else r = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
     a.occupe = false;
     if (r.error) { a.erreur = messageErreur(r.error); return rendre(); }

@@ -536,7 +536,7 @@ const formulaires = {
     const mode = sub && sub.value === 'inscription' ? 'inscription' : 'connexion';
     ui.auth = { erreur: null, info: null };
     const r = mode === 'connexion' ? await sb.auth.signInWithPassword({ email, password: mdp })
-      : await sb.auth.signUp({ email, password: mdp, options: { emailRedirectTo: location.href } });
+      : await sb.auth.signUp({ email, password: mdp, options: { emailRedirectTo: location.href, data: { app: 'famille' } } });
     if (r.error) ui.auth.erreur = messageErreur(r.error);
     else if (mode === 'inscription' && !r.data.session) ui.auth.info = 'Compte créé. Ouvre le lien reçu par e-mail, puis reviens te connecter ici.';
     rendre();
