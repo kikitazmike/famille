@@ -5,7 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
-const VERSION_APPLI = '1.7.0';
+const VERSION_APPLI = '1.7.1';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
@@ -402,8 +402,8 @@ function pageAide() {
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
     ${bloc('soleil', '#D9774A', 'Le point du jour', '', ['Bonjour', 'Le point de la journée', 'C\'est quoi ma journée ?'], 'Donne la météo et les rendez-vous du jour, seulement quand tu le demandes.')}
-    ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels.')}
-    ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
+    ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
+    ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Météo pour demain', 'Montre-moi la météo de la semaine', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
   </div>
   <p style="margin:0;color:var(--pale);font-size:15px">Tu peux ajouter « tablette », « tu peux », « s'il te plaît », « je voudrais »… ils sont ignorés. Parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;
   return { titre: 'Ce que je comprends <small>· à la voix</small>', outils: voixOk() ? `<button class="btn fort" data-a="parlerAide">${i('micro', 18, 2)}Parler</button>` : '', corps };
@@ -696,6 +696,13 @@ async function parler() {
     const r = `Message pour ${p ? p.prenom : 'tout le monde'} : ${c.texte}`;
     toast(`« ${t} » → ${r}`, () => ecrire({ cle: 'messages', op: 'delete', ligne: { id: l.id } })); parlerSi(`C'est noté, message pour ${p ? p.prenom : 'tout le monde'}.`);
   } else if (c.type === 'question') {
+    if (c.montrer) {
+      if (c.sujet === 'meteo') { ui.page = 'meteo'; ui.meteoVue = c.semaine || (c.date && (debutJour(c.date) - debutJour(new Date())) / 86400000 > 1) ? 'sem' : '2j'; }
+      else if (['courses', 'notes', 'messages'].includes(c.sujet)) ui.page = c.sujet;
+      else if (c.sujet === 'taches' || c.sujet === 'poubelle') ui.page = 'rappels';
+      else if (c.sujet === 'agenda') { ui.page = null; if (c.semaine) { ui.vue = 'semaine'; ui.ref = debutJour(c.date || new Date()); } else { ui.vue = 'jour'; ui.ref = debutJour(c.date || new Date()); } }
+      rendre();
+    }
     const r = repondre(c); toast(`« ${t} » → ${r}`); parlerSi(r);
   } else { parlerSi('Je n\'ai pas compris.'); toast(`Je n'ai pas compris : « ${t} ». Essaie « ajoute du pain » ou « note : … ».`); }
 }

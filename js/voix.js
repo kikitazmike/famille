@@ -188,9 +188,11 @@ export function comprendre(texte, prenoms = []) {
   const n = sansAccent(t);
 
   // « Météo », « la météo de demain »
-  if (/^(la\s+)?meteo\b/.test(n) || /^(donne|dis)[- ]?moi la meteo/.test(n) || /^(le\s+)?temps\s+(qu'il|de|pour)\b/.test(n)) {
+  const montrer = /^(montre|montrer|affiche|afficher|ouvre|ouvrir|voir|fais voir|regarde)\b/.test(n);
+  const nm = n.replace(/^(montre|montrer|affiche|afficher|ouvre|ouvrir|voir|fais voir|regarde|donne|dis)[- ]?(moi|nous)?\s+/, '');
+  if (/^(la\s+|le\s+|les\s+)?(meteo|temps|previsions?)\b/.test(nm) && (/meteo|previsions?/.test(nm) || /^(le\s+)?temps\b(\s+(qu'il|de|du|pour|d'|cette|ce|aujourd|demain|apres)|$)/.test(nm))) {
     const d = trouverDate(t);
-    return { type: 'question', sujet: 'meteo', date: d ? d.date : null, semaine: /\bsemaine\b/.test(n), texte: t };
+    return { type: 'question', sujet: 'meteo', date: d ? d.date : null, semaine: /\bsemaine\b/.test(n), montrer, texte: t };
   }
   // Questions : « qu'est-ce qu'on a demain ? », « c'est quand l'anniversaire de Lucas ? »…
   const nq = n.replace(/\?/g, '').trim();
@@ -207,7 +209,7 @@ export function comprendre(texte, prenoms = []) {
     else if (/tache|corvee|menage|vaisselle|aspirateur|ranger/.test(nq)) sujet = 'taches';
     else if (/minuteur|minuterie|chrono/.test(nq)) sujet = 'minuteur';
     const semaine = /\bsemaine\b/.test(nq);
-    return { type: 'question', sujet, date: d ? d.date : null, semaine, texte: t };
+    return { type: 'question', sujet, date: d ? d.date : null, semaine, montrer, texte: t };
   }
 
   // Notes
