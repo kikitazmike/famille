@@ -5,7 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
-const VERSION_APPLI = '1.5.2';
+const VERSION_APPLI = '1.5.3';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
@@ -677,7 +677,7 @@ const actions = {
     if (!reglages.parole) return toast('La voix est coupée : choisis « Activée » juste au-dessus.');
     let parti = false;
     dire('Bonjour ! Je suis la tablette de la famille.', { onDebut: () => { parti = true; }, onErreur: (e) => toast(`La voix n'a pas pu parler (${e}). Vérifie le volume et la synthèse vocale d'Android.`) });
-    setTimeout(() => { if (!parti) toast(`Pas de son ? ${nbVoixFr()} voix française trouvée. Monte le volume média, puis réessaie.`); }, 2500);
+    setTimeout(() => { if (!parti) { const tout = window.speechSynthesis ? speechSynthesis.getVoices() : []; toast(`Pas de son : ${nbVoixFr()} voix française sur ${tout.length} voix vues par Chrome${tout.length ? ' (' + [...new Set(tout.map((v) => v.lang))].slice(0, 6).join(', ') + ')' : ''}.`); } }, 2500);
   },
   modifCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) formCourse(c); },
   supprCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) confirmer('Supprimer cet article ?', `« ${c.nom} » sera retiré de la liste.`, 'Supprimer', () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: c.id } })); },
