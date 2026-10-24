@@ -4,6 +4,9 @@ import { state, surChangement, chargerCache, viderCache, toutCharger, temps_reel
 import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, debutSemaine, hhmm, isoDate, majuscule, depuis, occurrences, prochainAnniv, prochaineTache, deux } from './dates.js';
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
+import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
+const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
 
 const cadre = document.getElementById('cadre');
 const scene = document.getElementById('scene');
@@ -16,7 +19,7 @@ const zPage = document.getElementById('page');
 const zAlerte = document.getElementById('alerte');
 
 const REG = 'famille-tablette';
-const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30' }; } })();
+const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale' }; } })();
 const sauverReglages = () => { try { localStorage.setItem(REG, JSON.stringify(reglages)); } catch (e) { /* ignore */ } };
 
 const ui = { session: null, pret: false, vue: 'jour', ref: debutJour(new Date()), page: null, derniere: Date.now(), alerte: null, ecoute: false, meteo: null, photos: [], photoIdx: 0, reveilJusqua: 0, veilleForcee: false, auth: { erreur: null, info: null }, rejoindre: { erreur: null } };
@@ -194,7 +197,7 @@ function agendaHtml() {
   return `<section class="agenda" aria-label="Agenda de la famille">
     <div class="barre-outils"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>
       <div class="outils">${titre}
-        ${voixDisponible() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button>` : ''}
+        ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button>` : ''}
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
         <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
@@ -345,7 +348,7 @@ function pageCourses() {
     ${c.source === 'titus' ? '<span class="etq">Titus</span>' : m ? `<span class="pt" style="background:${m.couleur}" title="${esc(m.prenom)}"></span>` : ''}
     <button class="btn rond" data-a="modifCourse" data-id="${c.id}" aria-label="Modifier ${esc(c.nom)}">${i('modifier', 20)}</button>
     <button class="btn rond rouge" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 20)}</button></div>`; };
-  return { titre: `Courses <small>· ${aPrendre.length} à prendre</small>`, outils: `${voixDisponible() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`,
+  return { titre: `Courses <small>· ${aPrendre.length} à prendre</small>`, outils: `${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`,
     corps: `<form class="ajout-p" data-form="ajoutCourse" autocomplete="off"><input name="nom" maxlength="120" placeholder="Ajouter un article (plusieurs : séparés par des virgules)" aria-label="Nouvel article"><button class="gros-btn">${i('ajouter', 20, 2.2)} Ajouter</button></form>
     <div class="colonnes"><div><h3>À prendre</h3>${aPrendre.map(ligne).join('') || '<p class="vide">La liste est vide.</p>'}</div>
       <div><h3>Déjà pris</h3>${pris.map(ligne).join('') || '<p class="vide">Rien pour l\'instant.</p>'}${pris.length ? '<button class="gros-btn danger" data-a="viderPris">Vider les articles pris</button>' : ''}</div></div>` };
@@ -435,6 +438,7 @@ function fenReglages() {
     <div class="rangee"><button class="gros-btn second" data-a="basculeCode">${ui.codeVisible ? 'Masquer le code' : 'Afficher le code'}</button>
       <button class="gros-btn second" data-a="nouveauCode" ${ui.codeVisible ? '' : 'disabled'}>Changer le code</button></div>
     <div class="rangee"><label class="champ">Veille de<input type="time" value="${esc(reglages.veilleDebut)}" data-c="veilleDebut"></label><label class="champ">à<input type="time" value="${esc(reglages.veilleFin)}" data-c="veilleFin"></label></div>
+    <label class="champ">Reconnaissance vocale<select data-c="modeVoix"><option value="locale" ${reglages.voix !== 'google' ? 'selected' : ''}>Locale sur la tablette (Vosk, sans Internet)</option><option value="google" ${reglages.voix === 'google' ? 'selected' : ''}>Google (plus précise, besoin d'Internet)</option></select></label>
     <div class="rangee"><button class="gros-btn second" data-a="veilleMaintenant">${i('lune', 20)} Veille maintenant</button><button class="gros-btn second" data-a="pleinEcran">${i('plein', 20)} Plein écran</button></div>
     <a class="gros-btn second" href="./" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Ouvrir l'appli téléphone</a>
     <button class="gros-btn danger" data-a="deconnexion">Déconnecter la tablette</button>`);
@@ -442,11 +446,21 @@ function fenReglages() {
 
 // ---------- Voix ----------
 async function parler() {
-  if (ui.ecoute) return;
+  if (ui.ecoute) { [ecouterLocal.arreter, ecouter.arreter].forEach((a) => a && a()); return; }
   ui.ecoute = true; rendre();
   let t;
-  try { t = await ecouter(); } catch (e) { ui.ecoute = false; rendre(); return toast(e.message); }
-  ui.ecoute = false; rendre();
+  try {
+    if (reglages.voix !== 'google' && micro()) {
+      if (etatVoixLocale() !== 'pret') toast('Préparation de la voix… (la 1re fois, environ 40 Mo)');
+      try { t = await ecouterLocal({ onPartiel: (p) => toast('… ' + p) }); }
+      catch (e) {
+        if (e && (e.name === 'NotAllowedError' || e.name === 'NotFoundError')) throw new Error(e.name === 'NotFoundError' ? 'Aucun micro trouvé.' : 'Autorise le micro pour utiliser la voix.');
+        if (e && /rien entendu|arrêtée/.test(e.message) || !voixDisponible()) throw e;
+        toast('Voix locale indisponible, j\'utilise Google.'); t = await ecouter();
+      }
+    } else t = await ecouter();
+  } catch (e) { ui.ecoute = false; rendre(); return toast(e.message); }
+  ui.ecoute = false; zToast.innerHTML = ''; rendre();
   const c = comprendre(t, personnes().map((p) => p.prenom));
   if (c.type === 'course') {
     const lignes = c.noms.map((nom) => ({ id: nouvelId(), nom: nom.slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }));
@@ -528,7 +542,8 @@ const changements = {
   quiTous(el) { el.form.querySelectorAll('input[name=qui]').forEach((x) => { x.checked = el.checked; }); },
   quiPersonne(el) { const c = [...el.form.querySelectorAll('input[name=qui]')]; el.form.querySelector('input[name=tous]').checked = c.length > 0 && c.every((x) => x.checked); },
   veilleDebut(el) { reglages.veilleDebut = el.value; sauverReglages(); },
-  veilleFin(el) { reglages.veilleFin = el.value; sauverReglages(); }
+  veilleFin(el) { reglages.veilleFin = el.value; sauverReglages(); },
+  modeVoix(el) { reglages.voix = el.value; sauverReglages(); if (el.value === 'locale') preparerVoixLocale().catch(() => {}); rendre(); }
 };
 const formulaires = {
   async connexion(form, sub) {
@@ -652,3 +667,6 @@ async function demarrer() {
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 demarrer();
+
+// Prépare la voix locale en arrière-plan pour que le 1er « Parler » soit rapide
+if (reglages.voix !== 'google' && micro()) setTimeout(() => preparerVoixLocale().catch(() => {}), 8000);

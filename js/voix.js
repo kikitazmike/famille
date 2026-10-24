@@ -52,10 +52,10 @@ function trouverDate(t) {
 }
 
 function trouverHeure(t) {
-  const re = /\b(?:à|a|vers)?\s*(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?\b/i;
+  const re = /(?:(?:^|\s)(?:à|a|vers)\s+|\b)(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?(?![\d])/i;
   const m = t.match(re);
   if (!m) {
-    if (/\bmidi\b/i.test(t)) return { h: 12, min: 0, re: /\b(à\s+)?midi\b/i };
+    if (/\bmidi\b/i.test(t)) return { h: 12, min: 0, re: /\s*(?:à\s+|\ba\s+)?midi\b/i };
     return null;
   }
   const h = Number(m[1]); const min = m[2] ? Number(m[2]) : 0;
@@ -63,9 +63,36 @@ function trouverHeure(t) {
   return { h, min, re };
 }
 
+// Nombres écrits en lettres (Vosk) → chiffres, seulement pour les heures et les dates
+const UNITES = { zero: 0, 'zéro': 0, un: 1, une: 1, premier: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, treize: 13, quatorze: 14, quinze: 15, seize: 16, vingt: 20, trente: 30, quarante: 40, cinquante: 50 };
+const MOT_NB = Object.keys(UNITES).join('|');
+const NB = `(?:${MOT_NB})(?:(?:[\\s-]+et[\\s-]+|[\\s-]+)(?:${MOT_NB}))*`;
+function valeur(txt) {
+  let total = 0;
+  for (const m of txt.toLowerCase().split(/[\s-]+/)) { if (m in UNITES) total += UNITES[m]; }
+  return total;
+}
+export function chiffrer(t) {
+  const MOIS_RE = 'janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre';
+  // « quatorze heures trente », « neuf heures et quart », « dix heures moins le quart »
+  t = t.replace(new RegExp(`\\b(${NB})\\s+heures?(?:\\s+(et quart|et demie|moins le quart|moins quart|${NB}))?(?![\\wà-ÿ])`, 'gi'), (x, h, m) => {
+    let hh = valeur(h); let mm = 0;
+    if (m) {
+      const ml = m.toLowerCase();
+      if (ml === 'et quart') mm = 15; else if (ml === 'et demie') mm = 30;
+      else if (ml.startsWith('moins')) { hh -= 1; mm = 45; } else mm = valeur(m);
+    }
+    return `${hh} h ${String(mm).padStart(2, '0')}`;
+  });
+  t = t.replace(/\bmidi et demie?\b/gi, '12 h 30').replace(/\bminuit\b/gi, '0 h 00');
+  // « le douze mars », « premier mai »
+  t = t.replace(new RegExp(`\\b(${NB})\\s+(${MOIS_RE})\\b`, 'gi'), (x, n, mo) => `${valeur(n)} ${mo}`);
+  return t;
+}
+
 // Renvoie { type: 'course'|'note'|'rdv'|'inconnu', ... }
 export function comprendre(texte, prenoms = []) {
-  let t = (texte || '').trim().replace(/\s+/g, ' ');
+  let t = chiffrer((texte || '').trim().replace(/\s+/g, ' '));
   const n = sansAccent(t);
   if (!t) return { type: 'inconnu' };
 
@@ -87,7 +114,7 @@ export function comprendre(texte, prenoms = []) {
     let titre = t;
     if (date) titre = titre.replace(date.re, ' ');
     if (heure) titre = titre.replace(heure.re, ' ');
-    titre = titre.replace(/^(ajoute\s+)?(un\s+)?(rendez[- ]vous|rdv|événement|evenement)\s*(avec|chez|pour|de|:)?\s*/i, (x, a, b, c, d) => d ? d + ' ' : '');
+    titre = titre.replace(/^(ajoute\s+)?(un\s+)?(rendez[- ]vous|rdv|événement|evenement)\s*(?:(avec|chez|pour|de)\b|:)?\s*/i, (x, a, b, c, d) => d ? d + ' ' : '');
     const qui = prenoms.filter((p) => new RegExp(`\\b${sansAccent(p)}\\b`).test(sansAccent(titre)));
     titre = titre.replace(/\s+(pour|avec)\s*$/i, '').replace(/\s+/g, ' ').trim();
     const d = date ? new Date(date.date) : debutJour(new Date());

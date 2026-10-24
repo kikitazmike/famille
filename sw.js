@@ -1,9 +1,9 @@
 // Fonctionnement hors connexion : l'appli est gardée en cache, les données passent par le réseau
-const VERSION = 'famille-v1.2.2';
+const VERSION = 'famille-v1.3.0';
 const FICHIERS = [
   './', 'index.html', 'tablette.html', 'manifest.webmanifest', 'tablette.webmanifest',
   'css/app.css', 'css/tablette.css',
-  'js/app.js', 'js/tablette.js', 'js/store.js', 'js/supa.js', 'js/config.js', 'js/dates.js', 'js/voix.js', 'js/icones.js',
+  'js/app.js', 'js/tablette.js', 'js/store.js', 'js/supa.js', 'js/config.js', 'js/dates.js', 'js/voix.js', 'js/voix-locale.js', 'js/icones.js',
   'icons/icone-192.png', 'icons/icone-512.png',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm'
 ];
@@ -12,7 +12,7 @@ self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => Promise.all(FICHIERS.map((f) => c.add(f).catch(() => null)))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
-  e.waitUntil(caches.keys().then((k) => Promise.all(k.filter((x) => x !== VERSION).map((x) => caches.delete(x)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then((k) => Promise.all(k.filter((x) => x !== VERSION && x !== 'famille-vosk').map((x) => caches.delete(x)))).then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', (e) => {
@@ -24,6 +24,11 @@ self.addEventListener('fetch', (e) => {
   const memeSite = url.origin === self.location.origin;
   const cdn = url.hostname === 'cdn.jsdelivr.net' || url.hostname.includes('fonts.g');
   if (!memeSite && !cdn) return;
+  // Modèle vocal (gros fichier qui ne change pas) : cache d'abord, dans un cache séparé gardé entre versions
+  if (memeSite && url.pathname.includes('/vosk/')) {
+    e.respondWith(caches.open('famille-vosk').then((c) => c.match(req).then((r) => r || fetch(req).then((rep) => { if (rep.ok) c.put(req, rep.clone()); return rep; }))));
+    return;
+  }
   // Pages et scripts de l'appli : réseau d'abord (mises à jour rapides), cache si hors ligne
   if (memeSite) {
     e.respondWith(fetch(req).then((r) => {
