@@ -13,6 +13,7 @@ export function messageErreur(e) {
   if (/Email not confirmed/i.test(m)) return 'Confirme d\'abord ton adresse e-mail (regarde ta boîte mail).';
   if (/User already registered/i.test(m)) return 'Un compte existe déjà avec cet e-mail. Connecte-toi.';
   if (/Password should be at least/i.test(m)) return 'Le mot de passe doit faire au moins 8 caractères.';
+  if (/email rate limit/i.test(m)) return 'Trop d\'e-mails envoyés pour l\'instant (limite de 2 par heure). Réessaie plus tard ou demande à Michael de désactiver la confirmation par e-mail.';
   if (/rate limit|too many/i.test(m)) return 'Trop de tentatives. Réessaie dans quelques minutes.';
   if (/Failed to fetch|NetworkError|network/i.test(m)) return 'Pas de connexion Internet.';
   return m.replace(/^Error:\s*/, '');
