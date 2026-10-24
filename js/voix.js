@@ -90,59 +90,101 @@ export function chiffrer(t) {
   return t;
 }
 
-// Renvoie { type: 'course'|'note'|'rdv'|'inconnu', ... }
+// Nettoie la phrase : « tablette, est-ce que tu peux ajouter du pain s'il te plaît » → « ajouter du pain »
+export function nettoyer(t) {
+  t = (t || '').replace(/[’`]/g, "'").replace(/'\s+/g, "'").replace(/\s+/g, ' ').trim();
+  t = t.replace(/[.!]+$/, '').trim();
+  let avant;
+  do {
+    avant = t;
+    t = t.replace(/^(?:(?:ok|dis|hey|eh|allez)\s+)?(?:tablette|maison)\s*[,:]?\s+/i, '')
+      .replace(/^(?:est[- ]ce\s+que\s+|est[- ]ce\s+qu')?(?:tu\s+peux|peux[- ]tu|tu\s+pourrais|pourrais[- ]tu|vous\s+pouvez|pouvez[- ]vous|tu\s+veux\s+bien|merci\s+de|merci\s+d')\s*/i, '')
+      .replace(/^(?:s'il\s+te\s+pla[iî]t|s'il\s+vous\s+pla[iî]t|stp|svp)\s*[,:]?\s*/i, '')
+      .replace(/^(?:je\s+voudrais|j'aimerais|je\s+veux|on\s+voudrait|on\s+veut|j'ai\s+besoin\s+d'|j'ai\s+besoin\s+de)\s+(?=(?:ajouter|rajouter|mettre|acheter|noter|écrire|ecrire|prendre|savoir|connaître|connaitre|un|une|des|du|de|le|la|les)\b)/i, '')
+      .replace(/^(?:savoir|connaître|connaitre)\s+/i, '')
+      .replace(/^(?:me|nous)\s+(?:dire|donner|lire)\s+/i, 'dis-moi ')
+      .replace(/\s*[,]?\s*(?:s'il\s+te\s+pla[iî]t|s'il\s+vous\s+pla[iî]t|stp|svp|merci(?:\s+beaucoup)?)\s*$/i, '')
+      .trim();
+  } while (t !== avant);
+  return t;
+}
+
+const ARTICLES = /^(?:(?:du|de la|des|de|un|une|le|la|les)\s+|(?:de l'|d'|l'))/i;
+const VERBES_COURSES = [
+  "n'oublie pas d'acheter", "oublie pas d'acheter", "n'oublie pas de prendre", "pense à acheter", "penser à acheter", "pense à prendre", 'pense a acheter',
+  'il faudrait acheter', 'il faudrait', 'il nous faut', 'il faut acheter', 'il faut racheter', 'il faut', 'faut acheter', 'faut',
+  "il n'y a plus de", "il n'y a plus d'", 'il y a plus de', "n'y a plus de", 'y a plus de', "on n'a plus de", "on n'a plus d'", 'on a plus de', "nous n'avons plus de", 'plus de', "plus d'",
+  'on a besoin de', "on a besoin d'", 'besoin de', 'il manque', 'manque',
+  'ajoute', 'ajouter', 'rajoute', 'rajouter', 'mets', 'met', 'mettre', 'remets', 'achète', 'achete', 'acheter', 'rachète', 'racheter', 'prends', 'prendre',
+  'liste de courses', 'liste des courses', 'courses', 'course'
+];
+const reVerbes = (l) => l.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/'/g, "'").replace(/ /g, '\\s+')).join('|');
+const RE_COURSE = new RegExp(`^(?:${reVerbes(VERBES_COURSES)})(?:\\s*[:,]\\s*|\\s+|(?<='))(.+)$`, 'i');
+const FIN_LISTE = /\s+(?:à|a|dans|sur|sur\s+la|pour)\s+(?:la\s+|ma\s+|notre\s+)?(?:liste(?:\s+de(?:s)?\s+courses?)?|courses)\s*$|\s+(?:aux|dans\s+les|pour\s+les)\s+courses\s*$/i;
+
+const DEBUT_NOTE = /^(?:ajoute\s+une\s+note|ajouter\s+une\s+note|nouvelle\s+note|fais\s+une\s+note|prends?\s+(?:une\s+)?note|prendre\s+(?:une\s+)?note|note|noter|écris|ecris|écrire|ecrire|mémo|memo|pense[- ]bête|pense[- ]bete|retiens\s+que|retenir\s+que|rappelle[- ]toi\s+que|souviens[- ]toi\s+que|n'oublie\s+pas\s+que|oublie\s+pas\s+que)(?:\s*[:,]\s*|\s+)(?:que\s+|qu')?(.+)$/i;
+
+const DEBUT_RDV = /^(?:ajoute(?:r)?\s+(?:un\s+)?rendez[- ]vous|prends?\s+(?:un\s+)?rendez[- ]vous|prendre\s+(?:un\s+)?rendez[- ]vous|nouveau\s+rendez[- ]vous|rendez[- ]vous|rdv|ajoute(?:r)?\s+(?:un\s+)?(?:événement|evenement)|(?:événement|evenement)|réunion|reunion|rappelle[- ]moi|rappelle[- ]nous|rappelle|programme\s+(?:un|une)|planifie|réserve|reserve|j'ai\s+(?:un\s+|une\s+)?|on\s+a\s+(?:un\s+|une\s+)|nous\s+avons\s+(?:un\s+|une\s+)?)/i;
+
+// Renvoie { type: 'course'|'note'|'rdv'|'question'|'inconnu', ... }
 export function comprendre(texte, prenoms = []) {
-  let t = chiffrer((texte || '').trim().replace(/\s+/g, ' '));
+  let t = chiffrer(nettoyer(texte));
   const n = sansAccent(t);
   if (!t) return { type: 'inconnu' };
 
   // « Météo », « la météo de demain »
-  if (/^(la\s+)?meteo\b/.test(n) || /^(donne|dis)[- ]moi la meteo/.test(n)) {
+  if (/^(la\s+)?meteo\b/.test(n) || /^(donne|dis)[- ]?moi la meteo/.test(n) || /^(le\s+)?temps\s+(qu'il|de|pour)\b/.test(n)) {
     const d = trouverDate(t);
     return { type: 'question', sujet: 'meteo', date: d ? d.date : null, semaine: /\bsemaine\b/.test(n), texte: t };
   }
   // Questions : « qu'est-ce qu'on a demain ? », « c'est quand l'anniversaire de Lucas ? »…
-  const nq = n.replace(/'\s+/g, "'").replace(/\?/g, '').trim();
-  if (/^(qu'?\s*est[- ]?ce|il va|il fait|va[- ]t[- ]il|fait[- ]il|qu'?y a[- ]t[- ]il|quoi|quand|c'?est quand|quel|quelle|quels|quelles|est[- ]?ce qu|on a quoi|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]moi|lis|combien|on fait quoi|on mange|c'?est quoi)\b/.test(nq) || /\b(on a quoi|il y a quoi|c'?est quand|y a[- ]t[- ]il)\b/.test(nq) || /\?\s*$/.test(t)) {
+  const nq = n.replace(/\?/g, '').trim();
+  const DEBUT_Q = /^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|qu'avons|quoi|quand|c'?est quand|c'?est quoi|quel|quelle|quels|quelles|est[- ]?ce qu|on a quoi|j'ai quoi|ai[- ]je|avons[- ]nous|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]?moi|donne[- ]?moi|lis|lire|relis|montre|combien|on fait quoi|on mange|il va|il fait|va[- ]t[- ]il|fait[- ]il|(le\s+)?programme\s+(de|d'|pour|du)|quoi de (prevu|neuf))\b/;
+  if (DEBUT_Q.test(nq) || /\b(on a quoi|il y a quoi|c'?est quand|y a[- ]t[- ]il|de prevu|est prevu)\b/.test(nq) || /\?\s*$/.test(t)) {
     const d = trouverDate(t);
     let sujet = 'agenda';
-    if (/meteo|quel temps|temps fait|temps va|temps demain|pleuv|pluie|temperature|degres|froid|chaud|soleil|neige|beau|moche|nuage|vent/.test(nq)) sujet = 'meteo';
+    if (/meteo|quel temps|temps fait|temps va|temps demain|pleuv|pluie|temperature|degres|froid|chaud|soleil|neige|beau|moche|nuage|vent|parapluie/.test(nq)) sujet = 'meteo';
     else if (/anniv/.test(nq)) sujet = 'anniv';
-    else if (/poubelle/.test(nq)) sujet = 'poubelle';
-    else if (/course|acheter|liste|manque/.test(nq)) sujet = 'courses';
-    else if (/\bnotes?\b/.test(nq)) sujet = 'notes';
+    else if (/poubelle|ordure|dechet|tri\b/.test(nq)) sujet = 'poubelle';
+    else if (/course|acheter|liste|manque|frigo|placard/.test(nq)) sujet = 'courses';
+    else if (/\bnotes?\b|memo|pense[- ]bete/.test(nq)) sujet = 'notes';
     const semaine = /\bsemaine\b/.test(nq);
     return { type: 'question', sujet, date: d ? d.date : null, semaine, texte: t };
   }
 
   // Notes
-  let m = t.match(/^(?:nouvelle\s+note|prends?\s+(?:une\s+)?note|note|noter|écris|ecris)\s*[:,]?\s*(?:que\s+)?(.+)$/i);
-  if (m) return { type: 'note', texte: majuscule(m[1]) };
+  let m = t.match(DEBUT_NOTE);
+  if (m) return { type: 'note', texte: majuscule(m[1].trim()) };
 
   // Courses
-  m = t.match(/^(?:ajoute|rajoute|mets|met|achète|achete|acheter|il faut|il manque|on n'a plus de|plus de)\s+(?:du\s+|de la\s+|de l'|des\s+|un\s+|une\s+|le\s+|la\s+|les\s+)?(.+?)(?:\s+(?:à|a|dans|sur)\s+la\s+liste(?:\s+de(?:s)?\s+courses?)?|\s+aux\s+courses|\s+dans\s+les\s+courses)?$/i);
-  if (m && !/rendez|rdv/.test(n)) {
-    const noms = m[1].split(/\s*(?:,|\bet\b)\s*/i).map((x) => x.replace(/^(?:du|de la|de l'|des|un|une|le|la|les)\s+/i, '').trim()).filter(Boolean);
-    return { type: 'course', noms: noms.map(majuscule) };
+  m = !/rendez|rdv|reunion|evenement/.test(n) && t.match(RE_COURSE);
+  if (m) {
+    const reste = m[1].replace(FIN_LISTE, '').trim();
+    if (reste) {
+      const noms = reste.split(/\s*(?:,|\bet\b|\bpuis\b|\bavec\b)\s*/i).map((x) => x.replace(ARTICLES, '').trim()).filter(Boolean);
+      if (noms.length) return { type: 'course', noms: noms.map(majuscule) };
+    }
   }
 
   // Rendez-vous
   const date = trouverDate(t);
   const heure = trouverHeure(t);
-  if (/^(rendez[- ]vous|rdv|rappelle|ajoute un rendez|événement|evenement)/.test(n) || (date && heure)) {
+  if (DEBUT_RDV.test(t) || (date && heure)) {
     let titre = t;
     if (date) titre = titre.replace(date.re, ' ');
     if (heure) titre = titre.replace(heure.re, ' ');
-    titre = titre.replace(/^(ajoute\s+)?(un\s+)?(rendez[- ]vous|rdv|événement|evenement)\s*(?:(avec|chez|pour|de)\b|:)?\s*/i, (x, a, b, c, d) => d ? d + ' ' : '');
+    if (!/^r[ée]union/i.test(titre.trim())) titre = titre.trim().replace(DEBUT_RDV, '').trim();
+    titre = titre.replace(/^(?:(?:avec|chez|pour|de)\b|:)\s*/i, (x) => (/^(avec|chez)/i.test(x) ? x : ''));
+    titre = titre.replace(/^(?:de\s+|d')/i, '');
     const qui = prenoms.filter((p) => new RegExp(`\\b${sansAccent(p)}\\b`).test(sansAccent(titre)));
-    titre = titre.replace(/\s+(pour|avec)\s*$/i, '').replace(/\s+/g, ' ').trim();
+    titre = titre.replace(/\s+(pour|avec|le|à|a)\s*$/i, '').replace(/\s+/g, ' ').trim();
     const d = date ? new Date(date.date) : debutJour(new Date());
     if (heure) d.setHours(heure.h, heure.min, 0, 0); else d.setHours(9, 0, 0, 0);
     return { type: 'rdv', titre: majuscule(titre || 'Rendez-vous'), debut: d, journee: !heure, qui };
   }
 
   // Phrase courte sans verbe : on suppose un article de courses
-  if (t.split(' ').length <= 3) return { type: 'course', noms: [majuscule(t)] };
+  if (t.split(' ').length <= 3) return { type: 'course', noms: [majuscule(t.replace(ARTICLES, ''))] };
   return { type: 'inconnu', texte: t };
 }
 

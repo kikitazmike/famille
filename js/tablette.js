@@ -5,7 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
-const VERSION_APPLI = '1.6.0';
+const VERSION_APPLI = '1.6.1';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
@@ -391,12 +391,12 @@ function pageAide() {
   const bloc = (ic, coul, titre, debut, ex, plus = '') => `<div class="acarte"><h2><span style="color:${coul}">${i(ic, 26, 1.8)}</span>${titre}</h2>
     ${debut ? `<p class="adeb">Commence par : <b>${debut}</b></p>` : ''}<ul>${ex.map((x) => `<li>« ${x} »</li>`).join('')}</ul>${plus ? `<p class="aplus">${plus}</p>` : ''}</div>`;
   const corps = `<div class="aide-grille">
-    ${bloc('courses', '#2E8B57', 'Courses', 'ajoute, rajoute, mets, achète, il faut, il manque, on n\'a plus de', ['Ajoute du pain et des œufs', 'Il manque du café', 'Lait'], 'Un mot seul est aussi ajouté aux courses.')}
-    ${bloc('notes', '#C9822B', 'Notes', 'note, nouvelle note, prends note, écris', ['Note : appeler le plombier', 'Écris acheter un cadeau pour mamie'])}
-    ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, événement — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
+    ${bloc('courses', '#2E8B57', 'Courses', 'ajoute, rajoute, mets, achète, il faut, il manque, on n\'a plus de', ['Ajoute du pain et des œufs', 'Il manque du café', 'Lait'], 'Aussi : faut, il faut acheter, on a plus de, y a plus de, on a besoin de, pense à acheter, n\'oublie pas d\'acheter, prends, courses… Un mot seul est ajouté aux courses.')}
+    ${bloc('notes', '#C9822B', 'Notes', 'note, nouvelle note, prends note, écris', ['Note : appeler le plombier', 'Écris acheter un cadeau pour mamie'], 'Aussi : mémo, pense-bête, retiens que, n\'oublie pas que, souviens-toi que.')}
+    ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, prends rendez-vous, réunion, rappelle-moi, j\'ai… — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
     ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
   </div>
-  <p style="margin:0;color:var(--pale);font-size:15px">Astuce : parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;
+  <p style="margin:0;color:var(--pale);font-size:15px">Tu peux ajouter « tablette », « tu peux », « s'il te plaît », « je voudrais »… ils sont ignorés. Parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;
   return { titre: 'Ce que je comprends <small>· à la voix</small>', outils: voixOk() ? `<button class="btn fort" data-a="parlerAide">${i('micro', 18, 2)}Parler</button>` : '', corps };
 }
 
@@ -531,18 +531,19 @@ async function parler() {
     const lignes = c.noms.map((nom) => ({ id: nouvelId(), nom: nom.slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }));
     await ecrire(lignes.map((l) => ({ cle: 'courses', op: 'insert', ligne: l })));
     parlerSi(`J'ai ajouté ${enumerer(c.noms)} aux courses.`);
-    toast(`Ajouté aux courses : ${c.noms.join(', ')}`, () => ecrire(lignes.map((l) => ({ cle: 'courses', op: 'delete', ligne: { id: l.id } }))));
+    toast(`« ${t} » → ajouté aux courses : ${c.noms.join(', ')}`, () => ecrire(lignes.map((l) => ({ cle: 'courses', op: 'delete', ligne: { id: l.id } }))));
   } else if (c.type === 'note') {
     const l = { id: nouvelId(), texte: c.texte.slice(0, 2000), auteur: state.moi.id, created_at: new Date().toISOString() };
     await ecrire({ cle: 'notes', op: 'insert', ligne: l });
     parlerSi('Note enregistrée.');
-    toast('Note ajoutée.', () => ecrire({ cle: 'notes', op: 'delete', ligne: { id: l.id } }));
+    toast(`« ${t} » → note ajoutée.`, () => ecrire({ cle: 'notes', op: 'delete', ligne: { id: l.id } }));
   } else if (c.type === 'rdv') {
     const qui = c.qui.map((p) => personnes().find((x) => x.prenom === p)).filter(Boolean).map((p) => p.id);
     formRdv({ titre: c.titre, debut: c.debut, journee: c.journee, qui });
+    toast(`« ${t} » → rendez-vous à vérifier.`);
     parlerSi(`Rendez-vous ${c.titre}, ${jourParle(debutJour(c.debut))}${c.journee ? '' : ' à ' + heureParlee(c.debut)}. Vérifie et appuie sur Enregistrer.`);
   } else if (c.type === 'question') {
-    const r = repondre(c); toast(r); parlerSi(r);
+    const r = repondre(c); toast(`« ${t} » → ${r}`); parlerSi(r);
   } else { parlerSi('Je n\'ai pas compris.'); toast(`Je n'ai pas compris : « ${t} ». Essaie « ajoute du pain » ou « note : … ».`); }
 }
 
