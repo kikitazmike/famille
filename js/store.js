@@ -30,14 +30,14 @@ function emettre() {
 
 function sauverCache() {
   try {
-    const { moi, ...reste } = state;
+    const { moi, userId, enAttente, ...reste } = state;
     localStorage.setItem(CACHE, JSON.stringify(reste));
   } catch (e) { /* stockage plein ou bloqué */ }
 }
 export function chargerCache() {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || 'null');
-    if (c) Object.assign(state, c, { enLigne: navigator.onLine });
+    if (c) { delete c.userId; delete c.enAttente; Object.assign(state, c, { enLigne: navigator.onLine }); propre('membres', state.membres || []); propre('rappels', state.rappels || []); }
   } catch (e) { /* ignore */ }
   majMoi();
 }
@@ -53,10 +53,17 @@ export const membre = (id) => state.membres.find((m) => m.id === id) || null;
 export const personnes = () => state.membres.filter((m) => m.type === 'personne').sort((a, b) => a.prenom.localeCompare(b.prenom));
 export const liensDe = (evId) => state.liens.filter((l) => l.evenement_id === evId).map((l) => l.membre_id);
 
+// Couleurs : on n'accepte que #RRGGBB (protège les attributs style)
+const HEX = /^#[0-9A-Fa-f]{6}$/;
+function propre(cle, lignes) {
+  if (cle === 'membres' || cle === 'rappels') lignes.forEach((l) => { if (l.couleur && !HEX.test(l.couleur)) l.couleur = null; });
+  if (cle === 'membres') lignes.forEach((l) => { if (!l.couleur) l.couleur = '#6D5BD0'; });
+  return lignes;
+}
 async function rafraichir(cle) {
   const { data, error } = await sb.from(TABLES[cle]).select('*');
   if (error) throw error;
-  state[cle] = data || [];
+  state[cle] = propre(cle, data || []);
 }
 
 export async function toutCharger(userId) {
@@ -122,7 +129,7 @@ async function envoyer({ cle, op, ligne }) {
       ? await t.delete().eq('evenement_id', ligne.evenement_id).eq('membre_id', ligne.membre_id)
       : await t.delete().eq('id', ligne.id);
   }
-  if (r && r.error) { const err = new Error(r.error.message); err.reseau = estReseau(r.error); throw err; }
+  if (r && r.error) { const err = new Error(r.error.message); err.reseau = estReseau(r.error); err.status = r.status; throw err; }
 }
 
 let envoiEnCours = null;
@@ -132,7 +139,11 @@ export async function vider() {
     let file = lireFile();
     while (file.length && navigator.onLine) {
       try { await envoyer(file[0]); file.shift(); ecrireFile(file); }
-      catch (e) { if (e.reseau) break; console.warn('Écriture abandonnée', e); file.shift(); ecrireFile(file); }
+      catch (e) {
+        // On ne jette que les refus définitifs (données invalides, interdit) ; le reste (session expirée, serveur) est réessayé plus tard
+        if (e.reseau || !e.status || e.status === 401 || e.status >= 500) break;
+        console.warn('Écriture abandonnée', e); file.shift(); ecrireFile(file);
+      }
     }
     state.enAttente = file.length;
   })();
@@ -150,7 +161,7 @@ export async function ecrire(ops) {
     try { await envoyer(ops[i]); }
     catch (e) {
       if (e.reseau) { ecrireFile(lireFile().concat(ops.slice(i))); emettre(); return { hors_ligne: true }; }
-      try { await rafraichir(ops[i].cle); majMoi(); emettre(); } catch (x) { /* ignore */ }
+      try { await Promise.all([...new Set(ops.map((o) => o.cle))].map((k) => rafraichir(k))); majMoi(); emettre(); } catch (x) { /* ignore */ }
       throw e;
     }
   }

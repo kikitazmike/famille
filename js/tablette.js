@@ -1,11 +1,12 @@
 // Écran de la tablette (affichage fixe à la maison)
 import { sb, messageErreur } from './supa.js';
-import { state, surChangement, chargerCache, viderCache, toutCharger, temps_reel, arreterTempsReel, ecrire, nouvelId, membre, personnes, liensDe, urlImage, chargerAnniv } from './store.js';
+import { state, surChangement, chargerCache, viderCache, toutCharger, temps_reel, arreterTempsReel, ecrire as ecrireBase, nouvelId, membre, personnes, liensDe, urlImage, chargerAnniv } from './store.js';
 import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, debutSemaine, hhmm, isoDate, majuscule, depuis, occurrences, prochainAnniv, prochaineTache, deux } from './dates.js';
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
+import { VERSION } from './config.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
-const VERSION_APPLI = '1.7.2';
+const VERSION_APPLI = VERSION;
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
@@ -21,6 +22,9 @@ const zPage = document.getElementById('page');
 const zAlerte = document.getElementById('alerte');
 const zMin = document.getElementById('minut');
 
+// Toute écriture qui échoue affiche un message (au lieu d'échouer en silence)
+const ecrire = (ops) => ecrireBase(ops).catch((x) => { toast(messageErreur(x)); throw x; });
+window.addEventListener('unhandledrejection', (e) => { if (e.reason && e.reason.status) e.preventDefault(); });
 const REG = 'famille-tablette';
 const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', parole: true, annonces: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', parole: true, annonces: true }; } })();
 const sauverReglages = () => { try { localStorage.setItem(REG, JSON.stringify(reglages)); } catch (e) { /* ignore */ } };
@@ -779,7 +783,7 @@ function repondre(c) {
     const l = (state.anniv || []).map((a) => ({ ...a, p: prochainAnniv(a.mois_jour, a.annee) })).filter((a) => a.p).sort((a, b) => a.p.dans - b.p.dans);
     if (!l.length) return 'Je ne connais aucun anniversaire.';
     const q = sansAcc(c.texte);
-    const vise = l.find((a) => sansAcc(a.nom).split(/\s+/).some((mot) => mot.length > 2 && new RegExp(`\\b${mot}\\b`).test(q)));
+    const vise = l.find((a) => sansAcc(a.nom).split(/\s+/).some((mot) => mot.length > 2 && new RegExp(`\\b${mot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(q)));
     const phrase = (a) => `l'anniversaire de ${a.nom}, ${a.p.dans === 0 ? 'c\'est aujourd\'hui' : a.p.dans === 1 ? 'c\'est demain' : `c'est ${jourParle(a.p.date)}, dans ${a.p.dans} jours`}${a.p.age ? `, pour ses ${a.p.age} ans` : ''}`;
     if (vise) return majuscule(phrase(vise)) + '.';
     return 'Le prochain, ' + l.slice(0, 3).map(phrase).join('. Ensuite, ') + '.';

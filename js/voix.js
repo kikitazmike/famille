@@ -236,7 +236,7 @@ export function comprendre(texte, prenoms = []) {
     if (!/^r[ée]union/i.test(titre.trim())) titre = titre.trim().replace(DEBUT_RDV, '').trim();
     titre = titre.replace(/^(?:(?:avec|chez|pour|de)\b|:)\s*/i, (x) => (/^(avec|chez)/i.test(x) ? x : ''));
     titre = titre.replace(/^(?:de\s+|d')/i, '');
-    const qui = prenoms.filter((p) => new RegExp(`\\b${sansAccent(p)}\\b`).test(sansAccent(titre)));
+    const qui = prenoms.filter((p) => new RegExp(`\\b${sansAccent(p).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(sansAccent(titre)));
     titre = titre.replace(/\s+(pour|avec|le|à|a)\s*$/i, '').replace(/\s+/g, ' ').trim();
     const d = date ? new Date(date.date) : debutJour(new Date());
     if (heure) d.setHours(heure.h, heure.min, 0, 0); else d.setHours(9, 0, 0, 0);

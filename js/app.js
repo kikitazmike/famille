@@ -10,7 +10,7 @@ import {
 } from './dates.js';
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
-import { FETAMI_SITE } from './config.js';
+import { FETAMI_SITE, VERSION } from './config.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const contenu = $('#contenu');
@@ -69,7 +69,7 @@ function avatar(m, petit = false, grand = false) {
   if (m.avatar_path) {
     const u = ui.avatars[m.avatar_path];
     if (u === undefined) { ui.avatars[m.avatar_path] = null; urlImage('avatars', m.avatar_path).then((url) => { ui.avatars[m.avatar_path] = url || ''; rendre(); }); }
-    if (u) return `<span class="${cls}" style="${dim}background-image:url('${esc(u)}');background-color:${esc(m.couleur)}" role="img" aria-label="${esc(m.prenom)}"></span>`;
+    if (u && /^https:\/\//.test(u)) return `<span class="${cls}" style="${dim}background-image:url('${esc(encodeURI(u).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29'))}');background-color:${esc(m.couleur)}" role="img" aria-label="${esc(m.prenom)}"></span>`;
   }
   if (m.icone) return `<span class="${cls}" style="${dim}background:${esc(m.couleur)}" role="img" aria-label="${esc(m.prenom)}">${i(m.icone, taille, 2)}</span>`;
   return `<span class="${cls}" style="${dim}background:${esc(m.couleur)}" aria-hidden="true">${esc(initiales(m.prenom))}</span>`;
@@ -314,7 +314,7 @@ function ecranReglages() {
       <button class="item" data-a="deconnexion"><span>Se déconnecter</span>${i('sortir', 18)}</button>
     </div>
     <button class="bouton danger" data-a="supprimerCompte">Supprimer mon compte</button>
-    <p class="aide" style="text-align:center">Famille · version 1.0</p>`;
+    <p class="aide" style="text-align:center">Famille · version ${VERSION}</p>`;
 }
 
 // ---------------- Connexion / inscription ----------------
@@ -620,6 +620,7 @@ let minuteurPlan = null;
 function planifierRappels() {
   clearTimeout(minuteurPlan);
   minuteurPlan = setTimeout(() => {
+    planifies.forEach((t) => clearTimeout(t)); planifies.clear();
     const p = lirePrefs();
     if (!('Notification' in window) || Notification.permission !== 'granted' || p.notifs === false || !state.moi) return;
     const maintenant = new Date(); const fin = new Date(maintenant.getTime() + 26 * 3600000);
@@ -823,7 +824,7 @@ const formulaires = {
     if (mdp.length < 8) return toast('8 caractères minimum.');
     const { error } = await sb.auth.updateUser({ password: mdp });
     if (error) return erreur(error);
-    ui.recup = false; fermerFenetre(); history.replaceState(null, '', location.pathname + '#/agenda'); rendre(); toast('Mot de passe enregistré.');
+    ui.recup = false; fermerFenetre(); history.replaceState(null, '', location.pathname + '#/agenda'); lireRoute(); toast('Mot de passe enregistré.');
   },
   async email(form) {
     const email = (new FormData(form).get('email') || '').trim();
@@ -925,6 +926,7 @@ async function demarrerDonnees() {
 }
 
 async function deconnecter() {
+  planifies.forEach((t) => clearTimeout(t)); planifies.clear(); msgVus.clear(); msgInit = false; ui.avatars = {};
   arreterTempsReel();
   await sb.auth.signOut();
   viderCache();
@@ -943,7 +945,7 @@ async function demarrer() {
     const avant = ui.session && ui.session.user.id;
     ui.session = session;
     if (session && session.user.id !== avant) { state.userId = session.user.id; demarrerDonnees(); }
-    if (!session) rendre();
+    if (!session) { if (avant) viderCache(); rendre(); }
     else if (evt === 'PASSWORD_RECOVERY') rendre();
   });
   lireRoute();
