@@ -135,7 +135,7 @@ function ecranAgenda() {
     const passe = o.fin < maintenant;
     const encours = o.debut <= maintenant && o.fin > maintenant && !o.ev.journee_entiere;
     const pct = encours ? Math.round(((maintenant - o.debut) / (o.fin - o.debut)) * 100) : 0;
-    const meta = [gens.length ? gens.map((g) => g.prenom).join(', ') : 'Tous', o.ev.lieu, !o.ev.journee_entiere && o.ev.fin ? `jusqu'à ${hhmm(o.fin)}` : '', libelleRepetition(o.ev)].filter(Boolean).join(' · ');
+    const meta = [passe ? '✓ terminé' : '', gens.length ? gens.map((g) => g.prenom).join(', ') : 'Tous', o.ev.lieu, !o.ev.journee_entiere && o.ev.fin ? `jusqu'à ${hhmm(o.fin)}` : '', libelleRepetition(o.ev)].filter(Boolean).join(' · ');
     return `<button class="rdv ${passe ? 'passe' : ''} ${encours ? 'encours' : ''}" data-a="ouvrirRdv" data-id="${o.ev.id}">
       <span class="heure">${o.ev.journee_entiere ? 'Journée' : hhmm(o.debut)}</span>
       <span class="barre" style="background:${couleurRdv(ids)}"></span>

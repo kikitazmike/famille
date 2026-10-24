@@ -101,8 +101,7 @@ a { color: var(--accent-texte); }
 .rdv .corps { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
 .rdv .t { font-size: 1.02rem; font-weight: 500; }
 .rdv .m { font-size: .82rem; color: var(--pale); }
-.rdv.passe { opacity: .55; }
-.rdv.passe .t { text-decoration: line-through; }
+.rdv.passe { opacity: .6; }
 .rdv.encours { box-shadow: 0 0 0 2px var(--accent); }
 .progression { height: 4px; border-radius: 2px; background: var(--trait); overflow: hidden; }
 .progression span { display: block; height: 100%; background: var(--accent); }

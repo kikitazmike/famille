@@ -7,17 +7,19 @@ import { ecouter, comprendre, voixDisponible } from './voix.js';
 
 const cadre = document.getElementById('cadre');
 const scene = document.getElementById('scene');
-scene.innerHTML = '<div id="vue"></div><div id="veille"></div><div id="fen"></div><div id="tst" aria-live="polite"></div>';
+scene.innerHTML = '<div id="vue"></div><div id="page"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="tst" aria-live="polite"></div>';
 const vue = document.getElementById('vue');
 const zVeille = document.getElementById('veille');
 const zFen = document.getElementById('fen');
 const zToast = document.getElementById('tst');
+const zPage = document.getElementById('page');
+const zAlerte = document.getElementById('alerte');
 
 const REG = 'famille-tablette';
 const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30' }; } })();
 const sauverReglages = () => { try { localStorage.setItem(REG, JSON.stringify(reglages)); } catch (e) { /* ignore */ } };
 
-const ui = { session: null, pret: false, vue: 'jour', ecoute: false, meteo: null, photos: [], photoIdx: 0, reveilJusqua: 0, veilleForcee: false, auth: { erreur: null, info: null }, rejoindre: { erreur: null } };
+const ui = { session: null, pret: false, vue: 'jour', ref: debutJour(new Date()), page: null, derniere: Date.now(), alerte: null, ecoute: false, meteo: null, photos: [], photoIdx: 0, reveilJusqua: 0, veilleForcee: false, auth: { erreur: null, info: null }, rejoindre: { erreur: null } };
 
 // ---------- Mise à l'échelle 1280 × 800 ----------
 function echelle() {
@@ -153,41 +155,48 @@ function vueJour(jour, estAujourdhui) {
 }
 
 function vueSemaine() {
-  const lundi = debutSemaine(new Date()); const auj = debutJour(new Date());
+  const lundi = debutSemaine(ui.ref); const auj = debutJour(new Date());
   return `<div class="vue-semaine">${Array.from({ length: 7 }, (_, k) => {
     const j = ajouterJours(lundi, k);
     const occs = occsJour(j).sort((a, b) => a.debut - b.debut);
-    return `<div class="j ${memeJour(j, auj) ? 'auj' : ''}"><h3>${JOURS_COURTS[k]} ${j.getDate()}</h3>
+    return `<div class="j ${memeJour(j, auj) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(j)}" role="button" tabindex="0" aria-label="Voir le ${JOURS[k]} ${j.getDate()}"><h3>${JOURS_COURTS[k]} ${j.getDate()}</h3>
       ${occs.slice(0, 7).map((o) => { const ids = liensDe(o.ev.id); return `<div class="e"><i style="background:${tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i><span>${o.ev.journee_entiere ? '' : `<b style="font-weight:600">${hhmm(o.debut)}</b> `}${esc(o.ev.titre)}</span></div>`; }).join('')}
       ${occs.length > 7 ? `<span class="vide" style="font-size:12px">+${occs.length - 7} autres</span>` : ''}${!occs.length ? '<span class="vide" style="font-size:13px">Libre</span>' : ''}</div>`;
   }).join('')}</div>`;
 }
 
 function vueMois() {
-  const n = new Date(); const premier = new Date(n.getFullYear(), n.getMonth(), 1);
+  const n = new Date(); const r = ui.ref; const premier = new Date(r.getFullYear(), r.getMonth(), 1);
   const debut = debutSemaine(premier);
   const cases = Array.from({ length: 42 }, (_, k) => ajouterJours(debut, k));
-  const fin = cases.findIndex((d, k) => k % 7 === 0 && d.getMonth() !== n.getMonth() && d > premier);
+  const fin = cases.findIndex((d, k) => k % 7 === 0 && d.getMonth() !== r.getMonth() && d > premier);
   const visibles = fin > 0 ? cases.slice(0, fin) : cases;
   return `<div class="vue-mois">${JOURS_COURTS.map((j) => `<div class="t">${j}</div>`).join('')}${visibles.map((d) => {
     const occs = occsJour(d);
-    return `<div class="c ${d.getMonth() !== n.getMonth() ? 'hors' : ''} ${memeJour(d, n) ? 'auj' : ''}"><span>${d.getDate()}</span><span class="pts">${occs.slice(0, 6).map((o) => { const ids = liensDe(o.ev.id); return `<i style="background:${memeJour(d, n) ? '#fff' : tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i>`; }).join('')}</span></div>`;
+    return `<div class="c ${d.getMonth() !== r.getMonth() ? 'hors' : ''} ${memeJour(d, n) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(d)}" role="button" tabindex="0" aria-label="Voir le ${d.getDate()} ${MOIS[d.getMonth()]}"><span>${d.getDate()}</span><span class="pts">${occs.slice(0, 6).map((o) => { const ids = liensDe(o.ev.id); return `<i style="background:${memeJour(d, n) ? '#fff' : tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i>`; }).join('')}</span></div>`;
   }).join('')}</div>`;
 }
 
 function agendaHtml() {
-  const auj = debutJour(new Date());
-  const jour = ui.vue === 'demain' ? ajouterJours(auj, 1) : auj;
-  const occs = occsJour(jour); const n = new Date();
+  const auj = debutJour(new Date()); const n = new Date();
+  const enJour = ui.vue === 'jour';
+  const jour = ui.ref;
+  const occs = enJour ? occsJour(jour) : [];
   const enCours = occs.filter((o) => !o.ev.journee_entiere && o.debut <= n && o.fin > n).length;
-  const vues = [['jour', 'Aujourd\'hui'], ['demain', 'Demain'], ['semaine', 'Semaine'], ['mois', 'Mois']];
-  const titre = ui.vue === 'mois' ? `<span>${majuscule(MOIS[n.getMonth()])} ${n.getFullYear()}</span>` : ui.vue === 'semaine' ? '<span>Cette semaine</span>' : `<span>${occs.length} rendez-vous</span>${ui.vue === 'jour' && enCours ? `<span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent)"></span>${enCours} en cours</span>` : ''}`;
-  const corps = ui.vue === 'semaine' ? vueSemaine() : ui.vue === 'mois' ? vueMois() : vueJour(jour, ui.vue === 'jour');
+  const onglet = enJour ? (memeJour(jour, auj) ? 'auj' : memeJour(jour, ajouterJours(auj, 1)) ? 'demain' : '') : ui.vue;
+  const vues = [['auj', 'Aujourd\'hui'], ['demain', 'Demain'], ['semaine', 'Semaine'], ['mois', 'Mois']];
+  let titre;
+  if (ui.vue === 'mois') titre = `<b class="periode">${majuscule(MOIS[ui.ref.getMonth()])} ${ui.ref.getFullYear()}</b>`;
+  else if (ui.vue === 'semaine') { const l = debutSemaine(ui.ref); const d = ajouterJours(l, 6); titre = `<b class="periode">${memeJour(l, debutSemaine(n)) ? 'Cette semaine' : `Du ${l.getDate()} ${l.getMonth() !== d.getMonth() ? MOIS[l.getMonth()].slice(0, 3) + '.' : ''} au ${d.getDate()} ${MOIS[d.getMonth()].slice(0, 3)}.`}</b>`; }
+  else titre = `${onglet ? '' : `<b class="periode">${majuscule(JOURS[jourIso(jour) - 1])} ${jour.getDate()} ${MOIS[jour.getMonth()]}</b>`}<span>${occs.length} rdv</span>${memeJour(jour, auj) && enCours ? `<span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent)"></span>${enCours} en cours</span>` : ''}`;
+  const corps = ui.vue === 'semaine' ? vueSemaine() : ui.vue === 'mois' ? vueMois() : vueJour(jour, memeJour(jour, auj));
+  const nom = ui.vue === 'semaine' ? 'semaine' : ui.vue === 'mois' ? 'mois' : 'jour';
   return `<section class="agenda" aria-label="Agenda de la famille">
-    <div class="barre-outils"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${ui.vue === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>
+    <div class="barre-outils"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>
       <div class="outils">${titre}
         ${voixDisponible() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button>` : ''}
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
+        <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
     ${corps}</section>`;
 }
@@ -200,12 +209,12 @@ function cartesHtml() {
   const anniv = (state.anniv || []).map((a) => ({ ...a, p: prochainAnniv(a.mois_jour, a.annee) })).filter((a) => a.p).sort((a, b) => a.p.dans - b.p.dans);
   const a0 = anniv[0]; const a1 = anniv[1];
   return `<section class="cartes">
-    <div class="carte"><h2>Courses <small>· ${courses.length}</small></h2>
+    <div class="carte clic" data-a="ouvrirPage" data-v="courses" role="button" tabindex="0" aria-label="Ouvrir les courses"><h2>Courses <small>· ${courses.length}</small></h2>
       <div class="puces">${courses.slice(0, 9).map((c) => `<span class="puce">${esc(c.nom)}${c.source === 'titus' ? '<span class="etq">Titus</span>' : ''}</span>`).join('')}${courses.length > 9 ? `<span class="puce" style="color:var(--pale)">+${courses.length - 9}</span>` : ''}</div>
       ${!courses.length ? '<span class="vide">Rien à acheter</span>' : ''}</div>
-    <div class="carte notes"><h2>Notes</h2>
+    <div class="carte notes clic" data-a="ouvrirPage" data-v="notes" role="button" tabindex="0" aria-label="Ouvrir les notes"><h2>Notes</h2>
       ${notes.map((no) => { const a = membre(no.auteur); return `<div class="mininote"><span>${esc(no.texte)}</span><small style="color:${a ? a.couleur : 'var(--pale)'}">${esc(a ? a.prenom : '')} · ${esc(depuis(no.created_at))}</small></div>`; }).join('') || '<span class="vide">Aucune note</span>'}</div>
-    <div class="carte"><h2>Rappels</h2>
+    <div class="carte clic" data-a="ouvrirPage" data-v="rappels" role="button" tabindex="0" aria-label="Ouvrir les rappels"><h2>Rappels</h2>
       ${rappels.map((r) => {
         let s = ''; if (r.echeance) { const d = new Date(r.echeance + 'T00:00:00'); const k = Math.round((d - auj) / 86400000); s = k < 0 ? 'En retard' : k === 0 ? 'Aujourd\'hui' : k <= 14 ? `Dans ${k} jours` : `Avant le ${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'short' })}`; }
         const p = r.pour ? membre(r.pour) : null;
@@ -245,6 +254,7 @@ function rendre() {
     return;
   }
   vue.innerHTML = `<div class="ecran">${enteteHtml()}${agendaHtml()}${cartesHtml()}</div>`;
+  rendrePage();
   rendreVeille();
 }
 
@@ -301,17 +311,121 @@ function fenetre(titre, corps) {
 }
 const fermer = () => { zFen.innerHTML = ''; };
 
-function formRdv(pre = {}) {
-  const d = pre.debut || (() => { const x = new Date(); x.setHours(Math.min(x.getHours() + 1, 21), 0, 0, 0); return x; })();
-  const f = new Date(d.getTime() + 3600000);
-  const qui = pre.qui || [];
-  fenetre('Nouveau rendez-vous', `<form data-form="rdv" style="display:flex;flex-direction:column;gap:14px">
-    <label class="champ">Titre<input name="titre" required maxlength="120" value="${esc(pre.titre || '')}"></label>
+function formRdv(pre = {}, ev = null) {
+  const d = ev ? new Date(ev.debut) : pre.debut || (() => { const x = new Date(ui.ref); const h = new Date().getHours(); x.setHours(Math.min(h + 1, 21), 0, 0, 0); return x; })();
+  const f = ev && ev.fin ? new Date(ev.fin) : new Date(d.getTime() + 3600000);
+  const journee = ev ? ev.journee_entiere : !!pre.journee;
+  const qui = ev ? liensDe(ev.id) : pre.qui || [];
+  const rep = ev ? ev.repetition || 'aucune' : 'aucune';
+  fenetre(ev ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous', `<form data-form="rdv" data-id="${ev ? ev.id : ''}" style="display:flex;flex-direction:column;gap:14px">
+    <label class="champ">Titre<input name="titre" required maxlength="120" value="${esc(ev ? ev.titre : pre.titre || '')}"></label>
     <div class="rangee"><label class="champ">Date<input type="date" name="date" value="${isoDate(d)}" required></label>
-      <label class="champ">Début<input type="time" name="h1" value="${pre.journee ? '' : hhmm(d)}"></label><label class="champ">Fin<input type="time" name="h2" value="${pre.journee ? '' : hhmm(f)}"></label></div>
-    <div class="champ">Qui ? <span style="font-weight:400;color:var(--pale);font-size:13px">(personne = toute la famille)</span><div class="choix">${personnes().map((p) => `<label><input type="checkbox" name="qui" value="${p.id}" ${qui.includes(p.id) ? 'checked' : ''}><span style="width:12px;height:12px;border-radius:50%;background:${p.couleur}"></span>${esc(p.prenom)}</label>`).join('')}</div></div>
+      <label class="champ">Début<input type="time" name="h1" value="${journee ? '' : hhmm(d)}"></label><label class="champ">Fin<input type="time" name="h2" value="${journee ? '' : hhmm(f)}"></label></div>
+    <p style="margin:-6px 0 0;font-size:13px;color:var(--pale)">Laisse « Début » vide pour toute la journée.</p>
+    <div class="champ">Qui ? <span style="font-weight:400;color:var(--pale);font-size:13px">(personne coché = toute la famille)</span><div class="choix">${personnes().map((p) => `<label><input type="checkbox" name="qui" value="${p.id}" ${qui.includes(p.id) ? 'checked' : ''}><span style="width:12px;height:12px;border-radius:50%;background:${p.couleur}"></span>${esc(p.prenom)}</label>`).join('')}</div></div>
+    <div class="rangee"><label class="champ">Lieu<input name="lieu" maxlength="120" value="${esc(ev && ev.lieu || '')}" placeholder="Facultatif"></label>
+      <label class="champ">Répétition<select name="repetition">${[['aucune', 'Aucune'], ['jour', 'Tous les jours'], ['semaine', 'Chaque semaine'], ['mois', 'Tous les mois'], ['annee', 'Tous les ans']].map(([v, l]) => `<option value="${v}" ${rep === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+    ${ev && rep !== 'aucune' ? '<p style="margin:0;font-size:14px;color:var(--doux)">Ce rendez-vous se répète : la modification s\'applique à toutes les fois.</p>' : ''}
+    <div class="rangee"><button class="gros-btn">Enregistrer</button>${ev ? `<button type="button" class="gros-btn danger" data-a="supprRdv" data-id="${ev.id}">Supprimer</button>` : ''}<button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+}
+
+function confirmer(titre, texte, libelle, action) {
+  fenetre(titre, `<p style="margin:0;font-size:18px">${esc(texte)}</p>
+    <div class="rangee"><button class="gros-btn" style="background:#B3261E" data-a="confirmerOui">${esc(libelle)}</button><button class="gros-btn second" data-a="fermer">Annuler</button></div>`);
+  ui.confirmation = action;
+}
+
+// ---------- Pages (courses, notes, rappels) ----------
+function pageCourses() {
+  const aPrendre = state.courses.filter((c) => !c.pris).sort((a, b) => a.created_at < b.created_at ? -1 : 1);
+  const pris = state.courses.filter((c) => c.pris).sort((a, b) => (a.pris_le || '') > (b.pris_le || '') ? -1 : 1);
+  const ligne = (c) => { const m = membre(c.ajoute_par); return `<div class="ligne-p ${c.pris ? 'fait' : ''}">
+    <label><input type="checkbox" data-c="prendre" data-id="${c.id}" ${c.pris ? 'checked' : ''}><span class="tx"><b>${esc(c.nom)}</b>${c.quantite ? `<small>${esc(c.quantite)}</small>` : ''}</span></label>
+    ${c.source === 'titus' ? '<span class="etq">Titus</span>' : m ? `<span class="pt" style="background:${m.couleur}" title="${esc(m.prenom)}"></span>` : ''}
+    <button class="btn rond" data-a="modifCourse" data-id="${c.id}" aria-label="Modifier ${esc(c.nom)}">${i('modifier', 20)}</button>
+    <button class="btn rond rouge" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 20)}</button></div>`; };
+  return { titre: `Courses <small>· ${aPrendre.length} à prendre</small>`, outils: `${voixDisponible() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`,
+    corps: `<form class="ajout-p" data-form="ajoutCourse" autocomplete="off"><input name="nom" maxlength="120" placeholder="Ajouter un article (plusieurs : séparés par des virgules)" aria-label="Nouvel article"><button class="gros-btn">${i('ajouter', 20, 2.2)} Ajouter</button></form>
+    <div class="colonnes"><div><h3>À prendre</h3>${aPrendre.map(ligne).join('') || '<p class="vide">La liste est vide.</p>'}</div>
+      <div><h3>Déjà pris</h3>${pris.map(ligne).join('') || '<p class="vide">Rien pour l\'instant.</p>'}${pris.length ? '<button class="gros-btn danger" data-a="viderPris">Vider les articles pris</button>' : ''}</div></div>` };
+}
+function pageNotes() {
+  const notes = state.notes.slice().sort((a, b) => (b.epingle - a.epingle) || (a.created_at < b.created_at ? 1 : -1));
+  return { titre: `Notes <small>· ${notes.length}</small>`, outils: `<button class="btn fort" data-a="nouvelleNote">${i('ajouter', 18, 2.2)}Nouvelle note</button>`,
+    corps: `<div class="grille-notes">${notes.map((n) => { const a = membre(n.auteur); const p = n.pour ? membre(n.pour) : null; return `<article class="note-p">
+      <div class="haut-n"><small style="color:${a ? a.couleur : 'var(--pale)'}">${esc(a ? a.prenom : '')} · ${esc(depuis(n.created_at))}</small>
+        <button class="btn rond ${n.epingle ? 'actif' : ''}" data-a="epingler" data-id="${n.id}" aria-pressed="${n.epingle}" aria-label="${n.epingle ? 'Désépingler' : 'Épingler'}">${i('epingle', 18, n.epingle ? 2.4 : 1.8)}</button></div>
+      <p>${esc(n.texte)}</p>
+      <div class="bas-n"><span class="etiq">Pour : ${esc(p ? p.prenom : 'Tous')}</span><span><button class="btn rond" data-a="modifNote" data-id="${n.id}" aria-label="Modifier la note">${i('modifier', 18)}</button><button class="btn rond rouge" data-a="supprNote" data-id="${n.id}" aria-label="Supprimer la note">${i('poubelle', 18)}</button></span></div>
+    </article>`; }).join('') || '<p class="vide">Aucune note. Touche « Nouvelle note » pour en ajouter une.</p>'}</div>` };
+}
+function pageRappels() {
+  const auj = debutJour(new Date());
+  const taches = state.rappels.filter((r) => r.type === 'tache').map((t) => ({ ...t, d: prochaineTache(t.jour_semaine || 1, t.fait_le) })).sort((a, b) => a.d - b.d);
+  const rappels = state.rappels.filter((r) => r.type === 'rappel').sort((a, b) => (!!a.fait_le - !!b.fait_le) || ((a.echeance || '9') < (b.echeance || '9') ? -1 : 1));
+  const quand = (d) => { const k = Math.round((d - auj) / 86400000); return k === 0 ? 'aujourd\'hui' : k === 1 ? 'demain' : `dans ${k} jours`; };
+  const lt = taches.map((t) => `<div class="ligne-p"><label><input type="checkbox" data-c="tacheFaite" data-id="${t.id}" data-v="${isoDate(t.d)}"><span class="pt" style="background:${esc(t.couleur || 'var(--accent)')};width:14px;height:14px"></span><span class="tx"><b>${esc(t.titre)}</b><small>${JOURS[(t.jour_semaine || 1) - 1]}${t.moment ? ' ' + esc(t.moment) : ''} · ${quand(t.d)}</small></span></label>
+    <button class="btn rond" data-a="modifRappel" data-id="${t.id}" aria-label="Modifier ${esc(t.titre)}">${i('modifier', 20)}</button><button class="btn rond rouge" data-a="supprRappel" data-id="${t.id}" aria-label="Supprimer ${esc(t.titre)}">${i('poubelle', 20)}</button></div>`).join('');
+  const lr = rappels.map((r) => { const p = r.pour ? membre(r.pour) : null; let e = ''; if (r.echeance) { const d = new Date(r.echeance + 'T00:00:00'); const k = Math.round((d - auj) / 86400000); e = k < 0 ? 'en retard' : `avant le ${d.getDate()} ${MOIS[d.getMonth()]}${k <= 14 ? ` · ${quand(d)}` : ''}`; }
+    return `<div class="ligne-p ${r.fait_le ? 'fait' : ''}"><label><input type="checkbox" data-c="rappelFait" data-id="${r.id}" ${r.fait_le ? 'checked' : ''}><span class="tx"><b>${esc(r.titre)}</b><small>${esc([e, p ? 'pour ' + p.prenom : ''].filter(Boolean).join(' · '))}</small></span></label>
+    <button class="btn rond" data-a="modifRappel" data-id="${r.id}" aria-label="Modifier ${esc(r.titre)}">${i('modifier', 20)}</button><button class="btn rond rouge" data-a="supprRappel" data-id="${r.id}" aria-label="Supprimer ${esc(r.titre)}">${i('poubelle', 20)}</button></div>`; }).join('');
+  return { titre: 'Rappels et maison', outils: '',
+    corps: `<div class="colonnes"><div><h3>Tâches de la maison</h3>${lt || '<p class="vide">Aucune tâche.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="tache">${i('ajouter', 20, 2.2)} Ajouter une tâche</button></div>
+      <div><h3>Rappels</h3>${lr || '<p class="vide">Aucun rappel.</p>'}<button class="gros-btn second" data-a="nouveauRappel" data-v="rappel">${i('ajouter', 20, 2.2)} Ajouter un rappel</button></div></div>` };
+}
+function rendrePage() {
+  if (!ui.page) { zPage.innerHTML = ''; return; }
+  const act = document.activeElement;
+  if (act && zPage.contains(act) && act.tagName === 'INPUT' && act.type === 'text' && act.value) return; // on ne coupe pas une saisie
+  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : pageRappels();
+  const garder = zPage.querySelector('.page-corps'); const defil = garder ? garder.scrollTop : 0;
+  zPage.innerHTML = `<div class="page" role="dialog" aria-modal="true" aria-label="${ui.page}"><header><h1>${p.titre}</h1><div class="outils">${p.outils}<button class="btn rond grand" data-a="fermerPage" aria-label="Fermer et revenir à l'accueil">${i('fermer', 26, 2.2)}</button></div></header><div class="page-corps">${p.corps}</div></div>`;
+  const c = zPage.querySelector('.page-corps'); if (c) c.scrollTop = defil;
+}
+
+function formCourse(c) {
+  fenetre('Modifier l\'article', `<form data-form="course" data-id="${c.id}" style="display:flex;flex-direction:column;gap:14px">
+    <label class="champ">Article<input name="nom" required maxlength="120" value="${esc(c.nom)}"></label>
+    <label class="champ">Quantité ou précision<input name="quantite" maxlength="60" value="${esc(c.quantite || '')}" placeholder="Facultatif"></label>
     <div class="rangee"><button class="gros-btn">Enregistrer</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
 }
+function formNote(n) {
+  fenetre(n ? 'Modifier la note' : 'Nouvelle note', `<form data-form="note" data-id="${n ? n.id : ''}" style="display:flex;flex-direction:column;gap:14px">
+    <label class="champ">Note<textarea name="texte" required maxlength="2000" rows="4" style="padding:12px 16px;border-radius:14px;border:1px solid #DCD2C3;font-size:18px">${esc(n ? n.texte : '')}</textarea></label>
+    <div class="rangee"><label class="champ">Pour<select name="pour"><option value="">Tous</option>${personnes().map((p) => `<option value="${p.id}" ${n && n.pour === p.id ? 'selected' : ''}>${esc(p.prenom)}</option>`).join('')}</select></label>
+      <div class="champ">&nbsp;<div class="choix"><label><input type="checkbox" name="epingle" ${n && n.epingle ? 'checked' : ''}>Épingler</label></div></div></div>
+    <div class="rangee"><button class="gros-btn">Enregistrer</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+}
+function formRappel(r, type) {
+  type = r ? r.type : type; const tache = type === 'tache';
+  fenetre(r ? (tache ? 'Modifier la tâche' : 'Modifier le rappel') : (tache ? 'Nouvelle tâche' : 'Nouveau rappel'), `<form data-form="rappel" data-id="${r ? r.id : ''}" data-type="${type}" style="display:flex;flex-direction:column;gap:14px">
+    <label class="champ">${tache ? 'Tâche' : 'Rappel'}<input name="titre" required maxlength="200" value="${esc(r ? r.titre : '')}" placeholder="${tache ? 'Poubelle jaune, arroser…' : 'Contrôle technique, facture…'}"></label>
+    ${tache ? `<div class="rangee"><label class="champ">Jour<select name="jour">${JOURS.map((j, k) => `<option value="${k + 1}" ${r && r.jour_semaine === k + 1 ? 'selected' : ''}>${majuscule(j)}</option>`).join('')}</select></label>
+      <label class="champ">Moment<select name="moment">${['soir', 'matin', 'midi', ''].map((v) => `<option value="${v}" ${r && (r.moment || '') === v ? 'selected' : ''}>${v ? majuscule(v) : '—'}</option>`).join('')}</select></label></div>
+      <div class="champ">Couleur<div class="choix">${[['#D8B84A', 'Jaune'], ['#3B6FD8', 'Bleu'], ['#1F8A4C', 'Vert'], ['#8A8A8A', 'Gris'], ['#D9774A', 'Orange']].map(([c, l], k) => `<label><input type="radio" name="couleur" value="${c}" ${(r ? r.couleur === c : k === 0) ? 'checked' : ''}><span style="width:16px;height:16px;border-radius:50%;background:${c}"></span>${l}</label>`).join('')}</div></div>`
+    : `<div class="rangee"><label class="champ">Avant le<input type="date" name="echeance" value="${esc(r && r.echeance || '')}"></label>
+      <label class="champ">Pour<select name="pour"><option value="">Tous</option>${personnes().map((p) => `<option value="${p.id}" ${r && r.pour === p.id ? 'selected' : ''}>${esc(p.prenom)}</option>`).join('')}</select></label></div>`}
+    <div class="rangee"><button class="gros-btn">Enregistrer</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+}
+
+// ---------- Retour automatique à l'accueil ----------
+const horsAccueil = () => !!ui.page || !!zFen.innerHTML || ui.vue !== 'jour' || !memeJour(ui.ref, debutJour(new Date()));
+function retourAccueil() {
+  ui.page = null; ui.vue = 'jour'; ui.ref = debutJour(new Date()); ui.alerte = null;
+  zFen.innerHTML = ''; zAlerte.innerHTML = ''; rendre();
+}
+function verifierInactivite() {
+  if (!state.moi || enVeille()) return;
+  const calme = Date.now() - ui.derniere;
+  if (ui.alerte) { if (Date.now() - ui.alerte > 60000) retourAccueil(); return; }
+  if (horsAccueil() && calme > 5 * 60000) {
+    ui.alerte = Date.now();
+    zAlerte.innerHTML = `<div class="voile" style="z-index:50"><div class="fen" role="alertdialog" aria-modal="true" style="width:520px;align-items:center;text-align:center">
+      <h2 style="justify-content:center">Toujours là ?</h2><p style="margin:0;font-size:18px;color:var(--doux)">Sans réponse, l'écran revient à l'accueil dans une minute.</p>
+      <div class="rangee" style="width:100%"><button class="gros-btn" data-a="toujoursLa">Oui, je continue</button><button class="gros-btn second" data-a="retourAccueil">Revenir à l'accueil</button></div></div></div>`;
+  }
+}
+['pointerdown', 'keydown'].forEach((t) => document.addEventListener(t, () => { ui.derniere = Date.now(); }, { capture: true }));
 
 function fenReglages() {
   fenetre('Réglages de la tablette', `
@@ -349,16 +463,46 @@ async function parler() {
 // ---------- Actions ----------
 const actions = {
   annuler() { if (ui.annuler) ui.annuler(); zToast.innerHTML = ''; },
-  vue(d) { ui.vue = d.v; rendre(); },
+  vue(d) { const auj = debutJour(new Date()); if (d.v === 'auj') { ui.vue = 'jour'; ui.ref = auj; } else if (d.v === 'demain') { ui.vue = 'jour'; ui.ref = ajouterJours(auj, 1); } else { ui.vue = d.v; ui.ref = auj; } rendre(); },
   parler,
   ajouterRdv() { formRdv(); },
   voirRdv(d) {
     const ev = state.evenements.find((x) => x.id === d.id); if (!ev) return;
     const gens = liensDe(ev.id).map(membre).filter(Boolean);
-    fenetre(ev.titre, `<p style="margin:0;font-size:18px">${ev.journee_entiere ? 'Toute la journée' : `${hhmm(new Date(ev.debut))}${ev.fin ? ' – ' + hhmm(new Date(ev.fin)) : ''}`}${ev.lieu ? ' · ' + esc(ev.lieu) : ''}</p>
-      <p style="margin:0;color:var(--doux)">${esc(gens.length ? gens.map((g) => g.prenom).join(', ') : 'Toute la famille')}</p>${ev.note ? `<p style="margin:0;white-space:pre-wrap">${esc(ev.note)}</p>` : ''}
-      <p style="margin:0;color:var(--pale);font-size:14px">Pour modifier, utilise l'appli sur ton téléphone.</p><button class="gros-btn second" data-a="fermer">Fermer</button>`);
+    const lib = { jour: 'Tous les jours', semaine: 'Chaque semaine', mois: 'Tous les mois', annee: 'Tous les ans' }[ev.repetition];
+    fenetre(ev.titre, `<p style="margin:0;font-size:20px">${ev.journee_entiere ? 'Toute la journée' : `${hhmm(new Date(ev.debut))}${ev.fin ? ' – ' + hhmm(new Date(ev.fin)) : ''}`}${ev.lieu ? ' · ' + esc(ev.lieu) : ''}</p>
+      <p style="margin:0;font-size:17px;color:var(--doux)">${esc(gens.length ? gens.map((g) => g.prenom).join(', ') : 'Toute la famille')}${lib ? ' · ' + lib : ''}</p>${ev.note ? `<p style="margin:0;white-space:pre-wrap;font-size:17px">${esc(ev.note)}</p>` : ''}
+      <div class="rangee"><button class="gros-btn" data-a="modifRdv" data-id="${ev.id}">${i('modifier', 20)} Modifier</button><button class="gros-btn danger" data-a="supprRdv" data-id="${ev.id}">${i('poubelle', 20)} Supprimer</button><button class="gros-btn second" data-a="fermer">Fermer</button></div>`);
   },
+  modifRdv(d) { const ev = state.evenements.find((x) => x.id === d.id); if (ev) formRdv({}, ev); },
+  supprRdv(d) {
+    const ev = state.evenements.find((x) => x.id === d.id); if (!ev) return;
+    confirmer('Supprimer ce rendez-vous ?', ev.repetition && ev.repetition !== 'aucune' ? `« ${ev.titre} » se répète : toutes les fois seront supprimées.` : `« ${ev.titre} » sera supprimé pour toute la famille.`, 'Supprimer',
+      async () => { await ecrire({ cle: 'evenements', op: 'delete', ligne: { id: ev.id } }); state.liens = state.liens.filter((l) => l.evenement_id !== ev.id); rendre(); toast('Rendez-vous supprimé.'); });
+  },
+  async confirmerOui() { const a = ui.confirmation; ui.confirmation = null; fermer(); if (a) await a(); },
+  decaler(d) {
+    const k = Number(d.v);
+    if (ui.vue === 'semaine') ui.ref = ajouterJours(ui.ref, 7 * k);
+    else if (ui.vue === 'mois') ui.ref = new Date(ui.ref.getFullYear(), ui.ref.getMonth() + k, 1);
+    else ui.ref = ajouterJours(ui.ref, k);
+    rendre();
+  },
+  allerJour(d) { const [y, m, j] = d.v.split('-').map(Number); ui.ref = new Date(y, m - 1, j); ui.vue = 'jour'; rendre(); },
+  ouvrirPage(d) { ui.page = d.v; rendre(); },
+  fermerPage() { ui.page = null; rendre(); },
+  toujoursLa() { ui.alerte = null; ui.derniere = Date.now(); zAlerte.innerHTML = ''; },
+  retourAccueil,
+  modifCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) formCourse(c); },
+  supprCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) confirmer('Supprimer cet article ?', `« ${c.nom} » sera retiré de la liste.`, 'Supprimer', () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: c.id } })); },
+  viderPris() { const pris = state.courses.filter((c) => c.pris); confirmer('Vider les articles pris ?', `${pris.length} article(s) seront retirés de la liste.`, 'Vider', () => ecrire(pris.map((c) => ({ cle: 'courses', op: 'delete', ligne: { id: c.id } })))); },
+  nouvelleNote() { formNote(null); },
+  modifNote(d) { const n = state.notes.find((x) => x.id === d.id); if (n) formNote(n); },
+  epingler(d) { const n = state.notes.find((x) => x.id === d.id); if (n) ecrire({ cle: 'notes', op: 'update', ligne: { id: n.id, epingle: !n.epingle } }); },
+  supprNote(d) { confirmer('Supprimer cette note ?', 'Elle disparaîtra pour toute la famille.', 'Supprimer', () => ecrire({ cle: 'notes', op: 'delete', ligne: { id: d.id } })); },
+  nouveauRappel(d) { formRappel(null, d.v); },
+  modifRappel(d) { const r = state.rappels.find((x) => x.id === d.id); if (r) formRappel(r); },
+  supprRappel(d) { const r = state.rappels.find((x) => x.id === d.id); if (r) confirmer('Supprimer ?', `« ${r.titre} » sera supprimé pour toute la famille.`, 'Supprimer', () => ecrire({ cle: 'rappels', op: 'delete', ligne: { id: r.id } })); },
   reglages: fenReglages,
   fermer,
   fermerVoile(d, el, e) { if (e.target === el) fermer(); },
@@ -369,6 +513,9 @@ const actions = {
   async deconnexion() { arreterTempsReel(); await sb.auth.signOut(); viderCache(); ui.session = null; ui.pret = false; fermer(); rendre(); }
 };
 const changements = {
+  prendre(el) { ecrire({ cle: 'courses', op: 'update', ligne: { id: el.dataset.id, pris: el.checked, pris_le: el.checked ? new Date().toISOString() : null } }); },
+  tacheFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.dataset.v } }); toast('Bien joué ! C\'est noté pour cette semaine.'); },
+  rappelFait(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? isoDate(new Date()) : null } }); },
   veilleDebut(el) { reglages.veilleDebut = el.value; sauverReglages(); },
   veilleFin(el) { reglages.veilleFin = el.value; sauverReglages(); }
 };
@@ -390,18 +537,51 @@ const formulaires = {
     await demarrerDonnees();
   },
   async rdv(form) {
-    const fd = new FormData(form); const titre = (fd.get('titre') || '').trim(); if (!titre) return;
+    const fd = new FormData(form); const titre = (fd.get('titre') || '').trim(); if (!titre) return toast('Donne un titre au rendez-vous.');
     const [y, m, j] = fd.get('date').split('-').map(Number);
     const journee = !fd.get('h1');
     const debut = new Date(y, m - 1, j); let fin;
     if (journee) fin = ajouterJours(debut, 1);
     else { const [a, b] = fd.get('h1').split(':').map(Number); debut.setHours(a, b, 0, 0); fin = new Date(debut.getTime() + 3600000); if (fd.get('h2')) { const [c, e] = fd.get('h2').split(':').map(Number); const f2 = new Date(debut); f2.setHours(c, e, 0, 0); if (f2 > debut) fin = f2; } }
-    const id = nouvelId();
-    const ops = [{ cle: 'evenements', op: 'insert', ligne: { id, titre, debut: debut.toISOString(), fin: fin.toISOString(), journee_entiere: journee, repetition: 'aucune', cree_par: state.moi.id, created_at: new Date().toISOString() } },
-      ...fd.getAll('qui').map((mid) => ({ cle: 'liens', op: 'insert', ligne: { evenement_id: id, membre_id: mid } }))];
+    const rep = fd.get('repetition') || 'aucune';
+    const id = form.dataset.id || nouvelId();
+    const ancien = form.dataset.id ? state.evenements.find((x) => x.id === id) : null;
+    const ligne = { id, titre, debut: debut.toISOString(), fin: fin.toISOString(), journee_entiere: journee, lieu: (fd.get('lieu') || '').trim() || null, repetition: rep,
+      jours_semaine: rep === 'semaine' ? (ancien && ancien.repetition === 'semaine' && ancien.jours_semaine ? ancien.jours_semaine : [jourIso(debut)]) : null };
+    const qui = fd.getAll('qui'); const avant = ancien ? liensDe(id) : [];
+    const ops = [ancien ? { cle: 'evenements', op: 'update', ligne } : { cle: 'evenements', op: 'insert', ligne: { ...ligne, cree_par: state.moi.id, created_at: new Date().toISOString() } }];
+    avant.filter((x) => !qui.includes(x)).forEach((mid) => ops.push({ cle: 'liens', op: 'delete', ligne: { evenement_id: id, membre_id: mid } }));
+    qui.filter((x) => !avant.includes(x)).forEach((mid) => ops.push({ cle: 'liens', op: 'insert', ligne: { evenement_id: id, membre_id: mid } }));
     fermer();
     await ecrire(ops);
-    toast('Rendez-vous ajouté.');
+    toast(ancien ? 'Rendez-vous modifié.' : 'Rendez-vous ajouté.');
+  },
+  async ajoutCourse(form) {
+    const input = form.querySelector('input[name=nom]');
+    const noms = (input.value || '').split(/\s*,\s*/).map((x) => x.trim()).filter(Boolean); if (!noms.length) return;
+    input.value = ''; input.blur();
+    await ecrire(noms.map((nom) => ({ cle: 'courses', op: 'insert', ligne: { id: nouvelId(), nom: majuscule(nom).slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() } })));
+    rendre();
+  },
+  async course(form) {
+    const fd = new FormData(form); const nom = (fd.get('nom') || '').trim(); if (!nom) return;
+    fermer(); await ecrire({ cle: 'courses', op: 'update', ligne: { id: form.dataset.id, nom: nom.slice(0, 120), quantite: (fd.get('quantite') || '').trim() || null } });
+  },
+  async note(form) {
+    const fd = new FormData(form); const texte = (fd.get('texte') || '').trim(); if (!texte) return toast('La note est vide.');
+    const ligne = { texte, pour: fd.get('pour') || null, epingle: !!fd.get('epingle') };
+    fermer();
+    if (form.dataset.id) await ecrire({ cle: 'notes', op: 'update', ligne: { id: form.dataset.id, ...ligne } });
+    else await ecrire({ cle: 'notes', op: 'insert', ligne: { id: nouvelId(), auteur: state.moi.id, created_at: new Date().toISOString(), ...ligne } });
+  },
+  async rappel(form) {
+    const fd = new FormData(form); const titre = (fd.get('titre') || '').trim(); if (!titre) return toast('Donne un titre.');
+    const type = form.dataset.type;
+    const ligne = type === 'tache' ? { titre, type, jour_semaine: Number(fd.get('jour')), moment: fd.get('moment') || null, couleur: fd.get('couleur') || null }
+      : { titre, type, echeance: fd.get('echeance') || null, pour: fd.get('pour') || null };
+    fermer();
+    if (form.dataset.id) await ecrire({ cle: 'rappels', op: 'update', ligne: { id: form.dataset.id, ...ligne } });
+    else await ecrire({ cle: 'rappels', op: 'insert', ligne: { id: nouvelId(), cree_par: state.moi.id, created_at: new Date().toISOString(), ...ligne } });
   }
 };
 
@@ -454,6 +634,7 @@ async function demarrer() {
   setInterval(chargerMeteo, 30 * 60000);
   setInterval(() => { chargerAnniv(); chargerPhotos(); }, 6 * 3600000);
   setInterval(photoSuivante, 30000);
+  setInterval(verifierInactivite, 10000);
   // recharge complète chaque nuit pour récupérer les mises à jour de l'appli
   setInterval(() => { const n = new Date(); if (n.getHours() === 4 && n.getMinutes() === 0) location.reload(); }, 60000);
 }

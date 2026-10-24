@@ -136,3 +136,44 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .veille .bulle { position: absolute; padding: 22px 30px; border-radius: 28px; background: rgba(46, 36, 28, .55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .veille .h { font-size: 88px; line-height: .9; font-weight: 200; letter-spacing: -3px; }
 .veille .h .dp { color: #B7ADF5; font-weight: 400; }
+
+/* Navigation de l'agenda */
+.fleches { display: flex; gap: 6px; }
+.periode { font-weight: 600; color: var(--encre); font-size: 16px; white-space: nowrap; }
+.vue-semaine .j, .vue-mois .c, .carte.clic { cursor: pointer; }
+.vue-semaine .j:active, .vue-mois .c:active { box-shadow: inset 0 0 0 2px var(--accent); }
+.carte.clic:active { transform: scale(.985); }
+.carte.clic { transition: transform .1s; }
+
+/* Pages plein écran (courses, notes, rappels) */
+.page { position: absolute; inset: 0; z-index: 15; background: var(--fond); display: flex; flex-direction: column; padding: 30px 44px; gap: 18px; }
+.page header { display: flex; align-items: center; justify-content: space-between; }
+.page h1 { margin: 0; font-size: 40px; font-weight: 400; }
+.page h1 small { font-size: 24px; color: var(--pale); font-weight: 300; }
+.page .outils { display: flex; gap: 12px; align-items: center; }
+.btn.rond.grand { width: 60px; height: 60px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(60, 40, 10, .15); color: var(--encre); }
+.btn.rond.rouge { color: #B3261E; }
+.btn.rond.actif { color: var(--accent-texte); background: var(--accent-doux); }
+.page-corps { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding-bottom: 20px; }
+.ajout-p { display: flex; gap: 12px; }
+.ajout-p input { flex: 1; height: 60px; padding: 0 20px; border-radius: 16px; border: 1px solid #DCD2C3; background: #fff; font-size: 19px; }
+.ajout-p .gros-btn { height: 60px; display: inline-flex; align-items: center; gap: 8px; }
+.colonnes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.colonnes > div { display: flex; flex-direction: column; gap: 10px; }
+.colonnes h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--pale); }
+.ligne-p { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 18px; padding: 8px 10px 8px 18px; min-height: 64px; box-shadow: 0 1px 0 var(--trait); }
+.ligne-p label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; cursor: pointer; min-height: 48px; }
+.ligne-p input[type=checkbox] { width: 26px; height: 26px; accent-color: var(--accent); flex-shrink: 0; }
+.ligne-p .tx { display: flex; flex-direction: column; min-width: 0; }
+.ligne-p .tx b { font-size: 19px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ligne-p .tx small { font-size: 14px; color: var(--pale); }
+.ligne-p .pt { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.ligne-p.fait { background: var(--creux); box-shadow: none; }
+.ligne-p.fait .tx b { color: var(--pale); }
+.grille-notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.note-p { background: #fff; border-radius: 22px; padding: 14px 16px 10px 20px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 0 var(--trait); }
+.note-p p { margin: 0; font-size: 19px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; flex: 1; }
+.note-p .haut-n, .note-p .bas-n { display: flex; justify-content: space-between; align-items: center; }
+.note-p .haut-n small { font-size: 14px; font-weight: 500; }
+.note-p .etiq { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--creux); color: var(--doux); }
+.note-p .bas-n span { display: flex; gap: 6px; }
