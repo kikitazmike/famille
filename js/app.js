@@ -613,7 +613,7 @@ function menuArticles(aPrendre) {
     <select id="menuArticles" class="menu-articles" data-c="choixArticle">
       <option value="" selected>🛒 Choisir un article (${nbPropositions(g)})…</option>
       <option value="__ecrire">✏️ Écrire un autre article…</option>
-      ${optionsMenu(g, esc)}
+      ${optionsMenu(g, esc, !ui.catCourses)}
     </select></div>`;
 }
 // ---------- Messages, tâches de chacun, articles habituels ----------

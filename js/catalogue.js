@@ -61,7 +61,9 @@ export function propositionsArticles(aPrendre) {
 }
 export const nbPropositions = (groupes) => groupes.reduce((n, g) => n + g.articles.length, 0);
 // Options HTML du menu (avec groupes par catégorie)
-export function optionsMenu(groupes, esc) {
+export function optionsMenu(groupes, esc, plat = false) {
+  const opt = (x) => `<option value="${esc(x.nom)}">${x.icone} ${esc(x.nom)}${x.frequent ? ' ★' : ''}</option>`;
+  if (plat) return groupes.flatMap((g) => g.articles).sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' })).map(opt).join('');
   return groupes.map((g) => `<optgroup label="${esc(g.icone + ' ' + g.categorie)}">${g.articles.map((x) => `<option value="${esc(x.nom)}">${x.icone} ${esc(x.nom)}${x.frequent ? ' ★' : ''}</option>`).join('')}</optgroup>`).join('');
 }
 
