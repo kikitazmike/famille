@@ -86,8 +86,14 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .puces { display: flex; flex-wrap: wrap; gap: 8px; }
 .puce { padding: 7px 13px; border-radius: 999px; background: var(--creux); font-size: 16px; display: inline-flex; align-items: center; gap: 6px; }
 .etq { font-size: 11px; font-weight: 600; color: var(--accent-texte); background: var(--accent-doux); padding: 2px 7px; border-radius: 999px; }
-.carte.notes { background: #F1EEFB; box-shadow: none; }
-.carte.notes h2 { color: #2F2580; }
+.carte.notes { background: #FBE4EE; box-shadow: none; }
+.carte.notes h2 { color: #8A2350; }
+.carte.courses { background: #E0EEFB; box-shadow: none; }
+.carte.courses h2 { color: #1F4E79; }
+.carte.courses .puce, .carte.courses .chip { background: #fff; }
+.carte.rappels { background: #ECE8FB; box-shadow: none; }
+.carte.rappels h2 { color: #3B2F8F; }
+.carte.rappels .rap .ic { background: #fff; }
 .mininote { background: #fff; border-radius: 16px; padding: 9px 14px; display: flex; flex-direction: column; gap: 2px; }
 .mininote span { font-size: 15px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .mininote small { font-size: 12px; font-weight: 500; }

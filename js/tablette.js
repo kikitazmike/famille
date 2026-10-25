@@ -227,12 +227,12 @@ function cartesHtml() {
   const anniv = (state.anniv || []).map((a) => ({ ...a, p: prochainAnniv(a.mois_jour, a.annee) })).filter((a) => a.p).sort((a, b) => a.p.dans - b.p.dans);
   const a0 = anniv[0]; const a1 = anniv[1];
   return `<section class="cartes">
-    <div class="carte clic" data-a="ouvrirPage" data-v="courses" role="button" tabindex="0" aria-label="Ouvrir les courses"><h2>Courses <small>· ${courses.length}</small></h2>
+    <div class="carte courses clic" data-a="ouvrirPage" data-v="courses" role="button" tabindex="0" aria-label="Ouvrir les courses"><h2>Courses <small>· ${courses.length}</small></h2>
       <div class="puces">${courses.slice(0, 9).map((c) => `<span class="puce">${esc(c.nom)}${c.source === 'titus' ? '<span class="etq">Titus</span>' : ''}</span>`).join('')}${courses.length > 9 ? `<span class="puce" style="color:var(--pale)">+${courses.length - 9}</span>` : ''}</div>
       ${!courses.length ? '<span class="vide">Rien à acheter</span>' : ''}</div>
     <div class="carte notes clic" data-a="ouvrirPage" data-v="notes" role="button" tabindex="0" aria-label="Ouvrir les notes"><h2>Notes</h2>
       ${notes.map((no) => { const a = membre(no.auteur); return `<div class="mininote"><span>${esc(no.texte)}</span><small style="color:${a ? a.couleur : 'var(--pale)'}">${esc(a ? a.prenom : '')} · ${esc(depuis(no.created_at))}</small></div>`; }).join('') || '<span class="vide">Aucune note</span>'}</div>
-    <div class="carte clic" data-a="ouvrirPage" data-v="rappels" role="button" tabindex="0" aria-label="Ouvrir les rappels"><h2>Rappels${(() => { const c = corvees().filter((x) => x.aujourdhui); return c.length ? ` <small>· tâches ${c.filter((x) => x.fait).length}/${c.length}</small>` : ''; })()}</h2>
+    <div class="carte rappels clic" data-a="ouvrirPage" data-v="rappels" role="button" tabindex="0" aria-label="Ouvrir les rappels"><h2>Rappels${(() => { const c = corvees().filter((x) => x.aujourdhui); return c.length ? ` <small>· tâches ${c.filter((x) => x.fait).length}/${c.length}</small>` : ''; })()}</h2>
       ${rappels.map((r) => {
         let s = ''; if (r.echeance) { const d = new Date(r.echeance + 'T00:00:00'); const k = Math.round((d - auj) / 86400000); s = k < 0 ? 'En retard' : k === 0 ? 'Aujourd\'hui' : k <= 14 ? `Dans ${k} jours` : `Avant le ${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'short' })}`; }
         const p = r.pour ? membre(r.pour) : null;
