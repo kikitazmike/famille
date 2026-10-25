@@ -11,7 +11,7 @@ import {
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { FETAMI_SITE, VERSION } from './config.js';
-import { propositionsArticles } from './catalogue.js';
+import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle } from './catalogue.js';
 import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -164,7 +164,7 @@ function ecranCourses() {
     const tag = c.source === 'titus' ? '<span class="etiquette">Titus</span>' : c.source === 'tablette' ? '<span class="etiquette">Tablette</span>' : '';
     return `<div class="article ${c.pris ? 'pris' : ''}">
       <label><input type="checkbox" data-c="prendre" data-id="${c.id}" ${c.pris ? 'checked' : ''}>
-        <span style="flex:1;display:flex;flex-direction:column"><span>${esc(c.nom)}</span>${c.quantite ? `<small style="color:var(--pale);font-size:.8rem">${esc(c.quantite)}</small>` : ''}</span></label>
+        <span class="ic-article" aria-hidden="true">${iconeArticle(c.nom)}</span><span style="flex:1;display:flex;flex-direction:column"><span>${esc(c.nom)}</span>${c.quantite ? `<small style="color:var(--pale);font-size:.8rem">${esc(c.quantite)}</small>` : ''}</span></label>
       ${tag}${m && !tag ? `<span class="pastille" style="background:${m.couleur}" title="Ajouté par ${esc(m.prenom)}"></span>` : ''}
       <button class="icone-btn" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 18)}</button>
     </div>`;
@@ -604,13 +604,13 @@ function changementHeureHtml() {
   return `<div class="carte" style="background:#C62828;color:#fff;margin-bottom:.5rem;font-weight:600">⏰ ${ch.demain ? 'Cette nuit' : 'Aujourd\'hui'} : passage à l'heure d'${ch.sens < 0 ? 'hiver' : 'été'}, ${ch.sens < 0 ? '−1 h' : '+1 h'} (${ch.avant} → ${ch.apres}). Pense aux horloges du four, de la voiture…</div>`;
 }
 function menuArticles(aPrendre) {
-  const l = propositionsArticles(aPrendre);
-  return `<datalist id="liste-articles">${l.map((x) => `<option value="${esc(x.nom)}"></option>`).join('')}</datalist>
+  const g = propositionsArticles(aPrendre); const tous = g.flatMap((x) => x.articles);
+  return `<datalist id="liste-articles">${tous.map((x) => `<option value="${esc(x.nom)}"></option>`).join('')}</datalist>
     <label class="sr" for="menuArticles">Choisir un article dans la liste</label>
     <select id="menuArticles" class="menu-articles" data-c="choixArticle">
-      <option value="" selected>Choisir dans la liste (${l.length})…</option>
+      <option value="" selected>🛒 Choisir dans la liste (${nbPropositions(g)})…</option>
       <option value="__ecrire">✏️ Écrire un autre article…</option>
-      ${l.map((x) => `<option value="${esc(x.nom)}">${x.frequent ? '★ ' : ''}${esc(x.nom)}</option>`).join('')}
+      ${optionsMenu(g, esc)}
     </select>`;
 }
 // ---------- Messages, tâches de chacun, articles habituels ----------
@@ -646,7 +646,7 @@ function habituelsHtml(aPrendre) {
   const l = state.habituels.filter((h) => !h.masque && h.nb >= 2 && !dans.has(h.cle)).sort((a, b) => b.nb - a.nb).slice(0, 12);
   if (!l.length && !ui.gererHab) return '';
   return `<div style="display:flex;align-items:center;justify-content:space-between"><h2 class="titre-section">Souvent achetés</h2><button class="lien" data-a="gererHabituels" style="background:none;border:none;color:var(--accent-texte);font-weight:600">${ui.gererHab ? 'Terminé' : 'Gérer'}</button></div>
-    <div class="habituels">${l.map((h) => ui.gererHab ? `<span class="hab gere">${esc(h.nom)}<button data-a="masquerHabituel" data-id="${h.id}" aria-label="Ne plus proposer ${esc(h.nom)}">${i('fermer', 14, 2.4)}</button></span>` : `<button class="hab" data-a="ajoutHabituel" data-id="${h.id}">+ ${esc(h.nom)}</button>`).join('') || '<span class="vide">Rien à proposer.</span>'}</div>`;
+    <div class="habituels">${l.map((h) => ui.gererHab ? `<span class="hab gere">${esc(h.nom)}<button data-a="masquerHabituel" data-id="${h.id}" aria-label="Ne plus proposer ${esc(h.nom)}">${i('fermer', 14, 2.4)}</button></span>` : `<button class="hab" data-a="ajoutHabituel" data-id="${h.id}">${iconeArticle(h.nom)} ${esc(h.nom)}</button>`).join('') || '<span class="vide">Rien à proposer.</span>'}</div>`;
 }
 // Notification quand un message arrive pour moi
 const msgVus = new Set();

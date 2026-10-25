@@ -5,7 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { VERSION } from './config.js';
-import { propositionsArticles } from './catalogue.js';
+import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 const VERSION_APPLI = VERSION;
@@ -246,7 +246,7 @@ function cartesHtml() {
   const a0 = anniv[0]; const a1 = anniv[1];
   return `<section class="cartes">
     <div class="carte courses clic" data-a="ouvrirPage" data-v="courses" role="button" tabindex="0" aria-label="Ouvrir les courses"><h2>Courses <small>· ${courses.length}</small></h2>
-      <div class="puces">${courses.slice(0, 9).map((c) => `<span class="puce">${esc(c.nom)}${c.source === 'titus' ? '<span class="etq">Titus</span>' : ''}</span>`).join('')}${courses.length > 9 ? `<span class="puce" style="color:var(--pale)">+${courses.length - 9}</span>` : ''}</div>
+      <div class="puces">${courses.slice(0, 9).map((c) => `<span class="puce">${iconeArticle(c.nom)} ${esc(c.nom)}${c.source === 'titus' ? '<span class="etq">Titus</span>' : ''}</span>`).join('')}${courses.length > 9 ? `<span class="puce" style="color:var(--pale)">+${courses.length - 9}</span>` : ''}</div>
       ${!courses.length ? '<span class="vide">Rien à acheter</span>' : ''}</div>
     <div class="carte notes clic" data-a="ouvrirPage" data-v="notes" role="button" tabindex="0" aria-label="Ouvrir les notes"><h2>Notes</h2>
       ${notes.map((no) => { const a = membre(no.auteur); return `<div class="mininote"><span>${esc(no.texte)}</span><small style="color:${a ? a.couleur : 'var(--pale)'}">${esc(a ? a.prenom : '')} · ${esc(depuis(no.created_at))}</small></div>`; }).join('') || '<span class="vide">Aucune note</span>'}</div>
@@ -377,12 +377,12 @@ function pageCourses() {
   const aPrendre = state.courses.filter((c) => !c.pris).sort((a, b) => a.created_at < b.created_at ? -1 : 1);
   const pris = state.courses.filter((c) => c.pris).sort((a, b) => (a.pris_le || '') > (b.pris_le || '') ? -1 : 1);
   const ligne = (c) => { const m = membre(c.ajoute_par); return `<div class="ligne-p ${c.pris ? 'fait' : ''}">
-    <label><input type="checkbox" data-c="prendre" data-id="${c.id}" ${c.pris ? 'checked' : ''}><span class="tx"><b>${esc(c.nom)}</b>${c.quantite ? `<small>${esc(c.quantite)}</small>` : ''}</span></label>
+    <label><input type="checkbox" data-c="prendre" data-id="${c.id}" ${c.pris ? 'checked' : ''}><span class="ic-article" aria-hidden="true">${iconeArticle(c.nom)}</span><span class="tx"><b>${esc(c.nom)}</b>${c.quantite ? `<small>${esc(c.quantite)}</small>` : ''}</span></label>
     ${c.source === 'titus' ? '<span class="etq">Titus</span>' : m ? `<span class="pt" style="background:${m.couleur}" title="${esc(m.prenom)}"></span>` : ''}
     <button class="btn rond" data-a="modifCourse" data-id="${c.id}" aria-label="Modifier ${esc(c.nom)}">${i('modifier', 20)}</button>
     <button class="btn rond rouge" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 20)}</button></div>`; };
   return { titre: `Courses <small>· ${aPrendre.length} à prendre</small>`, outils: `${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`,
-    corps: `<form class="ajout-p" data-form="ajoutCourse" autocomplete="off"><input name="nom" maxlength="120" placeholder="Ajouter un article (plusieurs : séparés par des virgules)" aria-label="Nouvel article" list="liste-articles"><button class="gros-btn">${i('ajouter', 20, 2.2)} Ajouter</button></form>${(() => { const l = propositionsArticles(aPrendre); return `<datalist id="liste-articles">${l.map((x) => `<option value="${esc(x.nom)}"></option>`).join('')}</datalist><select class="menu-articles" data-c="choixArticle" aria-label="Choisir un article dans la liste"><option value="" selected>Choisir dans la liste (${l.length})…</option><option value="__ecrire">✏️ Écrire un autre article…</option>${l.map((x) => `<option value="${esc(x.nom)}">${x.frequent ? '★ ' : ''}${esc(x.nom)}</option>`).join('')}</select>`; })()}
+    corps: `<form class="ajout-p" data-form="ajoutCourse" autocomplete="off"><input name="nom" maxlength="120" placeholder="Ajouter un article (plusieurs : séparés par des virgules)" aria-label="Nouvel article" list="liste-articles"><button class="gros-btn">${i('ajouter', 20, 2.2)} Ajouter</button></form>${(() => { const g = propositionsArticles(aPrendre); const tous = g.flatMap((x) => x.articles); return `<datalist id="liste-articles">${tous.map((x) => `<option value="${esc(x.nom)}"></option>`).join('')}</datalist><select class="menu-articles" data-c="choixArticle" aria-label="Choisir un article dans la liste"><option value="" selected>🛒 Choisir dans la liste (${nbPropositions(g)})…</option><option value="__ecrire">✏️ Écrire un autre article…</option>${optionsMenu(g, esc)}</select>`; })()}
     ${blocHabituels(aPrendre)}
     <div class="colonnes"><div><h3>À prendre</h3>${aPrendre.map(ligne).join('') || '<p class="vide">La liste est vide.</p>'}</div>
       <div><h3>Déjà pris</h3>${pris.map(ligne).join('') || '<p class="vide">Rien pour l\'instant.</p>'}${pris.length ? '<button class="gros-btn danger" data-a="viderPris">Vider les articles pris</button>' : ''}</div></div>` };
@@ -530,7 +530,7 @@ function blocHabituels(aPrendre) {
   const l = state.habituels.filter((h) => !h.masque && h.nb >= 2 && !dans.has(h.cle)).sort((a, b) => b.nb - a.nb || (a.dernier < b.dernier ? 1 : -1)).slice(0, 18);
   if (!l.length && !ui.gererHab) return '';
   return `<div class="habituels"><div class="hab-tete"><h3>Souvent achetés <small>· un appui pour ajouter</small></h3><button class="btn" data-a="gererHabituels">${ui.gererHab ? 'Terminé' : 'Gérer'}</button></div>
-    <div class="hab-liste">${l.map((h) => ui.gererHab ? `<span class="hab gere">${esc(h.nom)}<button data-a="masquerHabituel" data-id="${h.id}" aria-label="Ne plus proposer ${esc(h.nom)}">${i('fermer', 16, 2.2)}</button></span>` : `<button class="hab" data-a="ajoutHabituel" data-id="${h.id}">${i('ajouter', 16, 2.4)}${esc(h.nom)}</button>`).join('') || '<span class="vide">Rien à proposer.</span>'}</div></div>`;
+    <div class="hab-liste">${l.map((h) => ui.gererHab ? `<span class="hab gere">${esc(h.nom)}<button data-a="masquerHabituel" data-id="${h.id}" aria-label="Ne plus proposer ${esc(h.nom)}">${i('fermer', 16, 2.2)}</button></span>` : `<button class="hab" data-a="ajoutHabituel" data-id="${h.id}">${iconeArticle(h.nom)} ${esc(h.nom)}</button>`).join('') || '<span class="vide">Rien à proposer.</span>'}</div></div>`;
 }
 
 // ---------- Messages pour la famille ----------
