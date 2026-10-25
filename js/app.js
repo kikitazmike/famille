@@ -11,6 +11,7 @@ import {
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { FETAMI_SITE, VERSION } from './config.js';
+import { CATALOGUE } from './catalogue.js';
 import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -171,10 +172,11 @@ function ecranCourses() {
   return `${entete('Courses', aPrendre.length ? `${aPrendre.length} article${aPrendre.length > 1 ? 's' : ''} à prendre` : 'Rien à acheter')}
     <form class="ajout" data-form="ajoutCourse" autocomplete="off">
       <label class="sr" for="nouvelArticle">Ajouter un article</label>
-      <input id="nouvelArticle" name="nom" placeholder="Ajouter un article…" enterkeyhint="done" maxlength="120">
+      <input id="nouvelArticle" name="nom" placeholder="Ajouter un article…" enterkeyhint="done" maxlength="120" list="liste-articles" autocomplete="off">
       ${voixDisponible() ? `<button type="button" class="icone-btn doux ${ui.ecoute ? 'ecoute' : ''}" data-a="dicter" data-v="course" aria-label="Dicter un article">${i('micro', 20, 2)}</button>` : ''}
       <button type="submit" class="icone-btn doux" aria-label="Ajouter">${i('ajouter', 20, 2.2)}</button>
     </form>
+    ${menuArticles(aPrendre)}
     ${habituelsHtml(aPrendre)}
     <h2 class="titre-section">À prendre</h2>
     <div class="liste">${aPrendre.map(ligne).join('') || '<p class="vide">La liste est vide.</p>'}</div>
@@ -601,6 +603,27 @@ function changementHeureHtml() {
   const ch = changementHeure(); if (!ch) return '';
   return `<div class="carte" style="background:#C62828;color:#fff;margin-bottom:.5rem;font-weight:600">⏰ ${ch.demain ? 'Cette nuit' : 'Aujourd\'hui'} : passage à l'heure d'${ch.sens < 0 ? 'hiver' : 'été'}, ${ch.sens < 0 ? '−1 h' : '+1 h'} (${ch.avant} → ${ch.apres}). Pense aux horloges du four, de la voiture…</div>`;
 }
+// Menu déroulant des articles : catalogue + articles souvent ajoutés (2 fois ou plus), par ordre alphabétique
+function propositionsArticles(aPrendre) {
+  const cle = (x) => (x || '').trim().toLowerCase();
+  const dans = new Set(aPrendre.map((c) => cle(c.nom)));
+  const masques = new Set(state.habituels.filter((h) => h.masque).map((h) => h.cle));
+  const frequents = new Map(state.habituels.filter((h) => !h.masque && h.nb >= 2).map((h) => [h.cle, h]));
+  const noms = new Map();
+  CATALOGUE.forEach((n) => { if (!masques.has(cle(n))) noms.set(cle(n), { nom: n, frequent: frequents.has(cle(n)) }); });
+  frequents.forEach((h, k) => { noms.set(k, { nom: majuscule(h.nom), frequent: true }); });
+  return [...noms.entries()].filter(([k]) => !dans.has(k)).map(([, v]) => v).sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+}
+function menuArticles(aPrendre) {
+  const l = propositionsArticles(aPrendre);
+  return `<datalist id="liste-articles">${l.map((x) => `<option value="${esc(x.nom)}"></option>`).join('')}</datalist>
+    <label class="sr" for="menuArticles">Choisir un article dans la liste</label>
+    <select id="menuArticles" class="menu-articles" data-c="choixArticle">
+      <option value="" selected>Choisir dans la liste (${l.length})…</option>
+      <option value="__ecrire">✏️ Écrire un autre article…</option>
+      ${l.map((x) => `<option value="${esc(x.nom)}">${x.frequent ? '★ ' : ''}${esc(x.nom)}</option>`).join('')}
+    </select>`;
+}
 // ---------- Messages, tâches de chacun, articles habituels ----------
 const pourMoi = (m) => state.moi && (!m.pour || m.pour === state.moi.id) && m.de !== state.moi.id;
 const nbMessagesPourMoi = () => state.messages.filter((m) => !m.lu_le && pourMoi(m)).length;
@@ -887,6 +910,14 @@ const actions = {
 };
 
 const changements = {
+  choixArticle(el) {
+    const v = el.value; el.value = '';
+    if (!v) return;
+    if (v === '__ecrire') { const inp = $('#nouvelArticle'); if (inp) inp.focus(); return; }
+    const l = { id: nouvelId(), nom: v.slice(0, 120), source: 'app', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() };
+    ecrire({ cle: 'courses', op: 'insert', ligne: l }).catch(erreur);
+    toast(`Ajouté : ${v}`, () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: l.id } }));
+  },
   plLigne(el) { const l = ui.plPhoto && ui.plPhoto.lignes[Number(el.dataset.k)]; if (l) { l.typeId = el.value; fenetrePhoto(); } },
   plPhotoQui(el) { ui.plPhoto.qui = el.value; if (ui.plPhoto.texte) relirePhoto(); else fenetrePhoto(); },
   plPhotoSem(el) { if (el.value) { ui.plPhoto.lundi = debutSemaine(new Date(el.value + 'T12:00:00')); if (ui.plPhoto.texte) relirePhoto(); else fenetrePhoto(); } },
