@@ -7,4 +7,4 @@ export const FETAMI_URL = 'https://dsrjhovnrbxdzugrssnv.supabase.co';
 export const FETAMI_CLE = 'sb_publishable_4ARHPoDNWAWFWCuy0I4uwA_24SQyrFX';
 export const FETAMI_SITE = 'https://fetami.netlify.app';
 
-export const VERSION = '1.8.5';
+export const VERSION = '1.8.6';

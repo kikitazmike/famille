@@ -315,6 +315,7 @@ function ecranReglages() {
       <button class="item" data-a="changerEmail"><span style="display:flex;flex-direction:column"><span>E-mail</span><small style="color:var(--pale)">${esc(ui.session && ui.session.user.email)}</small></span>${i('droite', 18)}</button>
       <button class="item" data-a="changerMdp"><span>Mot de passe</span>${i('droite', 18)}</button>
       <label class="item"><span>Notifications des rappels</span><input type="checkbox" data-c="notifs" ${notifOk ? 'checked' : ''} style="width:1.35rem;height:1.35rem;accent-color:var(--accent)"></label>
+      <button class="item" data-a="exporter"><span>Télécharger une sauvegarde</span>${i('notes', 18)}</button>
       <button class="item" data-a="deconnexion"><span>Se déconnecter</span>${i('sortir', 18)}</button>
     </div>
     <button class="bouton danger" data-a="supprimerCompte">Supprimer mon compte</button>
@@ -778,6 +779,17 @@ function planifierRappels() {
 
 // ---------------- Actions ----------------
 const actions = {
+  exporter() {
+    const { config, moi, userId, enAttente, enLigne, ...donnees } = state;
+    const cfg = config ? (({ fetami_jeton, ...c }) => c)(config) : null;
+    const contenu = JSON.stringify({ appli: 'Famille', version: VERSION, faite_le: new Date().toISOString(), config: cfg, ...donnees }, null, 1);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([contenu], { type: 'application/json' }));
+    a.download = `famille-sauvegarde-${isoDate(new Date())}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast('Sauvegarde téléchargée dans le dossier Téléchargements.');
+  },
   plVue(d) { ui.pl.vue = d.v; ui.pl.tampon = null; rendre(); },
   plDecaler(d) { const n = Number(d.v); const r = ui.pl.ref; ui.pl.ref = ui.pl.vue === 'mois' ? new Date(r.getFullYear(), r.getMonth() + n, 1) : ajouterJours(r, ui.pl.vue === 'semaine' ? 7 * n : n); rendre(); },
   plAuj() { ui.pl.ref = debutJour(new Date()); rendre(); },
