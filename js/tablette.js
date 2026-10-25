@@ -5,6 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { VERSION } from './config.js';
+import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 const VERSION_APPLI = VERSION;
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
@@ -121,11 +122,23 @@ function occsJour(jour) {
   return state.evenements.flatMap((ev) => occurrences(ev, jour, ajouterJours(jour, 1)));
 }
 
+// Planning de travail : étiquette et plage horaire d'une personne pour un jour
+const etiq = (t, cls = 'pl-b') => `<span class="${cls}" style="background:${fondType(t)};color:${texteType(t)}">${esc(t.code)}</span>`;
+function plagesTravail(id, jour) {
+  const res = []; const k = isoDate(jour); const hier = isoDate(ajouterJours(jour, -1));
+  const a = (t, base) => { const [h, m] = t.split(':').map(Number); const d = new Date(base); d.setHours(h, m, 0, 0); return d; };
+  const t = typeDuJour(id, k);
+  if (t && !t.repos && t.debut && t.fin) { const d = a(t.debut, jour); let f = a(t.fin, jour); if (f <= d) f = ajouterJours(debutJour(jour), 1); res.push({ t, d, f }); }
+  const th = typeDuJour(id, hier); // nuit commencée la veille
+  if (th && !th.repos && th.debut && th.fin && a(th.fin, jour) <= a(th.debut, jour)) res.push({ t: th, d: debutJour(jour), f: a(th.fin, jour) });
+  return res;
+}
 function vueJour(jour, estAujourdhui) {
   const n = new Date();
   const occs = occsJour(jour);
   let h0 = 7, h1 = 23;
   occs.forEach((o) => { if (!o.ev.journee_entiere) { const a = o.debut < jour ? 0 : o.debut.getHours(); const b = o.fin > ajouterJours(jour, 1) ? 24 : o.fin.getHours() + (o.fin.getMinutes() ? 1 : 0); h0 = Math.min(h0, a); h1 = Math.max(h1, b); } });
+  const travail = {}; personnes().forEach((p) => { travail[p.id] = plagesTravail(p.id, jour); travail[p.id].forEach((x) => { h0 = Math.min(h0, x.d.getHours()); h1 = Math.max(h1, x.f >= ajouterJours(debutJour(jour), 1) ? 24 : x.f.getHours() + (x.f.getMinutes() ? 1 : 0)); }); });
   const plage = (h1 - h0) * 3600000;
   const t0 = new Date(jour); t0.setHours(h0, 0, 0, 0);
   const pct = (d) => Math.max(0, Math.min(100, ((d - t0) / plage) * 100));
@@ -161,8 +174,10 @@ function vueJour(jour, estAujourdhui) {
     const fins = []; const rangs = liste.map((o) => { let r = fins.findIndex((f) => f <= o.debut); if (r < 0) { r = fins.length; fins.push(o.fin); } else fins[r] = o.fin; return r; });
     const nb = Math.min(Math.max(fins.length, 1), 3);
     const nbRdv = liste.length + journee.filter((o) => { const ids = liensDe(o.ev.id); return l.id === '_tous' ? tous(ids) : ids.includes(l.id) && !tous(ids); }).length;
-    return `<div class="couloir"><div class="nom"><b><i style="background:${l.couleur}"></i>${esc(l.nom)}</b><small>${l.id === '_tous' ? 'en famille' : nbRdv ? nbRdv + ' rdv' : 'libre'}</small></div>
-      <div class="piste">${nuit}${traits.join('')}${liste.map((o, k) => pill(o, l.id === '_tous' ? 'var(--accent)' : (couleurDe(liensDe(o.ev.id)) || l.couleur), Math.min(rangs[k], 2), nb)).join('')}</div></div>`;
+    const tj = l.id === '_tous' ? null : typeDuJour(l.id, isoDate(jour));
+    const bandes = (travail[l.id] || []).map((x) => `<div class="pl-bande" style="left:${pct(x.d)}%;width:${Math.max(pct(x.f) - pct(x.d), 1)}%;--c:${fondType(x.t)};color:${texteType(x.t) === '#FFFFFF' ? '#2F3A66' : texteType(x.t)}"><span>Travail · ${esc(x.t.nom)}</span></div>`).join('');
+    return `<div class="couloir"><div class="nom"><b><i style="background:${l.couleur}"></i>${esc(l.nom)}${tj ? etiq(tj) : ''}</b><small>${l.id === '_tous' ? 'en famille' : tj ? `${esc(tj.repos ? 'Repos' : horaires(tj))}${nbRdv ? ' · ' + nbRdv + ' rdv' : ''}` : nbRdv ? nbRdv + ' rdv' : 'libre'}</small></div>
+      <div class="piste">${nuit}${traits.join('')}${bandes}${liste.map((o, k) => pill(o, l.id === '_tous' ? 'var(--accent)' : (couleurDe(liensDe(o.ev.id)) || l.couleur), Math.min(rangs[k], 2), nb)).join('')}</div></div>`;
   }).join('');
   const labels = []; for (let h = h0; h <= h1; h += pas) labels.push(`<span style="left:${((h - h0) / (h1 - h0)) * 100}%;${h === h0 ? 'transform:none' : h + pas > h1 && h === h1 ? 'transform:translateX(-100%)' : ''}">${h}h</span>`);
   const soleil = `${lv && pct(lv) > 0 && pct(lv) < 100 ? `<span class="soleil" style="left:${pct(lv)}%">${i('lever', 14, 2)}${hhmm(lever)}</span>` : ''}${cc && pct(cc) > 0 && pct(cc) < 100 ? `<span class="soleil" style="left:${pct(cc)}%;color:#A8481F">${i('coucher', 14, 2)}${hhmm(coucher)}</span>` : ''}`;
@@ -177,7 +192,9 @@ function vueSemaine() {
   return `<div class="vue-semaine">${Array.from({ length: 7 }, (_, k) => {
     const j = ajouterJours(lundi, k);
     const occs = occsJour(j).sort((a, b) => a.debut - b.debut);
-    return `<div class="j ${memeJour(j, auj) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(j)}" role="button" tabindex="0" aria-label="Voir le ${JOURS[k]} ${j.getDate()}"><h3>${JOURS_COURTS[k]} ${j.getDate()}</h3>
+    const trav = personnes().map((p) => ({ p, t: typeDuJour(p.id, isoDate(j)) })).filter((x) => x.t);
+    const blocTrav = trav.length ? `<div class="pl-sem">${trav.map(({ p, t }) => `<div><i style="background:${p.couleur}"></i><span>${esc(p.prenom.slice(0, 7))}</span>${etiq(t)}<small>${esc(t.repos ? '' : horaires(t).replace(/ h /g, 'h').replace(/ h/g, 'h'))}</small></div>`).join('')}</div>` : '';
+    return `<div class="j ${memeJour(j, auj) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(j)}" role="button" tabindex="0" aria-label="Voir le ${JOURS[k]} ${j.getDate()}"><h3>${JOURS_COURTS[k]} ${j.getDate()}</h3>${blocTrav}
       ${occs.slice(0, 7).map((o) => { const ids = liensDe(o.ev.id); return `<div class="e"><i style="background:${tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i><span>${o.ev.journee_entiere ? '' : `<b style="font-weight:600">${hhmm(o.debut)}</b> `}${esc(o.ev.titre)}</span></div>`; }).join('')}
       ${occs.length > 7 ? `<span class="vide" style="font-size:12px">+${occs.length - 7} autres</span>` : ''}${!occs.length ? '<span class="vide" style="font-size:13px">Libre</span>' : ''}</div>`;
   }).join('')}</div>`;
@@ -191,7 +208,7 @@ function vueMois() {
   const visibles = fin > 0 ? cases.slice(0, fin) : cases;
   return `<div class="vue-mois">${JOURS_COURTS.map((j) => `<div class="t">${j}</div>`).join('')}${visibles.map((d) => {
     const occs = occsJour(d);
-    return `<div class="c ${d.getMonth() !== r.getMonth() ? 'hors' : ''} ${memeJour(d, n) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(d)}" role="button" tabindex="0" aria-label="Voir le ${d.getDate()} ${MOIS[d.getMonth()]}"><span>${d.getDate()}</span><span class="pts">${occs.slice(0, 6).map((o) => { const ids = liensDe(o.ev.id); return `<i style="background:${memeJour(d, n) ? '#fff' : tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i>`; }).join('')}</span></div>`;
+    return `<div class="c ${d.getMonth() !== r.getMonth() ? 'hors' : ''} ${memeJour(d, n) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(d)}" role="button" tabindex="0" aria-label="Voir le ${d.getDate()} ${MOIS[d.getMonth()]}"><span>${d.getDate()}</span>${(() => { const tr = personnes().map((p) => ({ p, t: typeDuJour(p.id, isoDate(d)) })).filter((x) => x.t); return tr.length ? `<span class="pl-mo">${tr.map(({ p, t }) => `<span style="background:${fondType(t)};color:${texteType(t)};box-shadow:inset 0 -3px 0 ${p.couleur}" title="${esc(p.prenom)} : ${esc(t.nom)}">${esc(t.code)}</span>`).join('')}</span>` : ''; })()}<span class="pts">${occs.slice(0, 6).map((o) => { const ids = liensDe(o.ev.id); return `<i style="background:${memeJour(d, n) ? '#fff' : tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i>`; }).join('')}</span></div>`;
   }).join('')}</div>`;
 }
 
@@ -406,7 +423,7 @@ function pageAide() {
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
     ${bloc('soleil', '#D9774A', 'Le point du jour', '', ['Bonjour', 'Le point de la journée', 'C\'est quoi ma journée ?'], 'Donne la météo et les rendez-vous du jour, seulement quand tu le demandes.')}
-    ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
+    ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels. Le planning de travail (Matin, Nuit…) se remplit depuis l'onglet Agenda du téléphone et s'affiche ici à côté des prénoms.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
     ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Météo pour demain', 'Montre-moi la météo de la semaine', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
   </div>
   <p style="margin:0;color:var(--pale);font-size:15px">Tu peux ajouter « tablette », « tu peux », « s'il te plaît », « je voudrais »… ils sont ignorés. Parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;

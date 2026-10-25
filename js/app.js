@@ -11,6 +11,7 @@ import {
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { FETAMI_SITE, VERSION } from './config.js';
+import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const contenu = $('#contenu');
@@ -82,7 +83,7 @@ function entete(titre, sous) {
 
 function onglets() {
   const o = [['agenda', 'Agenda', 'agenda'], ['courses', 'Courses', 'courses'], ['notes', 'Notes', 'notes'], ['anniv', 'Anniv.', 'anniv'], ['plus', 'Plus', 'plus']];
-  const actif = ui.route === 'reglages' ? 'plus' : ui.route;
+  const actif = ui.route === 'reglages' ? 'plus' : (ui.route === 'planning' || ui.route === 'horaires') ? 'agenda' : ui.route;
   return `<div class="onglets"><nav aria-label="Navigation">${o.map(([r, l, ic]) =>
     `<a href="#/${r}" ${actif === r ? 'aria-current="page"' : ''} style="position:relative">${i(ic, 24)}${l}${r === 'plus' && nbMessagesPourMoi() ? `<span class="badge">${nbMessagesPourMoi()}</span>` : ''}</a>`).join('')}</nav></div>`;
 }
@@ -147,7 +148,8 @@ function ecranAgenda() {
 
   const titreJour = memeJour(ui.jour, auj) ? 'Aujourd\'hui' : memeJour(ui.jour, ajouterJours(auj, 1)) ? 'Demain' : majuscule(dateLongue(ui.jour));
   return `${entete('Agenda', state.moi ? `Bonjour ${state.moi.prenom}` : '')}${changementHeureHtml()}${messagesPourMoiHtml()}${mesTachesHtml()}${semaine}${puces}
-    <h2 class="titre-section">${esc(titreJour)}</h2>
+    <h2 class="titre-section" style="display:flex;align-items:center;justify-content:space-between">${esc(titreJour)}<a href="#/planning" class="lien-planning">${i('agenda', 16, 2)}Planning de travail</a></h2>
+    ${travailDuJourHtml(ui.jour)}
     <div class="liste">${items || '<p class="vide">Rien de prévu ce jour-là.</p>'}</div>
     <div class="flottants">${voixDisponible() ? `<button class="fab rond ${ui.ecoute ? 'ecoute' : ''}" data-a="dicter" data-v="rdv" aria-label="Dicter un rendez-vous">${i('micro', 22, 2)}</button>` : ''}
       <button class="fab" data-a="nouveauRdv" aria-label="Ajouter un rendez-vous">${i('ajouter', 26, 2.2)}</button></div>`;
@@ -375,7 +377,7 @@ function rendre() {
       <p class="c">Ce compte sert à l'écran de la maison.</p><a class="bouton plein" href="tablette.html">Ouvrir l'écran tablette</a>
       <button class="lien" data-a="deconnexion" style="align-self:center">Se déconnecter</button></div>`;
   } else {
-    const ecrans = { agenda: ecranAgenda, courses: ecranCourses, notes: ecranNotes, anniv: ecranAnniv, plus: ecranPlus, reglages: ecranReglages };
+    const ecrans = { agenda: ecranAgenda, courses: ecranCourses, notes: ecranNotes, anniv: ecranAnniv, plus: ecranPlus, reglages: ecranReglages, planning: ecranPlanning, horaires: ecranHoraires };
     html = `${bandeau()}<main class="ecran">${(ecrans[ui.route] || ecranAgenda)()}</main>${onglets()}`;
   }
   contenu.innerHTML = html;
@@ -481,6 +483,119 @@ function formulaireNote(n, texte = '') {
       <div class="actions"><button class="bouton" type="submit">Enregistrer</button><button class="bouton second" type="button" data-a="fermer">Annuler</button></div>
     </form>`);
 }
+
+// ---------------- Planning de travail ----------------
+ui.pl = { vue: 'jour', ref: debutJour(new Date()), qui: null, tampon: null };
+const quiPl = () => (ui.pl.qui && membre(ui.pl.qui)) ? ui.pl.qui : (state.moi && state.moi.type === 'personne' ? state.moi.id : (personnes()[0] || {}).id);
+function badgeType(t, taille = '2.2rem') {
+  if (!t) return `<span class="pl-badge vide" style="width:${taille};height:${taille}">+</span>`;
+  return `<span class="pl-badge" style="min-width:${taille};height:${taille};background:${fondType(t)};color:${texteType(t)}">${esc(t.code)}</span>`;
+}
+function travailDuJourHtml(jour) {
+  const k = isoJ(jour);
+  const l = personnes().map((p) => ({ p, t: typeDuJour(p.id, k) })).filter((x) => x.t);
+  if (!l.length) return '';
+  return `<div class="pl-ligne-agenda">${l.map(({ p, t }) => `<span class="pl-chip"><span class="pastille" style="background:${p.couleur}"></span>${esc(p.prenom)} ${badgeType(t, '1.5rem')}<small>${esc(t.repos ? 'Repos' : horaires(t))}</small></span>`).join('')}</div>`;
+}
+function puceQui(cible = 'plQui') {
+  const q = quiPl();
+  return `<div class="puces" role="group" aria-label="Planning de">${personnes().map((p) => `<button class="puce" aria-pressed="${p.id === q}" data-a="${cible}" data-v="${p.id}"><span class="pastille" style="background:${p.couleur}"></span>${esc(p.prenom)}</button>`).join('')}</div>`;
+}
+function ecranPlanning() {
+  const v = ui.pl.vue; const ref = ui.pl.ref; const q = quiPl(); const types = typesDe(q);
+  const seg = `<div class="pl-seg" role="tablist">${[['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois']].map(([k, l]) => `<button role="tab" aria-selected="${v === k}" data-a="plVue" data-v="${k}">${l}</button>`).join('')}</div>`;
+  const titre = v === 'mois' ? majuscule(`${MOIS[ref.getMonth()]} ${ref.getFullYear()}`) : v === 'semaine' ? `Semaine du ${debutSemaine(ref).getDate()} ${MOIS[debutSemaine(ref).getMonth()].slice(0, 4)}.` : majuscule(dateLongue(ref));
+  const nav = `<div class="pl-nav"><button class="icone-btn" data-a="plDecaler" data-v="-1" aria-label="Précédent">${i('gauche')}</button><button class="lien" data-a="plAuj">${esc(titre)}</button><button class="icone-btn" data-a="plDecaler" data-v="1" aria-label="Suivant">${i('droite')}</button></div>`;
+  let corps = '';
+  if (v === 'jour') {
+    const k = isoJ(ref);
+    corps = `<div class="liste">${personnes().map((p) => { const t = typeDuJour(p.id, k); return `<button class="article pl-personne" data-a="plChoisir" data-m="${p.id}" data-v="${k}">
+      <span class="avatar" style="background:${p.couleur}" aria-hidden="true">${esc(initiales(p.prenom))}</span>
+      <span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${esc(p.prenom)}</span><small style="color:var(--pale)">${t ? esc(t.nom + (t.repos ? '' : ' · ' + horaires(t))) : 'Rien de prévu'}</small></span>${badgeType(t)}</button>`; }).join('')}</div>
+      <p class="aide">Touche une personne pour choisir sa désignation du jour.</p>`;
+  } else {
+    corps = puceQui();
+    if (!types.length) {
+      corps += `<div class="carte" style="display:flex;flex-direction:column;gap:.6rem"><p style="margin:0">${esc((membre(q) || {}).prenom || '')} n'a pas encore de désignations (Matin, Nuit…).</p>
+        <button class="bouton" data-a="plBase">Créer les désignations de base</button><a class="bouton second" href="#/horaires">Créer les miennes</a></div>`;
+    } else if (v === 'semaine') {
+      const l0 = debutSemaine(ref); let total = 0;
+      const lignes = Array.from({ length: 7 }, (_, k) => { const d = ajouterJours(l0, k); const kk = isoJ(d); const t = typeDuJour(q, kk); total += dureeH(t);
+        return `<button class="article pl-jour ${memeJour(d, new Date()) ? 'auj' : ''}" data-a="plChoisir" data-m="${q}" data-v="${kk}">
+          <span class="pl-date"><small>${JOURS_COURTS[k]}</small><b>${d.getDate()}</b></span>${badgeType(t)}
+          <span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${t ? esc(t.nom) : '<span style="color:var(--pale)">Choisir…</span>'}</span>${t && !t.repos ? `<small style="color:var(--pale)">${esc(horaires(t))}</small>` : ''}</span></button>`; }).join('');
+      corps += `<p class="aide" style="margin:0">${String(Math.round(total * 10) / 10).replace('.', ',')} h de travail cette semaine</p><div class="liste">${lignes}</div>
+        <button class="bouton second" data-a="plCopier">Copier la semaine d'avant</button>`;
+    } else {
+      const m0 = new Date(ref.getFullYear(), ref.getMonth(), 1); const dec = (m0.getDay() + 6) % 7; const nb = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate();
+      let cases = JOURS_COURTS.map((j) => `<span class="pl-entete">${j}</span>`).join('') + '<span></span>'.repeat(dec);
+      for (let n = 1; n <= nb; n++) { const d = new Date(ref.getFullYear(), ref.getMonth(), n); const kk = isoJ(d); const t = typeDuJour(q, kk);
+        cases += `<button class="pl-case ${memeJour(d, new Date()) ? 'auj' : ''}" data-a="plCase" data-v="${kk}" style="${t ? `background:${fondType(t)};color:${texteType(t)}` : ''}" aria-label="${n} ${MOIS[d.getMonth()]}${t ? ' : ' + esc(t.nom) : ''}"><small>${n}</small><b>${t ? esc(t.code) : '·'}</b></button>`; }
+      const tp = ui.pl.tampon;
+      corps += `<div class="pl-mois">${cases}</div>
+        <p class="aide" style="margin:0">${tp ? `Touche les jours pour poser <b>${esc(tp === 'x' ? 'Effacer' : (typeParId(tp) || {}).nom || '')}</b>.` : 'Choisis une désignation, puis touche les jours.'}</p>
+        <div class="pl-palette">${types.map((t) => `<button class="pl-pal" aria-pressed="${tp === t.id}" data-a="plTampon" data-v="${t.id}">${badgeType(t, '1.9rem')}${esc(t.nom)}</button>`).join('')}<button class="pl-pal" aria-pressed="${tp === 'x'}" data-a="plTampon" data-v="x">${i('fermer', 16, 2.2)}Effacer</button></div>`;
+    }
+  }
+  return `${entete('Planning', 'Travail de la famille')}
+    <div class="pl-barre"><a href="#/agenda" class="lien-planning">${i('gauche', 16, 2.2)}Agenda</a><span style="flex:1"></span>
+      <button class="icone-btn doux" data-a="plPhoto" aria-label="Photo du planning papier">${i('photo', 20)}</button><a class="bouton second" href="#/horaires" style="min-height:2.75rem">Mes horaires</a></div>
+    ${seg}${nav}${corps}`;
+}
+function ecranHoraires() {
+  const q = quiPl(); const types = typesDe(q);
+  return `${entete('Horaires', 'Désignations de travail')}
+    <div class="pl-barre"><a href="#/planning" class="lien-planning">${i('gauche', 16, 2.2)}Planning</a></div>
+    ${puceQui('plQuiH')}
+    <p class="aide" style="margin:0">Crée une fois les désignations avec leurs horaires, puis pose-les sur le calendrier en un appui.</p>
+    <div class="liste">${types.map((t) => `<div class="article">${badgeType(t, '2.6rem')}<span style="flex:1;display:flex;flex-direction:column"><span>${esc(t.nom)}</span><small style="color:var(--pale)">${esc(t.repos ? 'Pas de travail' : horaires(t))}</small></span>
+      <button class="icone-btn" data-a="plModifType" data-id="${t.id}" aria-label="Modifier ${esc(t.nom)}">${i('modifier', 18)}</button></div>`).join('') || '<p class="vide">Aucune désignation.</p>'}</div>
+    <button class="bouton second" data-a="plNouveauType">${i('ajouter', 18, 2.2)}Nouvelle désignation</button>
+    ${types.length ? '' : '<button class="bouton" data-a="plBase">Créer les désignations de base (Matin, Après-midi, Journée, Nuit, Repos)</button>'}`;
+}
+function formType(t) {
+  const q = t ? t.membre_id : quiPl();
+  ouvrirFenetre(t ? `Modifier « ${t.nom} »` : 'Nouvelle désignation', `<form data-form="ptype" data-id="${t ? t.id : ''}" data-m="${q}" style="display:flex;flex-direction:column;gap:.9rem">
+    <div class="ligne"><label class="champ">Nom<input name="nom" required maxlength="40" value="${esc(t ? t.nom : '')}" placeholder="Matin, Nuit…"></label>
+      <label class="champ" style="max-width:6rem">Lettre<input name="code" required maxlength="3" value="${esc(t ? t.code : '')}" placeholder="M"></label></div>
+    <label class="item" style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" name="repos" ${t && t.repos ? 'checked' : ''} style="width:1.3rem;height:1.3rem;accent-color:var(--accent)">Jour de repos (pas d'horaires)</label>
+    <div class="ligne"><label class="champ">Début<input type="time" name="debut" value="${esc(t ? hm(t.debut) : '')}"></label><label class="champ">Fin<input type="time" name="fin" value="${esc(t ? hm(t.fin) : '')}"></label></div>
+    <div class="champ">Couleur<div class="nuancier">${COULEURS_PLANNING.map(([c], k) => `<label style="cursor:pointer"><input type="radio" name="couleur" value="${c}" class="sr" ${(t ? (t.couleur || '').toLowerCase() === c.toLowerCase() : k === 2) ? 'checked' : ''}><span class="pl-pastille" style="background:${c}"></span></label>`).join('')}</div></div>
+    <div class="actions"><button class="bouton" type="submit">Enregistrer</button>${t ? `<button class="bouton danger" type="button" data-a="plSupprType" data-id="${t.id}">Supprimer</button>` : '<button class="bouton second" type="button" data-a="fermer">Annuler</button>'}</div>
+  </form>`, (z) => {
+    const maj = () => z.querySelectorAll('input[name=couleur]').forEach((x) => { x.nextElementSibling.style.boxShadow = x.checked ? '0 0 0 3px var(--fond), 0 0 0 5px var(--encre)' : 'inset 0 0 0 1px var(--bord)'; });
+    z.querySelectorAll('input[name=couleur]').forEach((x) => x.addEventListener('change', maj)); maj();
+  });
+}
+function choisirJour(m, k) {
+  const types = typesDe(m); const p = membre(m); const actuel = typeDuJour(m, k);
+  const d = new Date(k + 'T12:00:00');
+  if (!types.length) { ui.pl.qui = m; location.hash = '#/horaires'; return toast(`Crée d'abord les désignations de ${p ? p.prenom : ''}.`); }
+  ouvrirFenetre(`${p ? p.prenom : ''} · ${majuscule(dateLongue(d))}`, `<div class="liste">${types.map((t) => `<button class="article" data-a="plPoser" data-m="${m}" data-v="${k}" data-t="${t.id}" style="${actuel && actuel.id === t.id ? 'box-shadow:0 0 0 2px var(--accent)' : ''}">${badgeType(t)}<span style="flex:1;text-align:left;display:flex;flex-direction:column"><span>${esc(t.nom)}</span><small style="color:var(--pale)">${esc(t.repos ? 'Repos' : horaires(t))}</small></span></button>`).join('')}</div>
+    ${actuel ? `<button class="bouton danger" data-a="plPoser" data-m="${m}" data-v="${k}" data-t="">Effacer ce jour</button>` : ''}`);
+}
+
+// ---- Photo du planning papier ----
+function lundiDe(d) { return debutSemaine(d); }
+function fenetrePhoto() {
+  const st = ui.plPhoto; const types = typesDe(st.qui);
+  const opts = (sel) => `<option value="">—</option>${types.map((t) => `<option value="${t.id}" ${sel === t.id ? 'selected' : ''}>${esc(t.code)} · ${esc(t.nom)}</option>`).join('')}`;
+  const lignes = (st.lignes || []).map((l, k) => { const d = new Date(l.jour + 'T12:00:00'); return `<div class="pl-lu ${l.typeId ? '' : 'doute'}">
+      <span class="pl-date"><small>${JOURS_COURTS[(d.getDay() + 6) % 7]}</small><b>${d.getDate()}</b></span>
+      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:.2rem"><select data-c="plLigne" data-k="${k}" aria-label="Désignation du ${d.getDate()}">${opts(l.typeId)}</select><small style="color:var(--pale);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.debut && l.fin ? `${l.debut} – ${l.fin}` : l.repos ? 'repos' : l.brut)}</small></span>
+      ${l.typeId ? '' : '<small class="pl-verif">à vérifier</small>'}</div>`; }).join('');
+  ouvrirFenetre('Photo du planning', `<div style="display:flex;flex-direction:column;gap:.8rem">
+    <div class="ligne"><label class="champ">Planning de<select data-c="plPhotoQui">${personnes().map((p) => `<option value="${p.id}" ${p.id === st.qui ? 'selected' : ''}>${esc(p.prenom)}</option>`).join('')}</select></label>
+      <label class="champ">Semaine du<input type="date" data-c="plPhotoSem" value="${isoJ(st.lundi)}"></label></div>
+    ${types.length ? '' : `<p class="aide" style="margin:0;color:var(--danger)">${esc((membre(st.qui) || {}).prenom || '')} n'a pas encore de désignations : crée-les d'abord (Mes horaires).</p>`}
+    <label class="bouton">${i('photo', 18)}${st.lignes ? 'Reprendre une photo' : 'Prendre ou choisir la photo'}<input type="file" accept="image/*" class="sr" data-c="plPhotoFichier"></label>
+    <p class="aide" style="margin:0">${esc(st.etat || 'Cadre bien le planning, à plat et sans reflet. Les jours sans date prennent la semaine choisie.')}</p>
+    ${st.lignes ? `${lignes ? `<div class="liste">${lignes}</div>` : '<p class="vide">Aucun jour reconnu. Corrige le texte ci-dessous puis « Relire ».</p>'}
+      <label class="champ">Texte lu (modifiable)<textarea data-c="plPhotoTexte" rows="4">${esc(st.texte || '')}</textarea></label>
+      <div class="actions"><button class="bouton second" data-a="plRelire">Relire le texte</button><button class="bouton" data-a="plValiderPhoto" ${(st.lignes || []).some((l) => l.typeId) ? '' : 'disabled'}>Valider la semaine</button></div>` : ''}
+  </div>`);
+}
+function relirePhoto() { const st = ui.plPhoto; st.lignes = lirePlanning(st.texte || '', typesDe(st.qui), st.lundi); st.etat = st.lignes.length ? `${st.lignes.length} jour${st.lignes.length > 1 ? 's' : ''} trouvé${st.lignes.length > 1 ? 's' : ''}. Vérifie, corrige si besoin, puis valide.` : 'Je n\'ai reconnu aucun jour.'; fenetrePhoto(); }
 
 function changementHeureHtml() {
   const ch = changementHeure(); if (!ch) return '';
@@ -648,6 +763,38 @@ function planifierRappels() {
 
 // ---------------- Actions ----------------
 const actions = {
+  plVue(d) { ui.pl.vue = d.v; ui.pl.tampon = null; rendre(); },
+  plDecaler(d) { const n = Number(d.v); const r = ui.pl.ref; ui.pl.ref = ui.pl.vue === 'mois' ? new Date(r.getFullYear(), r.getMonth() + n, 1) : ajouterJours(r, ui.pl.vue === 'semaine' ? 7 * n : n); rendre(); },
+  plAuj() { ui.pl.ref = debutJour(new Date()); rendre(); },
+  plQui(d) { ui.pl.qui = d.v; ui.pl.tampon = null; rendre(); },
+  plQuiH(d) { ui.pl.qui = d.v; rendre(); },
+  plChoisir(d) { choisirJour(d.m, d.v); },
+  plPoser(d) { fermerFenetre(); poserJour(d.m, d.v, d.t || null).catch(erreur); },
+  plTampon(d) { ui.pl.tampon = ui.pl.tampon === d.v ? null : d.v; rendre(); },
+  plCase(d) {
+    const q = quiPl(); const tp = ui.pl.tampon;
+    if (!tp) return choisirJour(q, d.v);
+    const actuel = typeDuJour(q, d.v);
+    poserJour(q, d.v, tp === 'x' || (actuel && actuel.id === tp) ? null : tp).catch(erreur);
+  },
+  plCopier() {
+    const q = quiPl(); const l0 = debutSemaine(ui.pl.ref); const ops = [];
+    for (let k = 0; k < 7; k++) { const t = typeDuJour(q, isoJ(ajouterJours(l0, k - 7))); ops.push(...opsJour(q, isoJ(ajouterJours(l0, k)), t ? t.id : null)); }
+    if (!ops.length) return toast('Rien à copier.');
+    ecrire(ops).then(() => toast('Semaine copiée.')).catch(erreur);
+  },
+  plBase() { creerBase(quiPl()).then(() => toast('Désignations créées. Tu peux les modifier dans « Mes horaires ».')).catch(erreur); },
+  plNouveauType() { formType(null); },
+  plModifType(d) { const t = typeParId(d.id); if (t) formType(t); },
+  plSupprType(d) { const t = typeParId(d.id); if (!t) return; confirmer(`Supprimer « ${t.nom} » ?`, 'Les jours où elle est posée seront aussi effacés du planning.', 'Supprimer', () => { fermerFenetre(); return ecrire({ cle: 'ptypes', op: 'delete', ligne: { id: t.id } }).then(() => { state.pjours = state.pjours.filter((j) => j.type_id !== t.id); rendre(); }); }); },
+  plPhoto() { ui.plPhoto = { qui: quiPl(), lundi: debutSemaine(ui.pl.ref), texte: '', lignes: null, etat: '' }; fenetrePhoto(); },
+  plRelire() { relirePhoto(); },
+  plValiderPhoto() {
+    const st = ui.plPhoto; const ops = (st.lignes || []).filter((l) => l.typeId).flatMap((l) => opsJour(st.qui, l.jour, l.typeId));
+    fermerFenetre();
+    if (!ops.length) return toast('Rien à enregistrer.');
+    ecrire(ops).then(() => { toast('Planning enregistré.'); ui.pl.qui = st.qui; ui.pl.vue = 'semaine'; ui.pl.ref = st.lundi; if (ui.route !== 'planning') location.hash = '#/planning'; else rendre(); }).catch(erreur);
+  },
   nouveauMessage() { ouvrirFenetre('Nouveau message', `<form data-form="message" style="display:flex;flex-direction:column;gap:.9rem">
       <label class="champ">Pour<select name="pour"><option value="">Tout le monde</option>${personnes().filter((p) => !state.moi || p.id !== state.moi.id).map((p) => `<option value="${p.id}">${esc(p.prenom)}</option>`).join('')}</select></label>
       <label class="champ">Message<textarea name="texte" required maxlength="500" rows="3" placeholder="Sortir le chien, le repas est prêt…"></textarea></label>
@@ -740,6 +887,18 @@ const actions = {
 };
 
 const changements = {
+  plLigne(el) { const l = ui.plPhoto && ui.plPhoto.lignes[Number(el.dataset.k)]; if (l) { l.typeId = el.value; fenetrePhoto(); } },
+  plPhotoQui(el) { ui.plPhoto.qui = el.value; if (ui.plPhoto.texte) relirePhoto(); else fenetrePhoto(); },
+  plPhotoSem(el) { if (el.value) { ui.plPhoto.lundi = debutSemaine(new Date(el.value + 'T12:00:00')); if (ui.plPhoto.texte) relirePhoto(); else fenetrePhoto(); } },
+  plPhotoTexte(el) { ui.plPhoto.texte = el.value; },
+  async plPhotoFichier(el) {
+    const f = el.files && el.files[0]; if (!f) return;
+    const st = ui.plPhoto; st.etat = 'Lecture de la photo… (la première fois, téléchargement d\'environ 3 Mo)'; fenetrePhoto();
+    try {
+      st.texte = await lirePhoto(f, (pc) => { const z = zoneFenetre.querySelector('.aide'); if (z) z.textContent = `Lecture de la photo… ${pc} %`; });
+      relirePhoto();
+    } catch (e) { st.etat = 'La lecture a échoué : ' + (e.message || e) + '. Tu peux taper le texte à la main.'; st.lignes = []; fenetrePhoto(); }
+  },
   corveeFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? el.dataset.v : null } }).catch(erreur); },
   async prendre(el) {
     const c = state.courses.find((x) => x.id === el.dataset.id); if (!c) return;
@@ -856,6 +1015,18 @@ const formulaires = {
       else await ecrire({ cle: 'notes', op: 'insert', ligne: { id: nouvelId(), auteur: state.moi.id, created_at: new Date().toISOString(), ...ligne } });
     } catch (e) { erreur(e); }
   },
+  async ptype(form) {
+    const fd = new FormData(form); const nom = (fd.get('nom') || '').trim(); const code = (fd.get('code') || '').trim().toUpperCase().slice(0, 3);
+    if (!nom || !code) return toast('Donne un nom et une lettre.');
+    const repos = !!fd.get('repos'); const debut = repos ? null : (fd.get('debut') || null); const fin = repos ? null : (fd.get('fin') || null);
+    if (!repos && (!debut || !fin)) return toast('Indique les heures de début et de fin (ou coche « Jour de repos »).');
+    const ligne = { nom, code, repos, debut, fin, couleur: fd.get('couleur') || '#E4DEFB' };
+    fermerFenetre();
+    try {
+      if (form.dataset.id) await ecrire({ cle: 'ptypes', op: 'update', ligne: { id: form.dataset.id, ...ligne } });
+      else await ecrire({ cle: 'ptypes', op: 'insert', ligne: { id: nouvelId(), membre_id: form.dataset.m, ordre: typesDe(form.dataset.m).length, created_at: new Date().toISOString(), ...ligne } });
+    } catch (e) { erreur(e); }
+  },
   async message(form) {
     const fd = new FormData(form); const texte = (fd.get('texte') || '').trim(); if (!texte) return toast('Écris un message.');
     fermerFenetre();
@@ -903,7 +1074,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && zoneFene
 // ---------------- Navigation ----------------
 function lireRoute() {
   const r = (location.hash.replace(/^#\/?/, '') || 'agenda').split('?')[0];
-  ui.route = ['agenda', 'courses', 'notes', 'anniv', 'plus', 'reglages'].includes(r) ? r : 'agenda';
+  ui.route = ['agenda', 'courses', 'notes', 'anniv', 'plus', 'reglages', 'planning', 'horaires'].includes(r) ? r : 'agenda';
   if (ui.route === 'plus') ui.photos = null;
   ui.codeVisible = false;
   if (ui.route === 'anniv') chargerAnniv();

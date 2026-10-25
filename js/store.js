@@ -7,11 +7,12 @@ const OUTBOX = 'famille-outbox-v1';
 const TABLES = {
   membres: 'membres', evenements: 'evenements', liens: 'evenement_membres',
   courses: 'courses', notes: 'notes', rappels: 'rappels',
-  habituels: 'courses_habituels', messages: 'famille_messages'
+  habituels: 'courses_habituels', messages: 'famille_messages',
+  ptypes: 'planning_types', pjours: 'planning_jours'
 };
 
 export const state = {
-  membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [],
+  membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [], ptypes: [], pjours: [],
   config: null, anniv: [], moi: null, userId: null, enLigne: navigator.onLine, enAttente: 0
 };
 
@@ -43,7 +44,7 @@ export function chargerCache() {
 }
 export function viderCache() {
   try { localStorage.removeItem(CACHE); localStorage.removeItem(OUTBOX); } catch (e) { /* ignore */ }
-  Object.assign(state, { membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [], config: null, anniv: [], moi: null });
+  Object.assign(state, { membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [], ptypes: [], pjours: [], config: null, anniv: [], moi: null });
 }
 
 function majMoi() {
@@ -56,7 +57,7 @@ export const liensDe = (evId) => state.liens.filter((l) => l.evenement_id === ev
 // Couleurs : on n'accepte que #RRGGBB (protège les attributs style)
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 function propre(cle, lignes) {
-  if (cle === 'membres' || cle === 'rappels') lignes.forEach((l) => { if (l.couleur && !HEX.test(l.couleur)) l.couleur = null; });
+  if (cle === 'membres' || cle === 'rappels' || cle === 'ptypes') lignes.forEach((l) => { if (l.couleur && !HEX.test(l.couleur)) l.couleur = null; });
   if (cle === 'membres') lignes.forEach((l) => { if (!l.couleur) l.couleur = '#6D5BD0'; });
   return lignes;
 }
