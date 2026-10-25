@@ -88,7 +88,7 @@ export function lirePlanning(texte, types, lundi) {
     if (debut && fin) type = types.find((t) => !t.repos && hm(t.debut) === debut && hm(t.fin) === fin) || null;
     if (!type && repos) type = types.find((t) => t.repos) || null;
     if (!type) type = types.find((t) => new RegExp(`\\b${sansAccent(t.nom).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(n)) || null;
-    if (!type) type = types.find((t) => t.code.length >= 2 && new RegExp(`\\b${sansAccent(t.code)}\\b`).test(n)) || null;
+    if (!type) type = types.find((t) => t.code.length >= 2 && new RegExp(`\\b${sansAccent(t.code).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(n)) || null;
     vus.add(k);
     res.push({ jour: k, debut, fin, repos, typeId: type ? type.id : '', doute: !type, brut });
   }
