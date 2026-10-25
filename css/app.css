@@ -221,3 +221,4 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 
 .menu-articles { width: 100%; min-height: 3.1rem; border-radius: 1rem; border: 1px solid var(--bord); background: var(--carte); padding: 0 1rem; font-size: 1rem; color: var(--encre); }
 .ic-article { font-size: 1.35rem; width: 1.8rem; text-align: center; flex-shrink: 0; }
+.menus-articles { display: flex; flex-direction: column; gap: .5rem; }

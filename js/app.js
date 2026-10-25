@@ -11,7 +11,7 @@ import {
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { FETAMI_SITE, VERSION } from './config.js';
-import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle } from './catalogue.js';
+import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -604,14 +604,17 @@ function changementHeureHtml() {
   return `<div class="carte" style="background:#C62828;color:#fff;margin-bottom:.5rem;font-weight:600">⏰ ${ch.demain ? 'Cette nuit' : 'Aujourd\'hui'} : passage à l'heure d'${ch.sens < 0 ? 'hiver' : 'été'}, ${ch.sens < 0 ? '−1 h' : '+1 h'} (${ch.avant} → ${ch.apres}). Pense aux horloges du four, de la voiture…</div>`;
 }
 function menuArticles(aPrendre) {
-  const g = propositionsArticles(aPrendre); const tous = g.flatMap((x) => x.articles);
+  const tousG = propositionsArticles(aPrendre); const tous = tousG.flatMap((x) => x.articles);
+  const g = filtrerGroupes(tousG, ui.catCourses);
   return `<datalist id="liste-articles">${tous.map((x) => `<option value="${esc(x.nom)}"></option>`).join('')}</datalist>
+    <div class="menus-articles"><label class="sr" for="menuCategories">Catégorie</label>
+    <select id="menuCategories" class="menu-articles" data-c="choixCategorie">${optionsCategories(tousG, ui.catCourses, esc)}</select>
     <label class="sr" for="menuArticles">Choisir un article dans la liste</label>
     <select id="menuArticles" class="menu-articles" data-c="choixArticle">
-      <option value="" selected>🛒 Choisir dans la liste (${nbPropositions(g)})…</option>
+      <option value="" selected>🛒 Choisir un article (${nbPropositions(g)})…</option>
       <option value="__ecrire">✏️ Écrire un autre article…</option>
       ${optionsMenu(g, esc)}
-    </select>`;
+    </select></div>`;
 }
 // ---------- Messages, tâches de chacun, articles habituels ----------
 const pourMoi = (m) => state.moi && (!m.pour || m.pour === state.moi.id) && m.de !== state.moi.id;
@@ -899,6 +902,7 @@ const actions = {
 };
 
 const changements = {
+  choixCategorie(el) { ui.catCourses = el.value; rendre(); },
   choixArticle(el) {
     const v = el.value; el.value = '';
     if (!v) return;

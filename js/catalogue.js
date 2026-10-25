@@ -64,3 +64,9 @@ export const nbPropositions = (groupes) => groupes.reduce((n, g) => n + g.articl
 export function optionsMenu(groupes, esc) {
   return groupes.map((g) => `<optgroup label="${esc(g.icone + ' ' + g.categorie)}">${g.articles.map((x) => `<option value="${esc(x.nom)}">${x.icone} ${esc(x.nom)}${x.frequent ? ' ★' : ''}</option>`).join('')}</optgroup>`).join('');
 }
+
+// Menu des catégories : « Toutes » puis chaque catégorie qui a des propositions
+export function optionsCategories(groupes, choix, esc) {
+  return `<option value="" ${!choix ? 'selected' : ''}>📋 Toutes les catégories</option>${groupes.map((g) => `<option value="${esc(g.categorie)}" ${choix === g.categorie ? 'selected' : ''}>${esc(g.icone + ' ' + g.categorie)} (${g.articles.length})</option>`).join('')}`;
+}
+export function filtrerGroupes(groupes, choix) { const f = groupes.filter((g) => g.categorie === choix); return choix && f.length ? f : groupes; }
