@@ -11,6 +11,7 @@ import {
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { FETAMI_SITE, VERSION } from './config.js';
+import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, lireDictee, isoJour, cleNom } from './repas.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
 
@@ -84,7 +85,7 @@ function entete(titre, sous) {
 
 function onglets() {
   const o = [['agenda', 'Agenda', 'agenda'], ['courses', 'Courses', 'courses'], ['notes', 'Notes', 'notes'], ['anniv', 'Anniv.', 'anniv'], ['plus', 'Plus', 'plus']];
-  const actif = ui.route === 'reglages' ? 'plus' : (ui.route === 'planning' || ui.route === 'horaires') ? 'agenda' : ui.route;
+  const actif = ui.route === 'reglages' ? 'plus' : (ui.route === 'planning' || ui.route === 'horaires') ? 'agenda' : (ui.route === 'repas' || ui.route === 'recette') ? 'courses' : ui.route;
   return `<div class="onglets"><nav aria-label="Navigation">${o.map(([r, l, ic]) =>
     `<a href="#/${r}" ${actif === r ? 'aria-current="page"' : ''} style="position:relative">${i(ic, 24)}${l}${r === 'plus' && nbMessagesPourMoi() ? `<span class="badge">${nbMessagesPourMoi()}</span>` : ''}</a>`).join('')}</nav></div>`;
 }
@@ -150,7 +151,7 @@ function ecranAgenda() {
   const titreJour = memeJour(ui.jour, auj) ? 'Aujourd\'hui' : memeJour(ui.jour, ajouterJours(auj, 1)) ? 'Demain' : majuscule(dateLongue(ui.jour));
   return `${entete('Agenda', state.moi ? `Bonjour ${state.moi.prenom}` : '')}${changementHeureHtml()}${messagesPourMoiHtml()}${mesTachesHtml()}${semaine}${puces}
     <h2 class="titre-section" style="display:flex;align-items:center;justify-content:space-between">${esc(titreJour)}<a href="#/planning" class="lien-planning">${i('agenda', 16, 2)}Planning de travail</a></h2>
-    ${travailDuJourHtml(ui.jour)}
+    ${travailDuJourHtml(ui.jour)}${repasJourHtml(ui.jour)}
     <div class="liste">${items || '<p class="vide">Rien de prévu ce jour-là.</p>'}</div>
     <div class="flottants">${voixDisponible() ? `<button class="fab rond ${ui.ecoute ? 'ecoute' : ''}" data-a="dicter" data-v="rdv" aria-label="Dicter un rendez-vous">${i('micro', 22, 2)}</button>` : ''}
       <button class="fab" data-a="nouveauRdv" aria-label="Ajouter un rendez-vous">${i('ajouter', 26, 2.2)}</button></div>`;
@@ -176,6 +177,7 @@ function ecranCourses() {
       ${voixDisponible() ? `<button type="button" class="icone-btn doux ${ui.ecoute ? 'ecoute' : ''}" data-a="dicter" data-v="course" aria-label="Dicter un article">${i('micro', 20, 2)}</button>` : ''}
       <button type="submit" class="icone-btn doux" aria-label="Ajouter">${i('ajouter', 20, 2.2)}</button>
     </form>
+    <a class="bouton second plein" href="#/repas" style="text-decoration:none">🍽️ Choisir un repas${repasAFaire().length ? ` · ${repasAFaire().length} à cuisiner` : ''}</a>
     ${menuArticles(aPrendre)}
     ${habituelsHtml(aPrendre)}
     <h2 class="titre-section">À prendre</h2>
@@ -380,7 +382,7 @@ function rendre() {
       <p class="c">Ce compte sert à l'écran de la maison.</p><a class="bouton plein" href="tablette.html">Ouvrir l'écran tablette</a>
       <button class="lien" data-a="deconnexion" style="align-self:center">Se déconnecter</button></div>`;
   } else {
-    const ecrans = { agenda: ecranAgenda, courses: ecranCourses, notes: ecranNotes, anniv: ecranAnniv, plus: ecranPlus, reglages: ecranReglages, planning: ecranPlanning, horaires: ecranHoraires };
+    const ecrans = { agenda: ecranAgenda, courses: ecranCourses, notes: ecranNotes, anniv: ecranAnniv, plus: ecranPlus, reglages: ecranReglages, planning: ecranPlanning, horaires: ecranHoraires, repas: ecranRepas, recette: ecranRecette };
     html = `${bandeau()}<main class="ecran">${(ecrans[ui.route] || ecranAgenda)()}</main>${onglets()}`;
   }
   contenu.innerHTML = html;
@@ -486,6 +488,69 @@ function formulaireNote(n, texte = '') {
       <div class="actions"><button class="bouton" type="submit">Enregistrer</button><button class="bouton second" type="button" data-a="fermer">Annuler</button></div>
     </form>`);
 }
+
+// ---------------- Repas et recettes ----------------
+ui.rp = { filtre: 'tous', recherche: '', id: null, pers: null, coches: new Set() };
+const JOURS_PREVOIR = () => { const a = debutJour(new Date()); return Array.from({ length: 8 }, (_, k) => ajouterJours(a, k)); };
+const libJour = (iso) => { if (!iso) return 'sans jour'; const d = new Date(iso + 'T12:00:00'); const a = debutJour(new Date()); return memeJour(d, a) ? 'ce soir' : memeJour(d, ajouterJours(a, 1)) ? 'demain' : dateLongue(d); };
+function repasJourHtml(jour) {
+  const l = repasDuJour(isoJour(jour)); if (!l.length) return '';
+  return `<div class="pl-ligne-agenda">${l.map((p) => { const r = recette(p.recette_id); return `<button class="pl-chip" data-a="rpOuvrir" data-id="${r.id}" style="border:none;font:inherit;color:inherit">🍽️ ${esc(r.icone)} ${esc(r.nom)}</button>`; }).join('')}</div>`;
+}
+function ecranRepas() {
+  const f = ui.rp.filtre; const q = cleNom(ui.rp.recherche);
+  let l = recettesTriees();
+  if (f === 'mes') l = l.filter((r) => r.cree_par); else if (f !== 'tous') l = l.filter((r) => (r.tags || []).includes(f));
+  if (q) l = l.filter((r) => cleNom(r.nom).includes(q));
+  const afaire = repasAFaire(); const nbIng = ingredientsAFaire().length;
+  const filtres = [['tous', 'Tous'], ['mes', '★ Mes recettes'], ...TAGS];
+  return `${entete('Repas', 'Vers la liste de courses')}
+    <div class="pl-barre"><a href="#/courses" class="lien-planning">${i('gauche', 16, 2.2)}Courses</a></div>
+    ${afaire.length ? `<h2 class="titre-section">À cuisiner</h2><div class="liste">${afaire.map((p) => { const r = recette(p.recette_id); return `<div class="article">
+      <button class="rp-ligne" data-a="rpOuvrir" data-id="${r.id}"><span class="rp-ic">${esc(r.icone)}</span><span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${esc(r.nom)}</span><small style="color:var(--pale)">${esc(libJour(p.jour))} · ${p.personnes} pers.</small></span></button>
+      <button class="icone-btn doux" data-a="rpFait" data-id="${p.id}" aria-label="Repas fait">${i('coche', 18, 2.4)}</button><button class="icone-btn" data-a="rpRetirer" data-id="${p.id}" aria-label="Retirer">${i('fermer', 18)}</button></div>`; }).join('')}</div>
+      ${nbIng ? `<button class="bouton" data-a="rpToutAjouter">Ajouter tous les ingrédients (${nbIng})</button>` : '<p class="aide" style="margin:0">Tous les ingrédients sont déjà dans la liste.</p>'}` : ''}
+    <label class="sr" for="rpRecherche">Chercher une recette</label>
+    <input id="rpRecherche" class="rp-recherche" placeholder="🔎 Écrire le nom d'une recette…" value="${esc(ui.rp.recherche)}" autocomplete="off">
+    <div class="puces" role="group" aria-label="Filtres">${filtres.map(([v, t]) => `<button class="puce" aria-pressed="${f === v}" data-a="rpFiltre" data-v="${v}">${esc(t)}</button>`).join('')}</div>
+    <div class="liste">${l.map((r) => `<button class="article rp-ligne" data-a="rpOuvrir" data-id="${r.id}"><span class="rp-ic">${esc(r.icone)}</span><span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${esc(r.nom)}</span><small style="color:var(--pale)">${(r.ingredients || []).length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''}${(r.tags || []).filter((t) => t === 'cookeo' || t === 'companion').map((t) => ' · ' + (t === 'cookeo' ? 'Cookeo' : 'Companion')).join('')}</small></span>${i('droite', 18)}</button>`).join('') || '<p class="vide">Aucune recette trouvée.</p>'}</div>
+    ${ui.rp.recherche && !l.some((r) => cleNom(r.nom) === q) ? `<button class="bouton" data-a="rpNouvelle" data-v="${esc(ui.rp.recherche)}">Créer la recette « ${esc(ui.rp.recherche)} »</button>` : ''}
+    <button class="bouton second" data-a="rpNouvelle" data-v="">${i('ajouter', 18, 2.2)}Nouvelle recette</button>`;
+}
+function ecranRecette() {
+  const r = recette(ui.rp.id);
+  if (!r) return `${entete('Recette', '')}<p class="vide">Recette introuvable.</p><a class="bouton second" href="#/repas">Retour aux repas</a>`;
+  const pers = ui.rp.pers || r.personnes; const ing = ingredients(r, pers);
+  const n = ing.filter((x) => !x.dans && ui.rp.coches.has(x.k)).length;
+  return `${entete(r.nom, `${ing.length} ingrédients${r.duree ? ' · ' + r.duree : ''}`)}
+    <div class="pl-barre"><a href="#/repas" class="lien-planning">${i('gauche', 16, 2.2)}Repas</a><span style="flex:1"></span>
+      <div class="rp-pers"><button class="icone-btn" data-a="rpPers" data-v="-1" aria-label="Moins de personnes">−</button><b>${pers} pers.</b><button class="icone-btn" data-a="rpPers" data-v="1" aria-label="Plus de personnes">+</button></div></div>
+    <div class="rp-tete"><span class="rp-grand">${esc(r.icone)}</span><span>Coche ce qu'il faut acheter.${(r.tags || []).length ? `<br><small style="color:var(--pale)">${r.tags.map((t) => esc((TAGS.find(([v]) => v === t) || [t, t])[1])).join(' · ')}</small>` : ''}</span></div>
+    <div class="liste">${ing.map((x) => `<label class="article ${x.dans ? 'pris' : ''}"><input type="checkbox" data-c="rpCoche" data-k="${x.k}" ${x.dans ? 'disabled' : ''} ${ui.rp.coches.has(x.k) && !x.dans ? 'checked' : ''}><span class="ic-article" aria-hidden="true">${iconeArticle(x.nom)}</span><span style="flex:1">${esc(x.nom)}</span><small style="color:var(--pale)">${x.dans ? 'déjà dans la liste' : esc(x.q)}</small></label>`).join('') || '<p class="vide">Aucun ingrédient : modifie la recette pour en ajouter.</p>'}</div>
+    <div class="actions"><button class="bouton second" data-a="rpToutCocher">Tout cocher</button><button class="bouton" data-a="rpAjouter" ${n ? '' : 'disabled'}>${n ? `Ajouter (${n}) aux courses` : 'Coche des articles'}</button></div>
+    <button class="bouton second" data-a="rpPrevoir">${i('agenda', 18)}Prévoir ce repas (jour facultatif)</button>
+    <div class="actions"><button class="bouton second" data-a="rpModifier">${i('modifier', 18)}Modifier la recette</button><button class="bouton danger" data-a="rpSupprimer">Supprimer</button></div>`;
+}
+function formRecette(r, nom = '', ingr = []) {
+  const liste = r ? (r.ingredients || []) : ingr;
+  ouvrirFenetre(r ? `Modifier « ${r.nom} »` : 'Nouvelle recette', `<form data-form="recette" data-id="${r ? r.id : ''}" style="display:flex;flex-direction:column;gap:.9rem">
+    <label class="champ">Nom du repas<input name="nom" required maxlength="80" value="${esc(r ? r.nom : nom)}" placeholder="Hachis parmentier…"></label>
+    <div class="champ">Icône<div class="rp-icones">${ICONES_RECETTE.map((c, k) => `<label><input type="radio" name="icone" value="${c}" class="sr" ${(r ? r.icone === c : k === ICONES_RECETTE.length - 1) ? 'checked' : ''}><span>${c}</span></label>`).join('')}</div></div>
+    <div class="ligne"><label class="champ">Durée<input name="duree" maxlength="30" value="${esc(r ? r.duree || '' : '')}" placeholder="1 h"></label><label class="champ">Personnes<input name="personnes" type="number" min="1" max="20" value="${r ? r.personnes : 4}"></label></div>
+    <div class="champ">Étiquettes<div class="rp-tags">${TAGS.map(([v, t]) => `<label><input type="checkbox" name="tags" value="${v}" ${r && (r.tags || []).includes(v) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div></div>
+    <label class="champ">Ingrédients (un par ligne, « nom, quantité »)<textarea name="ingredients" rows="7" placeholder="Pommes de terre, 1 kg&#10;Bœuf haché, 500 g&#10;Lait, 20 cl">${esc(liste.map((x) => x.q ? `${x.nom}, ${x.q}` : x.nom).join('\n'))}</textarea></label>
+    ${voixDisponible() ? `<button type="button" class="bouton second" data-a="rpDicter">${i('micro', 18, 2)}Dicter « nom : ingrédient, ingrédient… »</button>` : ''}
+    <div class="actions"><button class="bouton" type="submit">Enregistrer</button><button class="bouton second" type="button" data-a="fermer">Annuler</button></div></form>`);
+}
+function fenetrePrevoir() {
+  const r = recette(ui.rp.id); if (!r) return;
+  const pers = ui.rp.pers || r.personnes; const n = ingredients(r, pers).filter((x) => !x.dans && ui.rp.coches.has(x.k)).length;
+  ouvrirFenetre(`Prévoir « ${r.nom} »`, `<form data-form="prevoir" style="display:flex;flex-direction:column;gap:.9rem">
+    <label class="champ">Quand ?<select name="jour"><option value="">Sans jour (juste « à cuisiner »)</option>${JOURS_PREVOIR().map((d, k) => `<option value="${isoJour(d)}">${k === 0 ? 'Ce soir' : k === 1 ? 'Demain' : majuscule(dateLongue(d))}</option>`).join('')}</select></label>
+    ${n ? `<label class="item" style="display:flex;gap:.6rem;align-items:center"><input type="checkbox" name="avec" checked style="width:1.3rem;height:1.3rem;accent-color:var(--accent)">Ajouter aussi les ${n} ingrédients cochés aux courses</label>` : ''}
+    <div class="actions"><button class="bouton" type="submit">Prévoir</button><button class="bouton second" type="button" data-a="fermer">Annuler</button></div></form>`);
+}
+function ingredientsCoches() { const r = recette(ui.rp.id); if (!r) return []; return ingredients(r, ui.rp.pers || r.personnes).filter((x) => !x.dans && ui.rp.coches.has(x.k)); }
 
 // ---------------- Planning de travail ----------------
 ui.pl = { vue: 'jour', ref: debutJour(new Date()), qui: null, tampon: null };
@@ -779,6 +844,25 @@ function planifierRappels() {
 
 // ---------------- Actions ----------------
 const actions = {
+  rpFiltre(d) { ui.rp.filtre = d.v; rendre(); },
+  rpOuvrir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; if (location.hash !== '#/recette') location.hash = '#/recette'; else rendre(); },
+  rpPers(d) { const r = recette(ui.rp.id); if (!r) return; ui.rp.pers = Math.min(20, Math.max(1, (ui.rp.pers || r.personnes) + Number(d.v))); rendre(); },
+  rpToutCocher() { const r = recette(ui.rp.id); if (!r) return; const l = ingredients(r, ui.rp.pers || r.personnes).filter((x) => !x.dans); const tous = l.every((x) => ui.rp.coches.has(x.k)); ui.rp.coches = tous ? new Set() : new Set(l.map((x) => x.k)); rendre(); },
+  rpAjouter() { const ops = opsCourses(ingredientsCoches(), 'app', state.moi.id); if (!ops.length) return; ui.rp.coches = new Set(); ecrire(ops).then(() => toast(`${ops.length} article${ops.length > 1 ? 's' : ''} ajouté${ops.length > 1 ? 's' : ''} aux courses.`)).catch(erreur); },
+  rpPrevoir() { fenetrePrevoir(); },
+  rpFait(d) { ecrire({ cle: 'repas', op: 'update', ligne: { id: d.id, fait: true } }).then(() => toast('Bon appétit !')).catch(erreur); },
+  rpRetirer(d) { ecrire({ cle: 'repas', op: 'delete', ligne: { id: d.id } }).catch(erreur); },
+  rpToutAjouter() { const ops = opsCourses(ingredientsAFaire(), 'app', state.moi.id); if (!ops.length) return toast('Rien à ajouter.'); ecrire(ops).then(() => toast(`${ops.length} articles ajoutés aux courses.`)).catch(erreur); },
+  rpNouvelle(d) { formRecette(null, d.v || ''); },
+  rpModifier() { const r = recette(ui.rp.id); if (r) formRecette(r); },
+  rpSupprimer() { const r = recette(ui.rp.id); if (!r) return; confirmer(`Supprimer « ${r.nom} » ?`, 'La recette sera supprimée pour toute la famille.', 'Supprimer', () => ecrire({ cle: 'recettes', op: 'delete', ligne: { id: r.id } }).then(() => { location.hash = '#/repas'; })); },
+  async rpDicter() {
+    try {
+      const t = await ecouter(); const d = lireDictee(t); const f = zoneFenetre.querySelector('form[data-form=recette]'); if (!f) return;
+      if (d) { if (!f.nom.value) f.nom.value = d.nom.charAt(0).toUpperCase() + d.nom.slice(1); f.ingredients.value = [f.ingredients.value.trim(), ...d.ingredients.map((x) => x.nom)].filter(Boolean).join('\n'); }
+      else f.ingredients.value = [f.ingredients.value.trim(), ...t.split(/\s*(?:,|\bet\b)\s*/).filter(Boolean)].filter(Boolean).join('\n');
+    } catch (e) { toast(e.message); }
+  },
   exporter() {
     const { config, moi, userId, enAttente, enLigne, ...donnees } = state;
     const cfg = config ? (({ fetami_jeton, ...c }) => c)(config) : null;
@@ -914,6 +998,7 @@ const actions = {
 };
 
 const changements = {
+  rpCoche(el) { const k = Number(el.dataset.k); if (el.checked) ui.rp.coches.add(k); else ui.rp.coches.delete(k); rendre(); },
   choixCategorie(el) { ui.catCourses = el.value; rendre(); },
   choixArticle(el) {
     const v = el.value; el.value = '';
@@ -1051,6 +1136,21 @@ const formulaires = {
       else await ecrire({ cle: 'notes', op: 'insert', ligne: { id: nouvelId(), auteur: state.moi.id, created_at: new Date().toISOString(), ...ligne } });
     } catch (e) { erreur(e); }
   },
+  async recette(form) {
+    const fd = new FormData(form); const nom = (fd.get('nom') || '').trim(); if (!nom) return toast('Donne un nom au repas.');
+    const ligne = { nom: nom.charAt(0).toUpperCase() + nom.slice(1), icone: fd.get('icone') || '🍽️', duree: (fd.get('duree') || '').trim() || null, personnes: Math.min(20, Math.max(1, Number(fd.get('personnes')) || 4)), tags: fd.getAll('tags'), ingredients: lireIngredients(fd.get('ingredients')) };
+    fermerFenetre();
+    try {
+      if (form.dataset.id) await ecrire({ cle: 'recettes', op: 'update', ligne: { id: form.dataset.id, ...ligne } });
+      else { const id = nouvelId(); await ecrire({ cle: 'recettes', op: 'insert', ligne: { id, cree_par: state.moi.id, created_at: new Date().toISOString(), ...ligne } }); ui.rp.recherche = ''; ui.rp.id = id; ui.rp.coches = new Set(); ui.rp.pers = null; location.hash = '#/recette'; }
+    } catch (e) { erreur(e); }
+  },
+  async prevoir(form) {
+    const fd = new FormData(form); const r = recette(ui.rp.id); if (!r) return;
+    const pers = ui.rp.pers || r.personnes; const avec = !!fd.get('avec'); const ops = avec ? opsCourses(ingredientsCoches(), 'app', state.moi.id) : [];
+    fermerFenetre();
+    try { await prevoir(r.id, fd.get('jour') || null, pers, state.moi.id); if (ops.length) await ecrire(ops); ui.rp.coches = new Set(); toast(`« ${r.nom} » prévu${fd.get('jour') ? ' ' + libJour(fd.get('jour')) : ''}.${ops.length ? ` ${ops.length} articles ajoutés aux courses.` : ''}`); location.hash = '#/repas'; } catch (e) { erreur(e); }
+  },
   async ptype(form) {
     const fd = new FormData(form); const nom = (fd.get('nom') || '').trim(); const code = (fd.get('code') || '').trim().toUpperCase().slice(0, 3);
     if (!nom || !code) return toast('Donne un nom et une lettre.');
@@ -1110,7 +1210,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && zoneFene
 // ---------------- Navigation ----------------
 function lireRoute() {
   const r = (location.hash.replace(/^#\/?/, '') || 'agenda').split('?')[0];
-  ui.route = ['agenda', 'courses', 'notes', 'anniv', 'plus', 'reglages', 'planning', 'horaires'].includes(r) ? r : 'agenda';
+  ui.route = ['agenda', 'courses', 'notes', 'anniv', 'plus', 'reglages', 'planning', 'horaires', 'repas', 'recette'].includes(r) ? r : 'agenda';
   if (ui.route === 'plus') ui.photos = null;
   ui.codeVisible = false;
   if (ui.route === 'anniv') chargerAnniv();
@@ -1167,3 +1267,5 @@ async function demarrer() {
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 demarrer();
+
+document.addEventListener('input', (e) => { if (e.target && e.target.id === 'rpRecherche') { ui.rp.recherche = e.target.value; rendre(); } });

@@ -270,3 +270,50 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .menu-articles { width: 100%; height: 56px; border-radius: 18px; border: 1px solid var(--trait); background: #fff; padding: 0 18px; font-family: inherit; font-size: 18px; color: var(--encre); }
 .ic-article { font-size: 24px; width: 32px; text-align: center; flex-shrink: 0; }
 .menus-articles { display: grid; grid-template-columns: 2fr 3fr; gap: 12px; }
+
+/* Repas */
+.btn.rond.repas { font-size: 22px; background: #FFF1E2; }
+.pp.soir { background: #FFF1E2; color: #8A4310; box-shadow: inset 0 0 0 1px #F2C79A; cursor: pointer; }
+.rp-soir { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 16px; border: none; background: #fff; font: inherit; color: var(--encre); text-align: left; box-shadow: 0 1px 3px rgba(31,78,121,.15); }
+.rp-soir .ic { font-size: 26px; }
+.rp-soir .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.rp-soir small { font-size: 11px; color: #1F4E79; font-weight: 700; letter-spacing: .05em; }
+.rp-soir b { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-soir .n { font-size: 13px; color: #4A3DA8; font-weight: 600; white-space: nowrap; }
+.rp-grille { display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 22px; height: 100%; min-height: 0; }
+.rp-gauche { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.rp-cherche { height: 54px; border-radius: 18px; border: 1px solid var(--trait); background: #fff; padding: 0 16px; font-family: inherit; font-size: 17px; color: var(--encre); }
+.rp-filtres { display: flex; gap: 6px; flex-wrap: wrap; }
+.rp-filtres button { height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--trait); background: #fff; font-family: inherit; font-size: 14px; color: var(--encre); }
+.rp-filtres button.on { background: var(--encre); color: #fff; border-color: var(--encre); }
+.rp-liste { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; min-height: 0; }
+.rp-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 16px; border: none; background: #fff; font: inherit; color: var(--encre); text-align: left; }
+.rp-item.on { background: #ECEAFB; box-shadow: 0 0 0 2px var(--accent); }
+.rp-item .ic { width: 42px; height: 42px; border-radius: 12px; background: #FBF3E6; font-size: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rp-item .tx { display: flex; flex-direction: column; min-width: 0; }
+.rp-item b { font-size: 17px; font-weight: 500; }
+.rp-item small { font-size: 13px; color: var(--pale); }
+.rp-droite { background: #fff; border-radius: 28px; padding: 22px 26px; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; box-shadow: 0 1px 0 var(--trait); }
+.rp-tete { display: flex; align-items: center; gap: 16px; }
+.rp-tete .grand { font-size: 44px; }
+.rp-tete .tx { flex: 1; display: flex; flex-direction: column; }
+.rp-tete h2 { margin: 0; font-size: 28px; font-weight: 500; }
+.rp-tete small { font-size: 15px; color: var(--pale); }
+.rp-pers { display: flex; align-items: center; gap: 6px; background: var(--creux); border-radius: 14px; padding: 4px; }
+.rp-pers button { width: 44px; height: 44px; border: none; border-radius: 11px; background: #fff; font-family: inherit; font-size: 22px; }
+.rp-pers b { font-size: 17px; padding: 0 8px; }
+.rp-ing { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-content: start; }
+.rp-ing label { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 16px; background: var(--creux); }
+.rp-ing label.dans { opacity: .6; }
+.rp-ing input { width: 26px; height: 26px; accent-color: var(--accent); }
+.rp-ing .nm { flex: 1; font-size: 18px; }
+.rp-ing small { font-size: 14px; color: var(--pale); }
+.rp-bas { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: auto; }
+.rp-afaire { display: flex; flex-direction: column; gap: 8px; }
+.rp-icones { display: flex; flex-wrap: wrap; gap: 6px; }
+.rp-icones span { width: 44px; height: 44px; border-radius: 12px; background: var(--creux); font-size: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.rp-icones input:checked + span { box-shadow: 0 0 0 2px var(--accent); background: #ECEAFB; }
+.rp-tags { display: flex; gap: 18px; flex-wrap: wrap; font-size: 17px; }
+.rp-tags label { display: flex; gap: 6px; align-items: center; }
+.rp-bas .gros-btn.second { padding: 0 16px; }
+.rp-bas [data-a=rpAjouter] { margin-left: auto; }

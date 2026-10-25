@@ -28,7 +28,7 @@ CATEGORIES.forEach((c) => c.articles.forEach(([n, ic]) => INDEX.set(sansAccent(n
 const MOTS = [
   [/pomme de terre|patate/, '🥔', 'Fruits et légumes'], [/salade|laitue|chou/, '🥬', 'Fruits et légumes'], [/tomate/, '🍅', 'Fruits et légumes'], [/fruit|pomme|poire|peche|abricot|prune|cerise|melon|pasteque/, '🍎', 'Fruits et légumes'], [/legume|carotte|navet|radis|betterave|courge|potiron|aubergine/, '🥕', 'Fruits et légumes'],
   [/croissant|pain au|chocolatine|viennois/, '🥐', 'Boulangerie'], [/pain|baguette|ficelle/, '🥖', 'Boulangerie'],
-  [/fromage|comte|camembert|brie|chevre|raclette|parmesan/, '🧀', 'Crèmerie et œufs'], [/oeuf/, '🥚', 'Crèmerie et œufs'], [/lait|creme|yaourt|yogourt|dessert lacte/, '🥛', 'Crèmerie et œufs'], [/beurre/, '🧈', 'Crèmerie et œufs'],
+  [/fromage|comte|camembert|brie|chevre|raclette|parmesan/, '🧀', 'Crèmerie et œufs'], [/\boeuf/, '🥚', 'Crèmerie et œufs'], [/lait|creme|yaourt|yogourt|dessert lacte/, '🥛', 'Crèmerie et œufs'], [/beurre/, '🧈', 'Crèmerie et œufs'],
   [/poulet|dinde|volaille/, '🍗', 'Viandes et poissons'], [/boeuf|steak|viande|porc|veau|agneau|roti|cote/, '🥩', 'Viandes et poissons'], [/jambon|lardon|bacon|saucisson/, '🥓', 'Viandes et poissons'], [/poisson|saumon|thon|cabillaud|crevette|moule/, '🐟', 'Viandes et poissons'],
   [/epice|cumin|curry|paprika|poivre|sel|herbe|basilic|thym|origan|piment|muscade|cannelle|gingembre/, '🧂', 'Épices et condiments'], [/huile|vinaigre|sauce|ketchup|mayo|moutarde/, '🫙', 'Épices et condiments'],
   [/apero|chips|cacahuete|olive|crackers|tuc|pistache/, '🥨', 'Apéro'], [/gateau|biscuit|gouter|cookie|madeleine|brownie|gaufre|crepe/, '🍪', 'Goûters et biscuits'], [/bonbon|chocolat|nutella/, '🍫', 'Goûters et biscuits'],

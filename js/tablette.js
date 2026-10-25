@@ -5,6 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { VERSION } from './config.js';
+import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, isoJour, cleNom, chercherRecette } from './repas.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
@@ -231,6 +232,7 @@ function agendaHtml() {
     <div class="barre-outils"><div class="gauche"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>${periode}</div>
       <div class="outils">${titre}
         ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button><button class="btn rond aide" data-a="ouvrirPage" data-v="aide" aria-label="Ce que je comprends à la voix">?</button>` : ''}
+        <button class="btn rond repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes">🍽️</button>
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
         <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
@@ -245,7 +247,7 @@ function cartesHtml() {
   const anniv = (state.anniv || []).map((a) => ({ ...a, p: prochainAnniv(a.mois_jour, a.annee) })).filter((a) => a.p).sort((a, b) => a.p.dans - b.p.dans);
   const a0 = anniv[0]; const a1 = anniv[1];
   return `<section class="cartes">
-    <div class="carte courses clic" data-a="ouvrirPage" data-v="courses" role="button" tabindex="0" aria-label="Ouvrir les courses"><h2>Courses <small>· ${courses.length}</small></h2>
+    <div class="carte courses clic" data-a="ouvrirPage" data-v="courses" role="button" tabindex="0" aria-label="Ouvrir les courses"><h2>Courses <small>· ${courses.length}</small></h2>${(() => { const p = repasDuJour(isoJour(new Date()))[0]; const r = p && recette(p.recette_id); if (!r) return ''; const n = ingredients(r, p.personnes).filter((x) => !x.dans).length; return `<button class="rp-soir" data-a="rpVoir" data-id="${r.id}"><span class="ic">${esc(r.icone)}</span><span class="tx"><small>CE SOIR</small><b>${esc(r.nom)}</b></span><span class="n">${n ? n + ' à acheter ›' : 'tout est là ✓'}</span></button>`; })()}
       <div class="puces">${courses.slice(0, 9).map((c) => `<span class="puce">${iconeArticle(c.nom)} ${esc(c.nom)}${c.source === 'titus' ? '<span class="etq">Titus</span>' : ''}</span>`).join('')}${courses.length > 9 ? `<span class="puce" style="color:var(--pale)">+${courses.length - 9}</span>` : ''}</div>
       ${!courses.length ? '<span class="vide">Rien à acheter</span>' : ''}</div>
     <div class="carte notes clic" data-a="ouvrirPage" data-v="notes" role="button" tabindex="0" aria-label="Ouvrir les notes"><h2>Notes</h2>
@@ -423,6 +425,7 @@ function pageAide() {
     ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, prends rendez-vous, réunion, rappelle-moi, j\'ai… — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
+    ${bloc('courses', '#C2410C', 'Repas', 'ajoute les ingrédients de, on mange quoi, montre les recettes', ['Ajoute les ingrédients des lasagnes', 'Qu\'est-ce qu\'on mange ce soir ?', 'On mange quoi demain ?', 'Montre les recettes'], 'Bouton 🍽️ à côté de « Ajouter » : choisis une recette, coche ce qu\'il faut acheter, puis « Ajouter aux courses ». « Prévoir » met le repas dans « À cuisiner », avec ou sans jour. Le repas du soir s\'affiche en haut et dans la carte Courses.')}
     ${bloc('soleil', '#D9774A', 'Le point du jour', '', ['Bonjour', 'Le point de la journée', 'C\'est quoi ma journée ?'], 'Donne la météo et les rendez-vous du jour, seulement quand tu le demandes.')}
     ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels. Le planning de travail (Matin, Nuit…) se remplit depuis l\'onglet Agenda du téléphone et s\'affiche ici à côté des prénoms.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
     ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Météo pour demain', 'Montre-moi la météo de la semaine', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
@@ -430,6 +433,47 @@ function pageAide() {
   <p style="margin:0;color:var(--pale);font-size:15px">Tu peux ajouter « tablette », « tu peux », « s'il te plaît », « je voudrais »… ils sont ignorés. Parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;
   return { titre: 'Ce que je comprends <small>· à la voix</small>', outils: voixOk() ? `<button class="btn fort" data-a="parlerAide">${i('micro', 18, 2)}Parler</button>` : '', corps };
 }
+
+// ---------- Repas et recettes ----------
+ui.rp = { id: null, pers: null, coches: new Set(), filtre: 'tous' };
+const libJourT = (iso) => { if (!iso) return 'sans jour'; const d = new Date(iso + 'T12:00:00'); const a = debutJour(new Date()); return memeJour(d, a) ? 'ce soir' : memeJour(d, ajouterJours(a, 1)) ? 'demain' : `${JOURS[jourIso(d) - 1]} ${d.getDate()}`; };
+function pageRepas() {
+  const f = ui.rp.filtre; let l = recettesTriees();
+  if (f === 'mes') l = l.filter((r) => r.cree_par); else if (f !== 'tous') l = l.filter((r) => (r.tags || []).includes(f));
+  const af = repasAFaire();
+  const gauche = `<div class="rp-gauche"><input class="rp-cherche" data-rp-cherche placeholder="🔎 Écrire le nom d'une recette…" aria-label="Chercher une recette" autocomplete="off">
+    <div class="rp-filtres">${[['tous', 'Tous'], ['mes', '★ Mes recettes'], ...TAGS].map(([v, t]) => `<button class="${f === v ? 'on' : ''}" data-a="rpFiltre" data-v="${v}">${esc(t)}</button>`).join('')}</div>
+    <div class="rp-liste">${l.map((r) => `<button class="rp-item ${ui.rp.id === r.id ? 'on' : ''}" data-a="rpVoir" data-id="${r.id}" data-nom="${esc(cleNom(r.nom))}"><span class="ic">${esc(r.icone)}</span><span class="tx"><b>${esc(r.nom)}</b><small>${(r.ingredients || []).length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''}</small></span></button>`).join('')}
+      <p class="vide rp-aucun" hidden>Aucune recette : touche « + Nouvelle recette » pour la créer.</p></div>
+    <button class="gros-btn second" data-a="rpNouvelle">${i('ajouter', 20, 2.2)} Nouvelle recette</button></div>`;
+  let droite;
+  const r = recette(ui.rp.id);
+  if (r) {
+    const pers = ui.rp.pers || r.personnes; const ing = ingredients(r, pers); const n = ing.filter((x) => !x.dans && ui.rp.coches.has(x.k)).length;
+    droite = `<div class="rp-droite"><div class="rp-tete"><span class="grand">${esc(r.icone)}</span><div class="tx"><h2>${esc(r.nom)}</h2><small>${ing.length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''} · coche ce qu'il faut acheter</small></div>
+      <div class="rp-pers"><button data-a="rpPers" data-v="-1" aria-label="Moins de personnes">−</button><b>${pers} personnes</b><button data-a="rpPers" data-v="1" aria-label="Plus de personnes">+</button></div></div>
+      <div class="rp-ing">${ing.map((x) => `<label class="${x.dans ? 'dans' : ''}"><input type="checkbox" data-c="rpCoche" data-k="${x.k}" ${x.dans ? 'disabled' : ''} ${ui.rp.coches.has(x.k) && !x.dans ? 'checked' : ''}><span class="ic-article">${iconeArticle(x.nom)}</span><span class="nm">${esc(x.nom)}</span><small>${x.dans ? 'déjà dans la liste' : esc(x.q)}</small></label>`).join('') || '<p class="vide">Aucun ingrédient.</p>'}</div>
+      <div class="rp-bas"><button class="gros-btn second" data-a="rpToutCocher">Tout cocher</button><button class="gros-btn second" data-a="rpPrevoir">${i('agenda', 20)} Prévoir</button><button class="gros-btn second" data-a="rpModifier">${i('modifier', 20)} Modifier</button><button class="gros-btn" data-a="rpAjouter" ${n ? '' : 'disabled'}>${n ? `Ajouter (${n}) aux courses` : 'Coche des articles'}</button></div></div>`;
+  } else {
+    const nb = ingredientsAFaire().length;
+    droite = `<div class="rp-droite"><h2 style="margin:0;font-size:26px;font-weight:500">À cuisiner</h2>
+      ${af.length ? `<div class="rp-afaire">${af.map((p) => { const rr = recette(p.recette_id); return `<div class="ligne-p"><button class="rp-item" data-a="rpVoir" data-id="${rr.id}" style="flex:1"><span class="ic">${esc(rr.icone)}</span><span class="tx"><b>${esc(rr.nom)}</b><small>${esc(libJourT(p.jour))} · ${p.personnes} pers.</small></span></button>
+        <button class="btn rond" data-a="rpFait" data-id="${p.id}" aria-label="Repas fait">${i('coche', 20, 2.4)}</button><button class="btn rond rouge" data-a="rpRetirer" data-id="${p.id}" aria-label="Retirer">${i('fermer', 20)}</button></div>`; }).join('')}</div>
+        ${nb ? `<button class="gros-btn" data-a="rpToutAjouter">Ajouter tous les ingrédients (${nb}) aux courses</button>` : '<p class="vide">Tous les ingrédients sont déjà dans la liste.</p>'}`
+        : '<p class="vide" style="font-size:18px">Aucun repas prévu. Choisis une recette à gauche, puis « Prévoir » (avec ou sans jour).</p>'}</div>`;
+  }
+  return { titre: 'Repas <small>· vers la liste de courses</small>', outils: `${r ? '<button class="btn" data-a="rpAccueil">À cuisiner</button>' : ''}${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`, corps: `<div class="rp-grille">${gauche}${droite}</div>` };
+}
+function formRecetteT(r, nom = '') {
+  const liste = r ? (r.ingredients || []) : [];
+  fenetre(r ? `Modifier « ${r.nom} »` : 'Nouvelle recette', `<form data-form="recette" data-id="${r ? r.id : ''}" style="display:flex;flex-direction:column;gap:12px">
+    <div class="rangee"><label class="champ">Nom du repas<input name="nom" required maxlength="80" value="${esc(r ? r.nom : nom)}"></label><label class="champ" style="max-width:140px">Personnes<input name="personnes" type="number" min="1" max="20" value="${r ? r.personnes : 4}"></label><label class="champ" style="max-width:140px">Durée<input name="duree" maxlength="30" value="${esc(r ? r.duree || '' : '')}"></label></div>
+    <div class="champ">Icône<div class="rp-icones">${ICONES_RECETTE.map((c, k) => `<label><input type="radio" name="icone" value="${c}" class="sr" ${(r ? r.icone === c : k === ICONES_RECETTE.length - 1) ? 'checked' : ''}><span>${c}</span></label>`).join('')}</div></div>
+    <div class="rp-tags">${TAGS.map(([v, t]) => `<label><input type="checkbox" name="tags" value="${v}" ${r && (r.tags || []).includes(v) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>
+    <label class="champ">Ingrédients (un par ligne, « nom, quantité »)<textarea name="ingredients" rows="6">${esc(liste.map((x) => x.q ? `${x.nom}, ${x.q}` : x.nom).join('\n'))}</textarea></label>
+    <div class="rangee"><button class="gros-btn">Enregistrer</button>${r ? `<button type="button" class="gros-btn danger" data-a="rpSupprimer">Supprimer</button>` : ''}<button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+}
+function ingredientsCochesT() { const r = recette(ui.rp.id); if (!r) return []; return ingredients(r, ui.rp.pers || r.personnes).filter((x) => !x.dans && ui.rp.coches.has(x.k)); }
 
 function pageMeteo() {
   const m = ui.meteo; const vue = ui.meteoVue || '2j';
@@ -474,7 +518,7 @@ function rendrePage() {
   if (!ui.page) { zPage.innerHTML = ''; return; }
   const act = document.activeElement;
   if (act && zPage.contains(act) && act.tagName === 'INPUT' && act.type === 'text' && act.value) return; // on ne coupe pas une saisie
-  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : ui.page === 'messages' ? pageMessages() : pageRappels();
+  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : ui.page === 'messages' ? pageMessages() : ui.page === 'repas' ? pageRepas() : pageRappels();
   const garder = zPage.querySelector('.page-corps'); const defil = garder ? garder.scrollTop : 0;
   zPage.innerHTML = `<div class="page" role="dialog" aria-modal="true" aria-label="${ui.page}"><header><h1>${p.titre}</h1><div class="outils">${p.outils}<button class="btn rond grand" data-a="fermerPage" aria-label="Fermer et revenir à l'accueil">${i('fermer', 26, 2.2)}</button></div></header><div class="page-corps">${p.corps}</div></div>`;
   const c = zPage.querySelector('.page-corps'); if (c) c.scrollTop = defil;
@@ -539,7 +583,9 @@ function pastillesPlus() {
   const al = new Date().getHours() >= 16 ? alerteDemain() : null;
   const ch = changementHeure();
   const heure = ch ? `<span class="pp heure-ch" title="Changement d'heure">⏰ ${ch.demain ? 'Cette nuit' : 'Aujourd\'hui'} : heure d'${ch.sens < 0 ? 'hiver' : 'été'}, ${ch.sens < 0 ? '−1 h' : '+1 h'} (${ch.avant} → ${ch.apres})</span>` : '';
-  return `${heure}${nl ? `<span class="pp msg" data-a="ouvrirPage" data-v="messages" role="button">${i('notes', 14, 2)}${nl} message${nl > 1 ? 's' : ''}</span>` : ''}${al ? `<span class="pp alerte" data-a="ouvrirPage" data-v="meteo" role="button">⚠ ${esc(al.court)}</span>` : ''}`;
+  const soir = repasDuJour(isoJour(new Date()))[0]; const rs = soir && recette(soir.recette_id);
+  const pSoir = rs ? `<span class="pp soir" data-a="rpVoir" data-id="${rs.id}" role="button">${esc(rs.icone)} Ce soir : ${esc(rs.nom)}</span>` : '';
+  return `${heure}${pSoir}${nl ? `<span class="pp msg" data-a="ouvrirPage" data-v="messages" role="button">${i('notes', 14, 2)}${nl} message${nl > 1 ? 's' : ''}</span>` : ''}${al ? `<span class="pp alerte" data-a="ouvrirPage" data-v="meteo" role="button">⚠ ${esc(al.court)}</span>` : ''}`;
 }
 function pageMessages() {
   const l = state.messages.slice().sort((a, b) => (!!a.lu_le - !!b.lu_le) || (a.created_at < b.created_at ? 1 : -1));
@@ -710,6 +756,14 @@ async function parler() {
     formRdv({ titre: c.titre, debut: c.debut, journee: c.journee, qui });
     toast(`« ${t} » → rendez-vous à vérifier.`);
     parlerSi(`Rendez-vous ${c.titre}, ${jourParle(debutJour(c.debut))}${c.journee ? '' : ' à ' + heureParlee(c.debut)}. Vérifie et appuie sur Enregistrer.`);
+  } else if (c.type === 'repas') {
+    const r = chercherRecette(c.nom);
+    if (!r) { toast(`Je ne connais pas la recette « ${c.nom} ». Ajoute-la dans Repas.`); parlerSi(`Je ne connais pas la recette ${c.nom}.`); return; }
+    const ops = opsCourses(ingredients(r, r.personnes), 'tablette', state.moi.id);
+    if (!ops.length) { toast(`Tous les ingrédients de « ${r.nom} » sont déjà dans la liste.`); parlerSi('Tout est déjà dans la liste.'); return; }
+    await ecrire(ops); const ids = ops.map((o) => o.ligne.id);
+    toast(`« ${t} » → ${ops.length} ingrédients de ${r.nom} ajoutés aux courses.`, () => ecrire(ids.map((id) => ({ cle: 'courses', op: 'delete', ligne: { id } }))));
+    parlerSi(`J'ai ajouté ${ops.length} ingrédient${ops.length > 1 ? 's' : ''} pour ${r.nom}.`);
   } else if (c.type === 'minuteur') {
     const r = commandeMinuteur(c); toast(`« ${t} » → ${r}`); parlerSi(r);
   } else if (c.type === 'message') {
@@ -722,7 +776,7 @@ async function parler() {
   } else if (c.type === 'question') {
     if (c.montrer) {
       if (c.sujet === 'meteo') { ui.page = 'meteo'; ui.meteoVue = c.semaine || (c.date && (debutJour(c.date) - debutJour(new Date())) / 86400000 > 1) ? 'sem' : '2j'; }
-      else if (['courses', 'notes', 'messages'].includes(c.sujet)) ui.page = c.sujet;
+      else if (['courses', 'notes', 'messages', 'repas'].includes(c.sujet)) { ui.page = c.sujet; if (c.sujet === 'repas') ui.rp.id = null; }
       else if (c.sujet === 'taches' || c.sujet === 'poubelle') ui.page = 'rappels';
       else if (c.sujet === 'agenda') { ui.page = null; if (c.semaine) { ui.vue = 'semaine'; ui.ref = debutJour(c.date || new Date()); } else { ui.vue = 'jour'; ui.ref = debutJour(c.date || new Date()); } }
       rendre();
@@ -795,6 +849,13 @@ function repondre(c) {
     const l = [...state.notes].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 3);
     if (!l.length) return 'Il n\'y a aucune note.';
     return `${l.length > 1 ? 'Les dernières notes' : 'La dernière note'} : ${l.map((x) => x.texte).join('. ')}.`;
+  }
+  if (c.sujet === 'repas') {
+    const iso = isoJour(c.date ? debutJour(c.date) : auj); const qd = memeJour(c.date || auj, auj) ? 'Ce soir' : majuscule(jourParle(debutJour(c.date)));
+    const l = repasDuJour(iso).map((p) => recette(p.recette_id).nom);
+    if (l.length) return `${qd}, on mange : ${enumerer(l)}.`;
+    const af = repasAFaire().map((p) => recette(p.recette_id).nom);
+    return af.length ? `Rien de prévu pour ${qd.toLowerCase()}. À cuisiner : ${enumerer(af.slice(0, 4))}.` : `Aucun repas prévu. Choisis une recette dans Repas.`;
   }
   if (c.sujet === 'poubelle') {
     const l = state.rappels.filter((r) => r.type === 'tache').map((t) => ({ ...t, d: prochaineTache(t.jour_semaine || 1, t.fait_le) })).sort((a, b) => a.d - b.d);
@@ -894,6 +955,24 @@ const actions = {
   allerJour(d) { const [y, m, j] = d.v.split('-').map(Number); ui.ref = new Date(y, m - 1, j); ui.vue = 'jour'; rendre(); },
   ouvrirPage(d) { ui.page = d.v; if (d.v === 'meteo') { ui.meteoVue = '2j'; if (!ui.meteo || Date.now() - (ui.meteo.le || 0) > 20 * 60000) chargerMeteo(); } rendre(); },
   meteoVue(d) { ui.meteoVue = d.v; rendre(); },
+  rpVoir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; ui.page = 'repas'; rendre(); },
+  rpAccueil() { ui.rp.id = null; rendre(); },
+  rpFiltre(d) { ui.rp.filtre = d.v; rendre(); },
+  rpPers(d) { const r = recette(ui.rp.id); if (!r) return; ui.rp.pers = Math.min(20, Math.max(1, (ui.rp.pers || r.personnes) + Number(d.v))); rendre(); },
+  rpToutCocher() { const r = recette(ui.rp.id); if (!r) return; const l = ingredients(r, ui.rp.pers || r.personnes).filter((x) => !x.dans); const tous = l.every((x) => ui.rp.coches.has(x.k)); ui.rp.coches = tous ? new Set() : new Set(l.map((x) => x.k)); rendre(); },
+  rpAjouter() { const ops = opsCourses(ingredientsCochesT(), 'tablette', state.moi.id); if (!ops.length) return; ui.rp.coches = new Set(); ecrire(ops).then(() => toast(`${ops.length} article${ops.length > 1 ? 's' : ''} ajouté${ops.length > 1 ? 's' : ''} aux courses.`)); },
+  rpPrevoir() {
+    const r = recette(ui.rp.id); if (!r) return; const n = ingredientsCochesT().length; const a = debutJour(new Date());
+    fenetre(`Prévoir « ${r.nom} »`, `<form data-form="prevoir" style="display:flex;flex-direction:column;gap:14px"><label class="champ">Quand ?<select name="jour"><option value="">Sans jour (juste « à cuisiner »)</option>${Array.from({ length: 8 }, (_, k) => ajouterJours(a, k)).map((d, k) => `<option value="${isoJour(d)}">${k === 0 ? 'Ce soir' : k === 1 ? 'Demain' : majuscule(JOURS[jourIso(d) - 1]) + ' ' + d.getDate()}</option>`).join('')}</select></label>
+      ${n ? `<label style="display:flex;gap:10px;align-items:center;font-size:18px"><input type="checkbox" name="avec" checked style="width:24px;height:24px;accent-color:var(--accent)">Ajouter aussi les ${n} ingrédients cochés aux courses</label>` : ''}
+      <div class="rangee"><button class="gros-btn">Prévoir</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+  },
+  rpFait(d) { ecrire({ cle: 'repas', op: 'update', ligne: { id: d.id, fait: true } }); toast('Bon appétit !'); },
+  rpRetirer(d) { ecrire({ cle: 'repas', op: 'delete', ligne: { id: d.id } }); },
+  rpToutAjouter() { const ops = opsCourses(ingredientsAFaire(), 'tablette', state.moi.id); if (!ops.length) return toast('Rien à ajouter.'); ecrire(ops).then(() => toast(`${ops.length} articles ajoutés aux courses.`)); },
+  rpNouvelle() { const c = zPage.querySelector('[data-rp-cherche]'); formRecetteT(null, c ? c.value.trim() : ''); },
+  rpModifier() { const r = recette(ui.rp.id); if (r) formRecetteT(r); },
+  rpSupprimer() { const r = recette(ui.rp.id); if (!r) return; confirmer('Supprimer ?', `« ${r.nom} » sera supprimée pour toute la famille.`, 'Supprimer', () => { ui.rp.id = null; return ecrire({ cle: 'recettes', op: 'delete', ligne: { id: r.id } }); }); },
   minPlus(d) { const m = ui.minuteurs.find((x) => x.id === d.id); if (m) { m.fin += 60000; m.total += 60; sauverMin(); rendreMin(); } },
   minStop(d) { ui.minuteurs = ui.minuteurs.filter((x) => x.id !== d.id); sauverMin(); rendreMin(); },
   ajoutHabituel(d) { const h = state.habituels.find((x) => x.id === d.id); if (!h) return; const l = { id: nouvelId(), nom: h.nom, source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }; ecrire({ cle: 'courses', op: 'insert', ligne: l }); toast(`Ajouté : ${h.nom}`, () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: l.id } })); },
@@ -942,6 +1021,7 @@ const actions = {
 const changements = {
   prendre(el) { ecrire({ cle: 'courses', op: 'update', ligne: { id: el.dataset.id, pris: el.checked, pris_le: el.checked ? new Date().toISOString() : null } }); },
   tacheFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.dataset.v } }); toast('Bien joué ! C\'est noté pour cette semaine.'); },
+  rpCoche(el) { const k = Number(el.dataset.k); if (el.checked) ui.rp.coches.add(k); else ui.rp.coches.delete(k); rendre(); },
   choixCategorie(el) { ui.catCourses = el.value; rendre(); },
   choixArticle(el) {
     const v = el.value; el.value = '';
@@ -1015,6 +1095,20 @@ const formulaires = {
     fermer();
     if (form.dataset.id) await ecrire({ cle: 'notes', op: 'update', ligne: { id: form.dataset.id, ...ligne } });
     else await ecrire({ cle: 'notes', op: 'insert', ligne: { id: nouvelId(), auteur: state.moi.id, created_at: new Date().toISOString(), ...ligne } });
+  },
+  async recette(form) {
+    const fd = new FormData(form); const nom = (fd.get('nom') || '').trim(); if (!nom) return toast('Donne un nom au repas.');
+    const ligne = { nom: nom.charAt(0).toUpperCase() + nom.slice(1), icone: fd.get('icone') || '🍽️', duree: (fd.get('duree') || '').trim() || null, personnes: Math.min(20, Math.max(1, Number(fd.get('personnes')) || 4)), tags: fd.getAll('tags'), ingredients: lireIngredients(fd.get('ingredients')) };
+    fermer();
+    if (form.dataset.id) await ecrire({ cle: 'recettes', op: 'update', ligne: { id: form.dataset.id, ...ligne } });
+    else { const id = nouvelId(); await ecrire({ cle: 'recettes', op: 'insert', ligne: { id, cree_par: state.moi.id, created_at: new Date().toISOString(), ...ligne } }); ui.rp.id = id; ui.rp.coches = new Set(); ui.rp.pers = null; rendre(); }
+  },
+  async prevoir(form) {
+    const fd = new FormData(form); const r = recette(ui.rp.id); if (!r) return;
+    const ops = fd.get('avec') ? opsCourses(ingredientsCochesT(), 'tablette', state.moi.id) : [];
+    fermer();
+    await prevoir(r.id, fd.get('jour') || null, ui.rp.pers || r.personnes, state.moi.id); if (ops.length) await ecrire(ops);
+    ui.rp.coches = new Set(); ui.rp.id = null; rendre(); toast(`« ${r.nom} » prévu${fd.get('jour') ? ' ' + libJourT(fd.get('jour')) : ''}.${ops.length ? ` ${ops.length} articles ajoutés aux courses.` : ''}`);
   },
   async message(form) {
     const fd = new FormData(form); const texte = (fd.get('texte') || '').trim(); if (!texte) return toast('Écris un message.');
@@ -1103,3 +1197,11 @@ demarrer();
 
 // Prépare la voix locale en arrière-plan pour que le 1er « Parler » soit rapide
 if (reglages.voix !== 'google' && micro()) setTimeout(() => preparerVoixLocale().catch(() => {}), 8000);
+
+// Recherche de recette en direct (sans redessiner la page pour garder le clavier)
+scene.addEventListener('input', (e) => {
+  if (!e.target.matches('[data-rp-cherche]')) return;
+  const q = cleNom(e.target.value); let n = 0;
+  zPage.querySelectorAll('.rp-liste .rp-item').forEach((b) => { const ok = !q || b.dataset.nom.includes(q); b.hidden = !ok; if (ok) n++; });
+  const v = zPage.querySelector('.rp-aucun'); if (v) v.hidden = n > 0;
+});

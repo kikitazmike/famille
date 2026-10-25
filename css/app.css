@@ -222,3 +222,18 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .menu-articles { width: 100%; min-height: 3.1rem; border-radius: 1rem; border: 1px solid var(--bord); background: var(--carte); padding: 0 1rem; font-size: 1rem; color: var(--encre); }
 .ic-article { font-size: 1.35rem; width: 1.8rem; text-align: center; flex-shrink: 0; }
 .menus-articles { display: flex; flex-direction: column; gap: .5rem; }
+
+/* Repas */
+.rp-ligne { display: flex; align-items: center; gap: .8rem; flex: 1; border: none; background: none; padding: 0; font: inherit; color: inherit; text-align: left; width: 100%; }
+.article.rp-ligne { background: var(--carte); padding: .55rem .8rem; }
+.rp-ic { width: 2.6rem; height: 2.6rem; border-radius: .8rem; background: var(--creux); font-size: 1.4rem; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rp-recherche { width: 100%; min-height: 3.1rem; border-radius: 1rem; border: 1px solid var(--bord); background: var(--carte); padding: 0 1rem; font-size: 1rem; color: var(--encre); }
+.rp-pers { display: flex; align-items: center; gap: .2rem; background: var(--carte); border-radius: .9rem; padding: .15rem; box-shadow: var(--ombre); }
+.rp-pers .icone-btn { font-size: 1.3rem; }
+.rp-tete { display: flex; align-items: center; gap: .8rem; }
+.rp-grand { font-size: 2.6rem; }
+.rp-icones { display: flex; flex-wrap: wrap; gap: .35rem; }
+.rp-icones span { width: 2.6rem; height: 2.6rem; border-radius: .8rem; background: var(--creux); font-size: 1.4rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.rp-icones input:checked + span { box-shadow: 0 0 0 2px var(--accent); background: var(--accent-doux); }
+.rp-tags { display: flex; flex-wrap: wrap; gap: .8rem; }
+.rp-tags label { display: flex; gap: .35rem; align-items: center; font-size: .95rem; }

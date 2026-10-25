@@ -187,6 +187,13 @@ export function comprendre(texte, prenoms = []) {
   let t = chiffrer(brut);
   const n = sansAccent(t);
 
+  // Repas : « ajoute les ingrédients des lasagnes », « montre les recettes », « qu'est-ce qu'on mange ce soir ? »
+  {
+    const mi = nb0.match(/^(?:ajoute|ajouter|mets|mettre|met|rajoute)\s+(?:tous\s+)?(?:les\s+)?ingredients\s+(?:de la |de l'|des |du |de |d'|pour (?:la |le |les |l')?)\s*(.+)$/);
+    if (mi) return { type: 'repas', action: 'ingredients', nom: mi[1].trim(), texte: brut };
+    if (/^(montre|montrer|affiche|afficher|ouvre|ouvrir|voir|fais voir)[- ]?(moi|nous)?\s+(les\s+|la\s+|le\s+)?(repas|recettes?|menus?|liste des repas)\b/.test(n)) return { type: 'question', sujet: 'repas', montrer: true, texte: t };
+  }
+
   // « Météo », « la météo de demain »
   const montrer = /^(montre|montrer|affiche|afficher|ouvre|ouvrir|voir|fais voir|regarde)\b/.test(n);
   const nm = n.replace(/^(montre|montrer|affiche|afficher|ouvre|ouvrir|voir|fais voir|regarde|donne|dis)[- ]?(moi|nous)?\s+/, '');
@@ -203,6 +210,7 @@ export function comprendre(texte, prenoms = []) {
     if (/meteo|quel temps|temps fait|temps va|temps demain|pleuv|pluie|temperature|degres|froid|chaud|soleil|neige|beau|moche|nuage|vent|parapluie/.test(nq)) sujet = 'meteo';
     else if (/anniv/.test(nq)) sujet = 'anniv';
     else if (/poubelle|ordure|dechet|tri\b/.test(nq)) sujet = 'poubelle';
+    else if (/\bon mange\b|\bmanger\b|\brepas\b|\bmenu\b|\brecette|a cuisiner|au diner|pour le diner|pour diner/.test(nq)) sujet = 'repas';
     else if (/course|acheter|liste|manque|frigo|placard/.test(nq)) sujet = 'courses';
     else if (/\bnotes?\b|memo|pense[- ]bete/.test(nq)) sujet = 'notes';
     else if (/message/.test(nq)) sujet = 'messages';
