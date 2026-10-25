@@ -11,7 +11,7 @@ import {
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { FETAMI_SITE, VERSION } from './config.js';
-import { CATALOGUE } from './catalogue.js';
+import { propositionsArticles } from './catalogue.js';
 import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -602,17 +602,6 @@ function relirePhoto() { const st = ui.plPhoto; st.lignes = lirePlanning(st.text
 function changementHeureHtml() {
   const ch = changementHeure(); if (!ch) return '';
   return `<div class="carte" style="background:#C62828;color:#fff;margin-bottom:.5rem;font-weight:600">⏰ ${ch.demain ? 'Cette nuit' : 'Aujourd\'hui'} : passage à l'heure d'${ch.sens < 0 ? 'hiver' : 'été'}, ${ch.sens < 0 ? '−1 h' : '+1 h'} (${ch.avant} → ${ch.apres}). Pense aux horloges du four, de la voiture…</div>`;
-}
-// Menu déroulant des articles : catalogue + articles souvent ajoutés (2 fois ou plus), par ordre alphabétique
-function propositionsArticles(aPrendre) {
-  const cle = (x) => (x || '').trim().toLowerCase();
-  const dans = new Set(aPrendre.map((c) => cle(c.nom)));
-  const masques = new Set(state.habituels.filter((h) => h.masque).map((h) => h.cle));
-  const frequents = new Map(state.habituels.filter((h) => !h.masque && h.nb >= 2).map((h) => [h.cle, h]));
-  const noms = new Map();
-  CATALOGUE.forEach((n) => { if (!masques.has(cle(n))) noms.set(cle(n), { nom: n, frequent: frequents.has(cle(n)) }); });
-  frequents.forEach((h, k) => { noms.set(k, { nom: majuscule(h.nom), frequent: true }); });
-  return [...noms.entries()].filter(([k]) => !dans.has(k)).map(([, v]) => v).sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
 }
 function menuArticles(aPrendre) {
   const l = propositionsArticles(aPrendre);

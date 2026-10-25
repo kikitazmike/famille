@@ -1,3 +1,4 @@
+import { state } from './store.js';
 // Articles courants proposés dans le menu des courses (complétés par les articles souvent ajoutés)
 export const CATALOGUE = [
   'Ail', 'Allumettes', 'Ampoules', 'Ananas', 'Aspirine', 'Avocats', 'Baguette', 'Bananes', 'Beurre', 'Bière', 'Biscottes',
@@ -13,3 +14,16 @@ export const CATALOGUE = [
   'Sacs poubelle', 'Salade', 'Sardines', 'Sauce tomate', 'Saucisses', 'Saumon', 'Savon', 'Sel', 'Shampoing', 'Sirop',
   'Steaks hachés', 'Sucre', 'Surgelés', 'Thé', 'Thon', 'Tomates', 'Vin', 'Vinaigre', 'Yaourts'
 ];
+
+// Catalogue + articles souvent ajoutés (2 fois ou plus), sans ce qui est déjà à prendre, par ordre alphabétique
+export function propositionsArticles(aPrendre) {
+  const cle = (x) => (x || '').trim().toLowerCase();
+  const maj = (x) => (x ? x.charAt(0).toUpperCase() + x.slice(1) : x);
+  const dans = new Set(aPrendre.map((c) => cle(c.nom)));
+  const masques = new Set(state.habituels.filter((h) => h.masque).map((h) => h.cle));
+  const frequents = new Map(state.habituels.filter((h) => !h.masque && h.nb >= 2).map((h) => [h.cle, h]));
+  const noms = new Map();
+  CATALOGUE.forEach((n) => { if (!masques.has(cle(n))) noms.set(cle(n), { nom: n, frequent: frequents.has(cle(n)) }); });
+  frequents.forEach((h, k) => { noms.set(k, { nom: maj(h.nom), frequent: true }); });
+  return [...noms.entries()].filter(([k]) => !dans.has(k)).map(([, v]) => v).sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+}

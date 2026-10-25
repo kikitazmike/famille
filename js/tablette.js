@@ -5,6 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { VERSION } from './config.js';
+import { propositionsArticles } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 const VERSION_APPLI = VERSION;
@@ -381,7 +382,7 @@ function pageCourses() {
     <button class="btn rond" data-a="modifCourse" data-id="${c.id}" aria-label="Modifier ${esc(c.nom)}">${i('modifier', 20)}</button>
     <button class="btn rond rouge" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 20)}</button></div>`; };
   return { titre: `Courses <small>· ${aPrendre.length} à prendre</small>`, outils: `${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`,
-    corps: `<form class="ajout-p" data-form="ajoutCourse" autocomplete="off"><input name="nom" maxlength="120" placeholder="Ajouter un article (plusieurs : séparés par des virgules)" aria-label="Nouvel article"><button class="gros-btn">${i('ajouter', 20, 2.2)} Ajouter</button></form>
+    corps: `<form class="ajout-p" data-form="ajoutCourse" autocomplete="off"><input name="nom" maxlength="120" placeholder="Ajouter un article (plusieurs : séparés par des virgules)" aria-label="Nouvel article" list="liste-articles"><button class="gros-btn">${i('ajouter', 20, 2.2)} Ajouter</button></form>${(() => { const l = propositionsArticles(aPrendre); return `<datalist id="liste-articles">${l.map((x) => `<option value="${esc(x.nom)}"></option>`).join('')}</datalist><select class="menu-articles" data-c="choixArticle" aria-label="Choisir un article dans la liste"><option value="" selected>Choisir dans la liste (${l.length})…</option><option value="__ecrire">✏️ Écrire un autre article…</option>${l.map((x) => `<option value="${esc(x.nom)}">${x.frequent ? '★ ' : ''}${esc(x.nom)}</option>`).join('')}</select>`; })()}
     ${blocHabituels(aPrendre)}
     <div class="colonnes"><div><h3>À prendre</h3>${aPrendre.map(ligne).join('') || '<p class="vide">La liste est vide.</p>'}</div>
       <div><h3>Déjà pris</h3>${pris.map(ligne).join('') || '<p class="vide">Rien pour l\'instant.</p>'}${pris.length ? '<button class="gros-btn danger" data-a="viderPris">Vider les articles pris</button>' : ''}</div></div>` };
@@ -423,7 +424,7 @@ function pageAide() {
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
     ${bloc('soleil', '#D9774A', 'Le point du jour', '', ['Bonjour', 'Le point de la journée', 'C\'est quoi ma journée ?'], 'Donne la météo et les rendez-vous du jour, seulement quand tu le demandes.')}
-    ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels. Le planning de travail (Matin, Nuit…) se remplit depuis l'onglet Agenda du téléphone et s'affiche ici à côté des prénoms.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
+    ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels. Le planning de travail (Matin, Nuit…) se remplit depuis l\'onglet Agenda du téléphone et s\'affiche ici à côté des prénoms.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
     ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Météo pour demain', 'Montre-moi la météo de la semaine', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
   </div>
   <p style="margin:0;color:var(--pale);font-size:15px">Tu peux ajouter « tablette », « tu peux », « s'il te plaît », « je voudrais »… ils sont ignorés. Parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;
@@ -941,6 +942,14 @@ const actions = {
 const changements = {
   prendre(el) { ecrire({ cle: 'courses', op: 'update', ligne: { id: el.dataset.id, pris: el.checked, pris_le: el.checked ? new Date().toISOString() : null } }); },
   tacheFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.dataset.v } }); toast('Bien joué ! C\'est noté pour cette semaine.'); },
+  choixArticle(el) {
+    const v = el.value; el.value = '';
+    if (!v) return;
+    if (v === '__ecrire') { const inp = zPage.querySelector('form[data-form=ajoutCourse] input[name=nom]'); if (inp) inp.focus(); return; }
+    const l = { id: nouvelId(), nom: v.slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() };
+    ecrire({ cle: 'courses', op: 'insert', ligne: l });
+    toast(`Ajouté : ${v}`, () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: l.id } }));
+  },
   corveeFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? el.dataset.v : null } }); },
   rappelFait(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.checked ? isoDate(new Date()) : null } }); },
   quiTous(el) { el.form.querySelectorAll('input[name=qui]').forEach((x) => { x.checked = el.checked; }); },
