@@ -181,7 +181,7 @@ export async function ecrire(ops) {
   for (let i = 0; i < ops.length; i++) {
     try { await envoyer(ops[i]); }
     catch (e) {
-      if (e.reseau || !e.status || e.status === 401 || e.status >= 500) { ecrireFile(lireFile().concat(ops.slice(i))); emettre(); if (!e.reseau) planifierRelance(); return { hors_ligne: true }; }
+      if (e.reseau || !e.status || e.status === 401 || e.status >= 500) { ecrireFile(lireFile().concat(ops.slice(i))); emettre(); planifierRelance(); return { hors_ligne: true }; }
       try { await Promise.all([...new Set(ops.map((o) => o.cle))].map((k) => rafraichir(k))); majMoi(); emettre(); } catch (x) { /* ignore */ }
       throw e;
     }
