@@ -429,13 +429,13 @@ function pageAide() {
   const corps = `<div class="aide-grille">
     ${bloc('courses', '#2E8B57', 'Courses', 'ajoute, rajoute, mets, achète, il faut, il manque, on n\'a plus de', ['Ajoute du pain et des œufs', 'Il manque du café', 'Lait'], 'Aussi : faut, il faut acheter, on a plus de, y a plus de, on a besoin de, pense à acheter, n\'oublie pas d\'acheter, prends, courses… Un mot seul est ajouté aux courses.')}
     ${bloc('notes', '#C9822B', 'Notes', 'note, nouvelle note, prends note, écris', ['Note : appeler le plombier', 'Écris acheter un cadeau pour mamie'], 'Aussi : mémo, pense-bête, retiens que, n\'oublie pas que, souviens-toi que.')}
-    ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, prends rendez-vous, réunion, rappelle-moi, j\'ai… — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
+    ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, prends rendez-vous, réunion, rappelle-moi, j\'ai… — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures', 'Piscine demain de 14 h à 16 h', 'Réunion jeudi à 9 h pendant 2 heures', 'Dentiste à 9 h 30 (aujourd\'hui)'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
     ${bloc('courses', '#C2410C', 'Repas', 'ajoute les ingrédients de, on mange quoi, montre les recettes', ['Ajoute les ingrédients des lasagnes', 'Qu\'est-ce qu\'on mange ce soir ?', 'On mange quoi demain ?', 'Montre les recettes'], 'Bouton 🍽️ à côté de « Ajouter » : choisis une recette, coche ce qu\'il faut acheter, puis « Ajouter aux courses ». « Prévoir » met le repas dans « À cuisiner », avec ou sans jour. Le repas du soir s\'affiche en haut et dans la carte Courses.')}
     ${bloc('soleil', '#D9774A', 'Le point du jour', '', ['Bonjour', 'Le point de la journée', 'C\'est quoi ma journée ?'], 'Donne la météo et les rendez-vous du jour, seulement quand tu le demandes.')}
     ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels. Le planning de travail (Matin, Nuit…) se remplit depuis l\'onglet Agenda du téléphone et s\'affiche ici à côté des prénoms.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
-    ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Météo pour demain', 'Montre-moi la météo de la semaine', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?'])}
+    ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Météo pour demain', 'Montre-moi la météo de la semaine', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?', 'Quelle heure est-il ?', 'Qui travaille demain ?', 'Lucas travaille samedi ?', 'Quelles tâches demain ?'])}
   </div>
   <p style="margin:0;color:var(--pale);font-size:15px">Tu peux ajouter « tablette », « tu peux », « s'il te plaît », « je voudrais »… ils sont ignorés. Parle normalement, près de la tablette. Appuie une 2e fois sur « Parler » pour arrêter l'écoute.</p>`;
   return { titre: 'Ce que je comprends <small>· à la voix</small>', outils: voixOk() ? `<button class="btn fort" data-a="parlerAide">${i('micro', 18, 2)}Parler</button>` : '', corps };
@@ -755,8 +755,8 @@ async function parler() {
     c.noms = nouveaux;
     const lignes = c.noms.map((nom) => ({ id: nouvelId(), nom: nom.slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }));
     await ecrire(lignes.map((l) => ({ cle: 'courses', op: 'insert', ligne: l })));
-    parlerSi(`J'ai ajouté ${enumerer(c.noms)} aux courses.`);
-    toast(`« ${t} » → ajouté aux courses : ${c.noms.join(', ')}`, () => ecrire(lignes.map((l) => ({ cle: 'courses', op: 'delete', ligne: { id: l.id } }))));
+    parlerSi(`J'ai ajouté ${enumerer(c.noms)} aux courses.${deja.length ? ` ${enumerer(deja)}, c'était déjà dans la liste.` : ''}`);
+    toast(`« ${t} » → ajouté aux courses : ${c.noms.join(', ')}${deja.length ? ` (déjà là : ${deja.join(', ')})` : ''}`, () => ecrire(lignes.map((l) => ({ cle: 'courses', op: 'delete', ligne: { id: l.id } }))));
   } else if (c.type === 'note') {
     const l = { id: nouvelId(), texte: c.texte.slice(0, 2000), auteur: state.moi.id, created_at: new Date().toISOString() };
     await ecrire({ cle: 'notes', op: 'insert', ligne: l });
@@ -842,7 +842,9 @@ function repondre(c) {
   if (c.sujet === 'heure') return `Il est ${heureParlee(new Date())}.`;
   if (c.sujet === 'reglages') return 'Voici les réglages.';
   if (c.sujet === 'planning') {
-    const j = debutJour(c.date || auj); const l = personnes().map((p) => ({ p, t: typeDuJour(p.id, isoDate(j)) })).filter((x) => x.t);
+    const j = debutJour(c.date || auj); const q = sansAcc(c.texte); const vises = personnes().filter((p) => new RegExp(`\\b${sansAcc(p.prenom).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(q));
+    const l = (vises.length ? vises : personnes()).map((p) => ({ p, t: typeDuJour(p.id, isoDate(j)) })).filter((x) => x.t || vises.length);
+    if (vises.length) return l.map(({ p, t }) => `${p.prenom} ${jourParle(j)} : ${!t ? 'rien de prévu au planning' : t.repos ? 'repos' : t.nom + (t.debut ? ' de ' + heureParlee(new Date('2000-01-01T' + t.debut)) + ' à ' + heureParlee(new Date('2000-01-01T' + t.fin)) : '')}`).join('. ') + '.';
     if (!l.length) return `Aucun planning de travail ${jourParle(j)}.`;
     return `${majuscule(jourParle(j))} : ` + l.map(({ p, t }) => `${p.prenom}, ${t.repos ? 'repos' : t.nom + (t.debut ? ' de ' + heureParlee(new Date('2000-01-01T' + t.debut)) + ' à ' + heureParlee(new Date('2000-01-01T' + t.fin)) : '')}`).join(' ; ') + '.';
   }

@@ -221,7 +221,7 @@ function ecranAnniv() {
     </div>`;
   }).join('');
   return `${entete('Anniversaires', liste.length ? 'Depuis Fetami' : '')}
-    ${!state.config || !state.config.fetami_jeton ? '<p class="info">Fetami n\'est pas encore relié.</p>' : ''}
+    ${state.config && 'fetami_jeton' in state.config && !state.config.fetami_jeton ? '<p class="info">Fetami n\'est pas encore relié.</p>' : ''}
     <div class="liste">${items || '<p class="vide">Aucun anniversaire trouvé.</p>'}</div>
     <p class="aide" style="text-align:center">Pour ajouter ou modifier un anniversaire, utilise <a href="${FETAMI_SITE}" target="_blank" rel="noopener">Fetami</a>.</p>`;
 }
@@ -833,6 +833,7 @@ async function dicter(contexte) {
       const p = repasDuJour(isoJour(c.date ? debutJour(c.date) : new Date()))[0]; const r = p && recette(p.recette_id);
       toast(r ? `${c.date && !memeJour(c.date, new Date()) ? 'Ce jour-là' : 'Ce soir'} : ${r.nom}` : 'Aucun repas prévu : choisis une recette.');
     } else if (c.sujet === 'courses') toast(`${state.courses.filter((x) => !x.pris).length} article(s) sur la liste.`);
+    else toast({ notes: 'Voici les notes.', anniv: 'Voici les anniversaires.', messages: 'Voici les messages.', taches: 'Voici les tâches.', poubelle: 'Voici les tâches.', reglages: 'Voici les réglages.', planning: 'Voici le planning.' }[c.sujet] || 'Voici l\'agenda.');
   } else if (c.raison === 'date') {
     toast(`« ${texte} » : cette date n'existe pas.`);
   } else {

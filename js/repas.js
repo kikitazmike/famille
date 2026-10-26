@@ -21,7 +21,7 @@ export const repasDuJour = (jourIso) => repasAFaire().filter((r) => r.jour === j
 
 // Quantité adaptée au nombre de personnes : « 500 g » pour 4 → « 750 g » pour 6
 // Unités de mesure (le reste se compte : œufs, boîtes, tranches… → arrondi au supérieur)
-const MESURE = /^\s*(g|gr|grammes?|kg|kilos?|mg|cl|ml|dl|l|litres?|c\.?\s*(à|a)\s*[sc]|cuill|pinc|tasse|verre|bol|filet|trait|noix|zeste|brin|botte|%)/i;
+const MESURE = /^\s*(g|gr|grammes?|kg|kilos?|mg|cl|ml|dl|l|litres?|c\.?\s*(à|a)\s*[sc]\.?|cuill\S*|pinc\S*|tasses?|verres?|bols?|filets?|traits?|noix|zestes?|brins?|bottes?|%)(?![a-zà-ÿ])/i;
 export function quantite(q, base, pers) {
   if (!q || !base || base === pers) return q || '';
   const f = pers / base;
@@ -49,7 +49,8 @@ export function ingredients(r, pers) {
     .map(({ x, k }) => ({ k, nom: x.nom.slice(0, 120), q: quantite(x.q == null ? '' : String(x.q).slice(0, 60), r.personnes, pers || r.personnes), dans: dans.has(sansAccent(x.nom)) }));
 }
 // Articles pas encore dans la liste (sans tenir compte des majuscules, accents ou pluriel simple)
-const cleArticle = (x) => sansAccent(x).replace(/\s+/g, ' ').replace(/s$/, '');
+// On garde les accents (« pâté » ≠ « pâtes ») mais pas les majuscules ni le pluriel simple
+const cleArticle = (x) => (x || '').trim().toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae').replace(/\s+/g, ' ').replace(/s$/, '');
 export function sansDoublons(noms) {
   const dans = new Set(state.courses.filter((c) => !c.pris).map((c) => cleArticle(c.nom)));
   const nouveaux = []; const deja = [];
@@ -97,7 +98,7 @@ export function lireIngredients(texte) {
     let nom = (m ? m[1] : l).trim(); let q = m ? m[2].trim() : '';
     // Quantité écrite devant : « 2 tomates », « 1/2 kg de farine », « 200 g de beurre »
     const d = !m && nom.match(/^(\d+(?:[.,]\d+)?(?:\s*\/\s*\d+)?)\s*(g|gr|kg|mg|cl|ml|dl|l|litres?|c\.?\s*(?:à|a)\s*[sc]\.?|cuill[eè]res?\s+(?:à|a)\s+(?:soupe|café)|pincées?|sachets?|boîtes?|tranches?|gousses?|pots?|briques?|paquets?)?\s+(?:de\s+|d')?(.+)$/i);
-    if (d) { q = d[2] ? `${d[1]} ${d[2]}` : d[1]; nom = d[3]; }
+    if (d && !/^(g|gr|kg|mg|cl|ml|dl|l|litres?)$/i.test(d[3].trim())) { q = d[2] ? `${d[1]} ${d[2]}` : d[1]; nom = d[3]; }
     nom = nom.slice(0, 120); q = q.slice(0, 60);
     return { nom: nom.charAt(0).toUpperCase() + nom.slice(1), q };
   }).filter((x) => /[\p{L}\p{N}]/u.test(x.nom)).slice(0, 60);

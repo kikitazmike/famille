@@ -248,14 +248,16 @@ export function comprendre(texte, prenoms = []) {
   // Plage « de 14 h à 16 h », « entre 9 h et 11 h 30 »
   const rp = /\b(?:de|entre)\s+(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?\s*(?:à|a|-|et|jusqu'à)\s+(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?\b/i;
   const pl = t.match(rp);
-  let heure = trouverHeure(t); let finH = null;
-  if (pl && Number(pl[1]) < 24 && Number(pl[3]) < 24) { heure = { h: Number(pl[1]), min: Number(pl[2] || 0), re: rp }; finH = { h: Number(pl[3]), min: Number(pl[4] || 0) }; }
-  // Durée « pendant 2 heures », « pendant 45 minutes »
+  // Durée « pendant 2 heures », « pendant 45 minutes » (retirée avant de chercher l'heure)
   const rdur = /\s*\bpendant\s+(\d{1,3})\s*(h|heures?|min|minutes?|mn)(?:\s*(\d{2}))?\b/i;
   const pd = t.match(rdur);
   const dureeMin = pd ? (/^h/i.test(pd[2]) ? Number(pd[1]) * 60 + Number(pd[3] || 0) : Number(pd[1])) : 0;
-  const motsT = t.split(' ').length;
-  if (DEBUT_RDV.test(t) || (date && heure) || (heure && /(?:^|\s)(a|à|vers)\s+\d{1,2}\s*h/i.test(t) && motsT <= 8) || (date && motsT >= 2 && motsT <= 8)) {
+  let heure = trouverHeure(pd ? t.replace(rdur, ' ') : t); let finH = null;
+  if (pl && Number(pl[1]) < 24 && Number(pl[3]) < 24) { heure = { h: Number(pl[1]), min: Number(pl[2] || 0), re: rp }; finH = { h: Number(pl[3]), min: Number(pl[4] || 0) }; }
+  const motsT = brut.split(/\s+/).length;
+  // « pain pour demain » : un article pour un jour, pas un rendez-vous
+  const articlePourJour = motsT <= 4 && /\bpour\s+(demain|apres[- ]demain|ce soir|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/.test(n);
+  if (DEBUT_RDV.test(t) || (date && heure) || (heure && (pl || /(?:^|\s)(a|à|vers)\s+\d{1,2}\s*h/i.test(t)) && motsT <= 8) || (date && !articlePourJour && motsT >= 2 && motsT <= 8)) {
     let titre = t;
     if (date) titre = titre.replace(date.re, ' ');
     if (heure) titre = titre.replace(heure.re, ' ');
@@ -278,7 +280,7 @@ export function comprendre(texte, prenoms = []) {
   const MOTS_ACTION = /^(note|notes|ajoute|ajouter|rajoute|mets|met|tablette|aide|help|merci|oui|non|ok|okay|stop|annule|rien|bonjour|salut|test|essai|courses?|liste|agenda|rendez[- ]vous|rdv|message|messages|minuteur|meteo|reglages?|parametres)$/;
   if (MOTS_ACTION.test(n.trim())) return { type: 'inconnu', texte: t };
   if (/^(mets|met|mettre|fais|fait|range|ranger|appelle|appeler|va|vas|sors|sortir|ferme|ouvre)\b/.test(n) && !RE_COURSE.test(brut)) return { type: 'inconnu', texte: t };
-  if (t.split(' ').length <= 3) return { type: 'course', noms: [majuscule(t.replace(ARTICLES, ''))] };
+  if (t.split(' ').length <= 4) { const nom = t.replace(/\s+pour\s+(demain|apr[eè]s[- ]demain|ce soir|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s*$/i, '').replace(ARTICLES, ''); if (nom.split(' ').length <= 3) return { type: 'course', noms: [majuscule(nom)] }; }
   return { type: 'inconnu', texte: t };
 }
 
