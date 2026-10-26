@@ -75,7 +75,9 @@ export function lirePlanning(texte, types, lundi) {
         // Planning à cheval sur l'année : « 01/01 » vu depuis fin décembre = l'année suivante
         if (!md[3] && d < lundi - 182 * 86400000) d.setFullYear(d.getFullYear() + 1);
         else if (!md[3] && d > lundi.getTime() + 182 * 86400000) d.setFullYear(d.getFullYear() - 1);
-        jour = d; dateOk = true;
+        // Si un jour de la semaine est écrit sur la ligne et ne correspond pas, ce n'était pas une date (« Lundi 6-12 »)
+        const jsem = JOURS_RE.find(([p]) => new RegExp(`\\b${p}(?![a-z])|\\b${p}(di|credi|dredi|edi|anche)\\b`).test(n));
+        if (!jsem || ((d.getDay() + 6) % 7) + 1 === jsem[1]) { jour = d; dateOk = true; }
       }
     }
     if (!jour) {

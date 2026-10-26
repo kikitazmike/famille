@@ -44,12 +44,16 @@ export function chargerCache() {
       // Cache abîmé : on ne garde que les listes qui sont bien des listes
       // Seules les clés connues sont reprises (listes des tables + config + anniversaires)
       const permis = new Set([...Object.keys(TABLES), 'config', 'anniv']);
-      Object.keys(c).forEach((k) => { if (!permis.has(k) || (Array.isArray(state[k]) && !Array.isArray(c[k]))) delete c[k]; });
+      Object.keys(c).forEach((k) => { if (!permis.has(k) || (Array.isArray(state[k]) && !Array.isArray(c[k]))) delete c[k]; else if (Array.isArray(c[k])) c[k] = c[k].filter((x) => x && typeof x === 'object' && !Array.isArray(x)); });
       if (c.config !== undefined && (c.config === null || typeof c.config !== 'object' || Array.isArray(c.config))) c.config = null;
       Object.assign(state, c, { enLigne: navigator.onLine }); propre('membres', state.membres); propre('rappels', state.rappels); propre('ptypes', state.ptypes);
     }
   } catch (e) { /* ignore */ }
-  try { majMoi(); } catch (e) { viderCache(); }
+  try { majMoi(); } catch (e) {
+    // Cache inutilisable : on l'efface, mais on garde les écritures en attente
+    try { localStorage.removeItem(CACHE); } catch (x) { /* ignore */ }
+    const f = lireFile(); viderCache(); ecrireFile(f);
+  }
 }
 export function viderCache() {
   try { localStorage.removeItem(CACHE); localStorage.removeItem(OUTBOX); } catch (e) { /* ignore */ }
@@ -144,20 +148,25 @@ async function envoyer({ cle, op, ligne }) {
   if (r && r.error) { const err = new Error(r.error.message); err.reseau = estReseau(r.error); err.status = r.status; throw err; }
 }
 
-let envoiEnCours = null;
+let envoiEnCours = null; let relance = null;
+function planifierRelance() { if (!relance) relance = setTimeout(() => { relance = null; vider(); }, 30000); }
 export async function vider() {
   if (envoiEnCours) return envoiEnCours;
   envoiEnCours = (async () => {
-    let file = lireFile();
+    // On relit la file à chaque tour : des écritures peuvent s'ajouter pendant l'envoi (elles vont toujours à la fin)
+    let file = lireFile(); let bloque = false;
     while (file.length && navigator.onLine) {
-      try { await envoyer(file[0]); file.shift(); ecrireFile(file); }
+      try { await envoyer(file[0]); ecrireFile(lireFile().slice(1)); }
       catch (e) {
         // On ne jette que les refus définitifs (données invalides, interdit) ; le reste (session expirée, serveur) est réessayé plus tard
-        if (e.reseau || !e.status || e.status === 401 || e.status >= 500) break;
-        console.warn('Écriture abandonnée', e); file.shift(); ecrireFile(file);
+        if (e.reseau || !e.status || e.status === 401 || e.status >= 500) { bloque = true; break; }
+        console.warn('Écriture abandonnée', e); ecrireFile(lireFile().slice(1));
       }
+      file = lireFile();
     }
     state.enAttente = file.length;
+    // Serveur indisponible alors qu'on est en ligne : nouvel essai dans 30 s
+    if (bloque && file.length) planifierRelance();
   })();
   try { await envoiEnCours; } finally { envoiEnCours = null; }
 }
@@ -172,7 +181,7 @@ export async function ecrire(ops) {
   for (let i = 0; i < ops.length; i++) {
     try { await envoyer(ops[i]); }
     catch (e) {
-      if (e.reseau || !e.status || e.status === 401 || e.status >= 500) { ecrireFile(lireFile().concat(ops.slice(i))); emettre(); return { hors_ligne: true }; }
+      if (e.reseau || !e.status || e.status === 401 || e.status >= 500) { ecrireFile(lireFile().concat(ops.slice(i))); emettre(); if (!e.reseau) planifierRelance(); return { hors_ligne: true }; }
       try { await Promise.all([...new Set(ops.map((o) => o.cle))].map((k) => rafraichir(k))); majMoi(); emettre(); } catch (x) { /* ignore */ }
       throw e;
     }

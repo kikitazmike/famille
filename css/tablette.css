@@ -324,3 +324,5 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .rp-item .tx b { overflow-wrap: anywhere; }
 .rp-item .tx { flex: 1; }
 .rdv > span { display: block; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rp-ing label { min-width: 0; }
+.rp-ing .nm { overflow-wrap: anywhere; min-width: 0; }

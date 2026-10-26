@@ -1065,7 +1065,7 @@ const formulaires = {
     const journee = !fd.get('h1');
     const debut = new Date(y, m - 1, j); let fin;
     if (journee) fin = ajouterJours(debut, 1);
-    else { const [a, b] = fd.get('h1').split(':').map(Number); debut.setHours(a, b, 0, 0); fin = new Date(debut.getTime() + 3600000); if (fd.get('h2')) { const [c, e] = fd.get('h2').split(':').map(Number); const f2 = new Date(debut); f2.setHours(c, e, 0, 0); if (f2 > debut) fin = f2; else if (f2 < debut) fin = ajouterJours(f2, 1); } }
+    else { const [a, b] = fd.get('h1').split(':').map(Number); debut.setHours(a, b, 0, 0); fin = new Date(debut.getTime() + 3600000); if (fd.get('h2')) { const [c, e] = fd.get('h2').split(':').map(Number); const f2 = new Date(debut); f2.setHours(c, e, 0, 0); if (f2 > debut) fin = f2; else if (f2 < debut && ajouterJours(f2, 1) - debut <= 12 * 3600000) fin = ajouterJours(f2, 1); } }
     const rep = fd.get('repetition') || 'aucune';
     const id = form.dataset.id || nouvelId();
     const ancien = form.dataset.id ? state.evenements.find((x) => x.id === id) : null;

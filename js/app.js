@@ -454,7 +454,8 @@ async function enregistrerRdv(form) {
     const [h2, m2] = (fd.get('hfin') || '').split(':').map(Number);
     debut.setHours(h1, m1, 0, 0);
     fin = new Date(debut); if (!isNaN(h2)) fin.setHours(h2, m2, 0, 0);
-    if (fin < debut && !isNaN(h2)) fin = ajouterJours(fin, 1);
+    // Fin avant le début : rdv qui passe minuit (seulement si ça reste court, sinon c'est une faute de frappe)
+    if (fin < debut && !isNaN(h2) && ajouterJours(fin, 1) - debut <= 12 * 3600000) fin = ajouterJours(fin, 1);
     if (fin <= debut) fin = new Date(debut.getTime() + 3600000);
   }
   const rep = fd.get('repetition');

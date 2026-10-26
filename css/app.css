@@ -245,3 +245,5 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .lien-planning { min-height: 44px; }
 .champ > .ligne > span[aria-hidden] { flex: 0 0 auto !important; }
 .semaine .icone-btn { width: 100%; min-width: 0; }
+label.article { min-width: 0; }
+label.article > span:not(.ic-article), label.article small { overflow-wrap: anywhere; min-width: 0; }

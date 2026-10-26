@@ -76,7 +76,7 @@ function valeur(txt) {
 export function chiffrer(t) {
   const MOIS_RE = 'janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre';
   // « quatorze heures trente », « neuf heures et quart », « dix heures moins le quart »
-  t = t.replace(new RegExp(`\\b(${NB}|\\d{1,2})\\s*(?:heures?|h)(?:\\s+(et quart|et demie|moins le quart|moins quart|${NB}|\\d{2}))?(?![\\wà-ÿ])`, 'gi'), (x, h, m) => {
+  t = t.replace(new RegExp(`\\b(${NB}|\\d{1,2})\\s*(?:heures?|h)(?:\\s+(et quart|et demie|moins le quart|moins quart|${NB}|[0-5]\\d))?(?![\\wà-ÿ])`, 'gi'), (x, h, m) => {
     let hh = valeur(h); let mm = 0;
     if (m) {
       const ml = m.toLowerCase();
