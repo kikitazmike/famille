@@ -38,7 +38,8 @@ export function quantite(q, base, pers) {
 // Ingrédients d'une recette, avec indication « déjà dans la liste »
 export function ingredients(r, pers) {
   const dans = new Set(state.courses.filter((c) => !c.pris).map((c) => sansAccent(c.nom)));
-  return (Array.isArray(r.ingredients) ? r.ingredients : []).map((x, k) => ({ k, nom: x.nom, q: quantite(x.q, r.personnes, pers || r.personnes), dans: dans.has(sansAccent(x.nom)) }));
+  return (Array.isArray(r.ingredients) ? r.ingredients : []).map((x, k) => ({ x, k })).filter(({ x }) => x && typeof x.nom === 'string' && x.nom.trim())
+    .map(({ x, k }) => ({ k, nom: x.nom.slice(0, 120), q: quantite(x.q == null ? '' : String(x.q).slice(0, 60), r.personnes, pers || r.personnes), dans: dans.has(sansAccent(x.nom)) }));
 }
 // Ajoute des ingrédients aux courses (sans doublon avec ce qui est déjà à prendre)
 export function opsCourses(liste, source, auteur) {

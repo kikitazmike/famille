@@ -42,7 +42,9 @@ export function chargerCache() {
     if (c && typeof c === 'object') {
       delete c.userId; delete c.enAttente;
       // Cache abîmé : on ne garde que les listes qui sont bien des listes
-      Object.keys(c).forEach((k) => { if (Array.isArray(state[k]) && !Array.isArray(c[k])) delete c[k]; });
+      // Seules les clés connues sont reprises (listes des tables + config + anniversaires)
+      const permis = new Set([...Object.keys(TABLES), 'config', 'anniv']);
+      Object.keys(c).forEach((k) => { if (!permis.has(k) || (Array.isArray(state[k]) && !Array.isArray(c[k]))) delete c[k]; });
       if (c.config !== undefined && (c.config === null || typeof c.config !== 'object' || Array.isArray(c.config))) c.config = null;
       Object.assign(state, c, { enLigne: navigator.onLine }); propre('membres', state.membres); propre('rappels', state.rappels); propre('ptypes', state.ptypes);
     }
@@ -110,7 +112,7 @@ export function temps_reel() {
 export function arreterTempsReel() { if (canal) { sb.removeChannel(canal); canal = null; } }
 
 // ---------- Écritures ----------
-const lireFile = () => { try { const f = JSON.parse(localStorage.getItem(OUTBOX) || '[]'); return Array.isArray(f) ? f.filter((o) => o && TABLES[o.cle] && o.ligne) : []; } catch (e) { return []; } };
+const lireFile = () => { try { const f = JSON.parse(localStorage.getItem(OUTBOX) || '[]'); return Array.isArray(f) ? f.filter((o) => o && Object.prototype.hasOwnProperty.call(TABLES, o.cle) && ['insert', 'update', 'delete'].includes(o.op) && o.ligne && typeof o.ligne === 'object' && !Array.isArray(o.ligne)) : []; } catch (e) { return []; } };
 const ecrireFile = (f) => { try { localStorage.setItem(OUTBOX, JSON.stringify(f)); } catch (e) { /* ignore */ } state.enAttente = f.length; };
 
 function appliquerLocal(cle, op, ligne) {
