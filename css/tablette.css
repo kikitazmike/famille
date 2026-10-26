@@ -323,4 +323,4 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .champ input, .champ select { min-width: 0; }
 .rp-item .tx b { overflow-wrap: anywhere; }
 .rp-item .tx { flex: 1; }
-.rdv span { overflow: hidden; min-width: 0; }
+.rdv > span { display: block; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
