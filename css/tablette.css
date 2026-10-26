@@ -326,3 +326,9 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .rdv > span { display: block; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .rp-ing label { min-width: 0; }
 .rp-ing .nm { overflow-wrap: anywhere; min-width: 0; }
+.pp.hl { background: #FDE2E0; color: #9B1C1C; box-shadow: inset 0 0 0 1px #F2B8B5; }
+/* Tailles de toucher : 44 px minimum */
+.rp-filtres button { height: 44px; }
+.rp-tags label { min-height: 44px; }
+.rp-tags input { width: 24px; height: 24px; accent-color: var(--accent); }
+.pp.msg, .pp.alerte, .pp.soir { min-height: 36px; padding: 6px 12px; }

@@ -32,7 +32,9 @@ function emettre() {
 
 function sauverCache() {
   try {
-    const { moi, userId, enAttente, ...reste } = state;
+    const { moi, userId, enAttente, enLigne, config, ...reste } = state;
+    // Le code famille et le jeton Fetami ne sont pas gardés sur l'appareil
+    reste.config = config ? (({ code, fetami_jeton, ...c }) => c)(config) : null;
     localStorage.setItem(CACHE, JSON.stringify(reste));
   } catch (e) { /* stockage plein ou bloqué */ }
 }

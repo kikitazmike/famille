@@ -5,7 +5,7 @@ import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, 
 import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { VERSION } from './config.js';
-import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, isoJour, cleNom, chercherRecette } from './repas.js';
+import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, isoJour, cleNom, chercherRecette, sansDoublons, dejaDansListe } from './repas.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
@@ -41,6 +41,12 @@ function echelle() {
 }
 window.addEventListener('resize', echelle);
 echelle();
+// La tablette est prévue en paysage : on essaie de bloquer l'orientation (appli installée ou plein écran)
+function bloquerPaysage() { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* ignore */ } }
+document.addEventListener('pointerdown', bloquerPaysage, { once: true });
+let avertiPortrait = false; setTimeout(() => verifierPortrait(), 0);
+function verifierPortrait() { if (!avertiPortrait && window.innerHeight > window.innerWidth * 1.1) { avertiPortrait = true; setTimeout(() => toast('Tourne la tablette en paysage pour un affichage en grand.'), 1500); } }
+window.addEventListener('resize', verifierPortrait);
 
 // ---------- Fond selon le moment de la journée ----------
 const FONDS = { matin: '#FDEDE8', journee: '#FBF7F1', coucher: '#FCE9DC', soir: '#ECEBF7' };
@@ -352,7 +358,7 @@ const fermer = () => { zFen.innerHTML = ''; ui.codeVisible = false; };
 
 function formRdv(pre = {}, ev = null) {
   const d = ev ? new Date(ev.debut) : pre.debut || (() => { const x = new Date(ui.ref); const h = new Date().getHours(); x.setHours(Math.min(h + 1, 21), 0, 0, 0); return x; })();
-  const f = ev && ev.fin ? new Date(ev.fin) : new Date(d.getTime() + 3600000);
+  const f = ev && ev.fin ? new Date(ev.fin) : pre.fin || new Date(d.getTime() + 3600000);
   const journee = ev ? ev.journee_entiere : !!pre.journee;
   const qui = ev ? liensDe(ev.id) : pre.qui || [];
   const rep = ev ? ev.repetition || 'aucune' : 'aucune';
@@ -360,7 +366,7 @@ function formRdv(pre = {}, ev = null) {
     <label class="champ">Titre<input name="titre" required maxlength="120" value="${esc(ev ? ev.titre : pre.titre || '')}"></label>
     <div class="rangee"><label class="champ">Date<input type="date" name="date" value="${isoDate(d)}" required></label>
       <label class="champ">Début<input type="time" name="h1" value="${journee ? '' : hhmm(d)}"></label><label class="champ">Fin<input type="time" name="h2" value="${journee ? '' : hhmm(f)}"></label></div>
-    <p style="margin:-6px 0 0;font-size:13px;color:var(--pale)">Laisse « Début » vide pour toute la journée.</p>
+    <label style="display:flex;gap:10px;align-items:center;font-size:17px;min-height:44px"><input type="checkbox" name="journee" ${journee ? 'checked' : ''} style="width:24px;height:24px;accent-color:var(--accent)">Toute la journée</label>${ev && ev.repetition && ev.repetition !== 'aucune' ? '<p style="margin:-6px 0 0;font-size:13px;color:var(--pale)">Rendez-vous répété : la date est celle du premier de la série, la changer déplace toute la série.</p>' : ''}
     <div class="champ">Qui ? <span style="font-weight:400;color:var(--pale);font-size:13px">(« Tous » = toute la famille)</span><div class="choix">${personnes().map((p) => `<label><input type="checkbox" name="qui" value="${p.id}" data-c="quiPersonne" ${qui.includes(p.id) ? 'checked' : ''}><span style="width:12px;height:12px;border-radius:50%;background:${p.couleur}"></span>${esc(p.prenom)}</label>`).join('')}
       <label style="border-color:var(--accent)"><input type="checkbox" name="tous" data-c="quiTous" ${personnes().length && personnes().every((p) => qui.includes(p.id)) ? 'checked' : ''}><span style="width:12px;height:12px;border-radius:50%;background:var(--accent)"></span>Tous</label></div></div>
     <div class="rangee"><label class="champ">Lieu<input name="lieu" maxlength="120" value="${esc(ev && ev.lieu || '')}" placeholder="Facultatif"></label>
@@ -586,7 +592,8 @@ function pastillesPlus() {
   const heure = ch ? `<span class="pp heure-ch" title="Changement d'heure">⏰ ${ch.demain ? 'Cette nuit' : 'Aujourd\'hui'} : heure d'${ch.sens < 0 ? 'hiver' : 'été'}, ${ch.sens < 0 ? '−1 h' : '+1 h'} (${ch.avant} → ${ch.apres})</span>` : '';
   const soir = repasDuJour(isoJour(new Date()))[0]; const rs = soir && recette(soir.recette_id);
   const pSoir = rs ? `<span class="pp soir" data-a="rpVoir" data-id="${rs.id}" role="button">${esc(rs.icone)} Ce soir : ${esc(rs.nom)}</span>` : '';
-  return `${heure}${pSoir}${nl ? `<span class="pp msg" data-a="ouvrirPage" data-v="messages" role="button">${i('notes', 14, 2)}${nl} message${nl > 1 ? 's' : ''}</span>` : ''}${al ? `<span class="pp alerte" data-a="ouvrirPage" data-v="meteo" role="button">⚠ ${esc(al.court)}</span>` : ''}`;
+  const pRes = !state.enLigne ? '<span class="pp hl" role="status">📶 Hors connexion</span>' : state.enAttente ? `<span class="pp hl" role="status">⏳ Envoi en attente (${state.enAttente})</span>` : '';
+  return `${pRes}${heure}${pSoir}${nl ? `<span class="pp msg" data-a="ouvrirPage" data-v="messages" role="button">${i('notes', 14, 2)}${nl} message${nl > 1 ? 's' : ''}</span>` : ''}${al ? `<span class="pp alerte" data-a="ouvrirPage" data-v="meteo" role="button">⚠ ${esc(al.court)}</span>` : ''}`;
 }
 function pageMessages() {
   const l = state.messages.slice().sort((a, b) => (!!a.lu_le - !!b.lu_le) || (a.created_at < b.created_at ? 1 : -1));
@@ -743,6 +750,9 @@ async function parler() {
   ui.ecoute = false; zToast.innerHTML = ''; rendre();
   const c = comprendre(t, personnes().map((p) => p.prenom));
   if (c.type === 'course') {
+    const { nouveaux, deja } = sansDoublons(c.noms);
+    if (!nouveaux.length) { toast(`Déjà dans la liste : ${deja.join(', ')}`); parlerSi(`${enumerer(deja)}, c'est déjà dans la liste.`); return; }
+    c.noms = nouveaux;
     const lignes = c.noms.map((nom) => ({ id: nouvelId(), nom: nom.slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }));
     await ecrire(lignes.map((l) => ({ cle: 'courses', op: 'insert', ligne: l })));
     parlerSi(`J'ai ajouté ${enumerer(c.noms)} aux courses.`);
@@ -754,7 +764,7 @@ async function parler() {
     toast(`« ${t} » → note ajoutée.`, () => ecrire({ cle: 'notes', op: 'delete', ligne: { id: l.id } }));
   } else if (c.type === 'rdv') {
     const qui = c.qui.map((p) => personnes().find((x) => x.prenom === p)).filter(Boolean).map((p) => p.id);
-    formRdv({ titre: c.titre, debut: c.debut, journee: c.journee, qui });
+    formRdv({ titre: c.titre, debut: c.debut, fin: c.fin || undefined, journee: c.journee, qui });
     toast(`« ${t} » → rendez-vous à vérifier.`);
     parlerSi(`Rendez-vous ${c.titre}, ${jourParle(debutJour(c.debut))}${c.journee ? '' : ' à ' + heureParlee(c.debut)}. Vérifie et appuie sur Enregistrer.`);
   } else if (c.type === 'repas') {
@@ -779,10 +789,13 @@ async function parler() {
       if (c.sujet === 'meteo') { ui.page = 'meteo'; ui.meteoVue = c.semaine || (c.date && (debutJour(c.date) - debutJour(new Date())) / 86400000 > 1) ? 'sem' : '2j'; }
       else if (['courses', 'notes', 'messages', 'repas'].includes(c.sujet)) { ui.page = c.sujet; if (c.sujet === 'repas') ui.rp.id = null; }
       else if (c.sujet === 'taches' || c.sujet === 'poubelle') ui.page = 'rappels';
+      else if (c.sujet === 'reglages') { rendre(); fenReglages(); }
+      else if (c.sujet === 'planning') { ui.page = null; ui.vue = 'jour'; ui.ref = debutJour(c.date || new Date()); }
       else if (c.sujet === 'agenda') { ui.page = null; if (c.semaine) { ui.vue = 'semaine'; ui.ref = debutJour(c.date || new Date()); } else { ui.vue = 'jour'; ui.ref = debutJour(c.date || new Date()); } }
       rendre();
     }
     const r = repondre(c); toast(`« ${t} » → ${r}`); parlerSi(r);
+  } else if (c.raison === 'date') { parlerSi('Cette date n\'existe pas.'); toast(`« ${t} » : cette date n'existe pas.`);
   } else { parlerSi('Je n\'ai pas compris.'); toast(`Je n'ai pas compris : « ${t} ». Essaie « ajoute du pain » ou « note : … ».`); }
 }
 
@@ -801,7 +814,9 @@ function quiParle(ev) {
   if (!ids.length || (ps.length && ps.every((p) => ids.includes(p.id)))) return '';
   return ' pour ' + enumerer(ids.map((id) => membre(id)).filter(Boolean).map((m) => m.prenom));
 }
-function rdvParles(occs) {
+function rdvParles(occs, jour) {
+  // Seulement ceux qui commencent ce jour-là (plus ceux sur la journée) ; aujourd'hui : ceux qui ne sont pas finis
+  if (jour) { const n = new Date(); const fj = ajouterJours(jour, 1); occs = occs.filter((o) => (o.ev.journee_entiere || (o.debut >= jour && o.debut < fj)) && (!memeJour(jour, n) || o.fin > n)); }
   return occs.sort((a, b) => a.debut - b.debut).map((o) => `${o.ev.journee_entiere ? 'toute la journée' : 'à ' + heureParlee(o.debut)}, ${o.ev.titre}${quiParle(o.ev)}`);
 }
 function repondre(c) {
@@ -823,6 +838,19 @@ function repondre(c) {
     const l = state.messages.filter((x) => !x.lu_le).sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
     if (!l.length) return 'Aucun nouveau message.';
     return `${l.length} message${l.length > 1 ? 's' : ''} : ` + l.slice(0, 5).map((x) => { const p = x.pour ? membre(x.pour) : null; const d = x.de ? membre(x.de) : null; return `pour ${p ? p.prenom : 'tout le monde'}${d && d.type === 'personne' ? ', de ' + d.prenom : ''} : ${x.texte}`; }).join('. ') + '.';
+  }
+  if (c.sujet === 'heure') return `Il est ${heureParlee(new Date())}.`;
+  if (c.sujet === 'reglages') return 'Voici les réglages.';
+  if (c.sujet === 'planning') {
+    const j = debutJour(c.date || auj); const l = personnes().map((p) => ({ p, t: typeDuJour(p.id, isoDate(j)) })).filter((x) => x.t);
+    if (!l.length) return `Aucun planning de travail ${jourParle(j)}.`;
+    return `${majuscule(jourParle(j))} : ` + l.map(({ p, t }) => `${p.prenom}, ${t.repos ? 'repos' : t.nom + (t.debut ? ' de ' + heureParlee(new Date('2000-01-01T' + t.debut)) + ' à ' + heureParlee(new Date('2000-01-01T' + t.fin)) : '')}`).join(' ; ') + '.';
+  }
+  if (c.sujet === 'taches' && c.date && !memeJour(debutJour(c.date), auj)) {
+    const j = debutJour(c.date); const ji = jourIso(j);
+    const l = state.rappels.filter((r) => r.type === 'corvee' && (!r.jour_semaine || r.jour_semaine === ji)).map((x) => `${x.titre}${x.pour ? ' pour ' + (membre(x.pour) || {}).prenom : ''}`)
+      .concat(state.rappels.filter((r) => r.type === 'tache' && memeJour(prochaineTache(r.jour_semaine || 1, r.fait_le), j)).map((x) => x.titre));
+    return l.length ? `${majuscule(jourParle(j))}, à faire : ${l.join(', ')}.` : `Aucune tâche ${jourParle(j)}.`;
   }
   if (c.sujet === 'taches') {
     const l = corvees().filter((x) => x.aujourdhui && !x.fait);
@@ -875,12 +903,12 @@ function repondre(c) {
   // Agenda
   if (c.semaine) {
     const l = debutSemaine(c.date || auj); const parties = [];
-    for (let k = 0; k < 7; k++) { const j = ajouterJours(l, k); if (j < auj) continue; const o = rdvParles(occsJour(j)); if (o.length) parties.push(`${majuscule(jourParle(j))} : ${o.join(' ; ')}`); }
+    for (let k = 0; k < 7; k++) { const j = ajouterJours(l, k); if (j < auj) continue; const o = rdvParles(occsJour(j), j); if (o.length) parties.push(`${majuscule(jourParle(j))} : ${o.join(' ; ')}`); }
     return parties.length ? parties.join('. ') + '.' : 'Rien de prévu cette semaine.';
   }
-  const j = c.date || auj;
-  const o = rdvParles(occsJour(j));
-  if (!o.length) return `Rien de prévu ${jourParle(j)}.`;
+  const j = debutJour(c.date || auj);
+  const o = rdvParles(occsJour(j), j);
+  if (!o.length) return memeJour(j, auj) ? 'Plus rien de prévu aujourd\'hui.' : `Rien de prévu ${jourParle(j)}.`;
   return `${majuscule(jourParle(j))}, ${o.length} rendez-vous : ${o.join(' ; ')}.`;
 }
 
@@ -976,7 +1004,7 @@ const actions = {
   rpSupprimer() { const r = recette(ui.rp.id); if (!r) return; confirmer('Supprimer ?', `« ${r.nom} » sera supprimée pour toute la famille.`, 'Supprimer', () => { ui.rp.id = null; return ecrire({ cle: 'recettes', op: 'delete', ligne: { id: r.id } }); }); },
   minPlus(d) { const m = ui.minuteurs.find((x) => x.id === d.id); if (m) { m.fin += 60000; m.total += 60; sauverMin(); rendreMin(); } },
   minStop(d) { ui.minuteurs = ui.minuteurs.filter((x) => x.id !== d.id); sauverMin(); rendreMin(); },
-  ajoutHabituel(d) { const h = state.habituels.find((x) => x.id === d.id); if (!h) return; const l = { id: nouvelId(), nom: h.nom, source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }; ecrire({ cle: 'courses', op: 'insert', ligne: l }); toast(`Ajouté : ${h.nom}`, () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: l.id } })); },
+  ajoutHabituel(d) { const h = state.habituels.find((x) => x.id === d.id); if (!h) return; if (dejaDansListe(h.nom)) return toast(`« ${h.nom} » est déjà dans la liste.`); const l = { id: nouvelId(), nom: h.nom, source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }; ecrire({ cle: 'courses', op: 'insert', ligne: l }); toast(`Ajouté : ${h.nom}`, () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: l.id } })); },
   gererHabituels() { ui.gererHab = !ui.gererHab; rendre(); },
   masquerHabituel(d) { ecrire({ cle: 'habituels', op: 'update', ligne: { id: d.id, masque: true } }); },
   nouveauMessage() { formMessage(); },
@@ -1021,13 +1049,14 @@ const actions = {
 };
 const changements = {
   prendre(el) { ecrire({ cle: 'courses', op: 'update', ligne: { id: el.dataset.id, pris: el.checked, pris_le: el.checked ? new Date().toISOString() : null } }); },
-  tacheFaite(el) { ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.dataset.v } }); toast('Bien joué ! C\'est noté pour cette semaine.'); },
+  tacheFaite(el) { const t = state.rappels.find((x) => x.id === el.dataset.id); const avant = t ? t.fait_le || null : null; ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.dataset.v } }); toast('Bien joué ! C\'est noté pour cette semaine.', () => ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: avant } })); },
   rpCoche(el) { const k = Number(el.dataset.k); if (el.checked) ui.rp.coches.add(k); else ui.rp.coches.delete(k); rendre(); },
   choixCategorie(el) { ui.catCourses = el.value; rendre(); },
   choixArticle(el) {
     const v = el.value; el.value = '';
     if (!v) return;
     if (v === '__ecrire') { const inp = zPage.querySelector('form[data-form=ajoutCourse] input[name=nom]'); if (inp) inp.focus(); return; }
+    if (dejaDansListe(v)) return toast(`« ${v} » est déjà dans la liste.`);
     const l = { id: nouvelId(), nom: v.slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() };
     ecrire({ cle: 'courses', op: 'insert', ligne: l });
     toast(`Ajouté : ${v}`, () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: l.id } }));
@@ -1062,7 +1091,7 @@ const formulaires = {
   async rdv(form) {
     const fd = new FormData(form); const titre = (fd.get('titre') || '').trim(); if (!titre) return toast('Donne un titre au rendez-vous.');
     const [y, m, j] = fd.get('date').split('-').map(Number);
-    const journee = !fd.get('h1');
+    const journee = !fd.get('h1') || !!fd.get('journee');
     const debut = new Date(y, m - 1, j); let fin;
     if (journee) fin = ajouterJours(debut, 1);
     else { const [a, b] = fd.get('h1').split(':').map(Number); debut.setHours(a, b, 0, 0); fin = new Date(debut.getTime() + 3600000); if (fd.get('h2')) { const [c, e] = fd.get('h2').split(':').map(Number); const f2 = new Date(debut); f2.setHours(c, e, 0, 0); if (f2 > debut) fin = f2; else if (f2 < debut && ajouterJours(f2, 1) - debut <= 12 * 3600000) fin = ajouterJours(f2, 1); } }
@@ -1070,7 +1099,7 @@ const formulaires = {
     const id = form.dataset.id || nouvelId();
     const ancien = form.dataset.id ? state.evenements.find((x) => x.id === id) : null;
     const ligne = { id, titre, debut: debut.toISOString(), fin: fin.toISOString(), journee_entiere: journee, lieu: (fd.get('lieu') || '').trim() || null, repetition: rep,
-      jours_semaine: rep === 'semaine' ? (ancien && ancien.repetition === 'semaine' && ancien.jours_semaine ? ancien.jours_semaine : [jourIso(debut)]) : null };
+      jours_semaine: rep === 'semaine' ? (ancien && ancien.repetition === 'semaine' && ancien.jours_semaine && !(ancien.jours_semaine.length === 1 && ancien.jours_semaine[0] === jourIso(new Date(ancien.debut))) ? ancien.jours_semaine : [jourIso(debut)]) : null };
     const qui = fd.getAll('qui'); const avant = ancien ? liensDe(id) : [];
     const ops = [ancien ? { cle: 'evenements', op: 'update', ligne } : { cle: 'evenements', op: 'insert', ligne: { ...ligne, cree_par: state.moi.id, created_at: new Date().toISOString() } }];
     avant.filter((x) => !qui.includes(x)).forEach((mid) => ops.push({ cle: 'liens', op: 'delete', ligne: { evenement_id: id, membre_id: mid } }));
@@ -1081,8 +1110,11 @@ const formulaires = {
   },
   async ajoutCourse(form) {
     const input = form.querySelector('input[name=nom]');
-    const noms = (input.value || '').split(/\s*,\s*/).map((x) => x.trim()).filter(Boolean); if (!noms.length) return;
+    const tous = (input.value || '').split(/\s*,\s*/).map((x) => x.trim()).filter(Boolean); if (!tous.length) return;
     input.value = ''; input.blur();
+    const { nouveaux: noms, deja } = sansDoublons(tous);
+    if (deja.length) toast(`Déjà dans la liste : ${deja.join(', ')}`);
+    if (!noms.length) return;
     await ecrire(noms.map((nom) => ({ cle: 'courses', op: 'insert', ligne: { id: nouvelId(), nom: majuscule(nom).slice(0, 120), source: 'tablette', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() } })));
     rendre();
   },

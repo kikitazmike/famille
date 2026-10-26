@@ -247,3 +247,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .semaine .icone-btn { width: 100%; min-width: 0; }
 label.article { min-width: 0; }
 label.article > span:not(.ic-article), label.article small { overflow-wrap: anywhere; min-width: 0; }
+/* Tailles de toucher : 44 px minimum */
+.puce { height: auto; min-height: 2.75rem; }
+.hab { min-height: 2.75rem; }
+#nouvelArticle { min-height: 2.75rem; }

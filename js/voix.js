@@ -25,7 +25,7 @@ export function ecouter({ continu = false } = {}) {
   });
 }
 
-const sansAccent = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const sansAccent = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae');
 const JOURS_RE = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 
 function trouverDate(t) {
@@ -35,11 +35,13 @@ function trouverDate(t) {
   if (/apres[- ]demain/.test(n)) return { date: ajouterJours(auj, 2), re: /apr[eè]s[- ]demain/i };
   if (/\bdemain\b/.test(n)) return { date: ajouterJours(auj, 1), re: /\bdemain\b/i };
   if (/\baujourd'?hui\b|\bce soir\b|\bce matin\b|\bcet apres[- ]midi\b/.test(n)) return { date: auj, re: /\baujourd'?hui\b|\bce soir\b|\bce matin\b|\bcet apr[eè]s[- ]midi\b/i };
-  if ((m = n.match(/\b(le\s+)?(\d{1,2})\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/))) {
+  if ((m = n.match(/\b(le\s+)?(\d{1,2})(?:er)?\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/))) {
     const mois = MOIS.map(sansAccent).indexOf(m[3]);
     let d = new Date(auj.getFullYear(), mois, Number(m[2]));
     if (d < auj) d = new Date(auj.getFullYear() + 1, mois, Number(m[2]));
-    return { date: d, re: new RegExp(`\\b(le\\s+)?${m[2]}\\s+${m[3].replace(/e/g, '[eéè]').replace(/u/g, '[uû]')}\\b`, 'i') };
+    // 29 février d'une année non bissextile, 31 avril… : date impossible, on l'ignore
+    if (d.getMonth() !== mois) return { date: null, invalide: true, re: /$^/ };
+    return { date: d, re: new RegExp(`\\b(le\\s+)?${m[2]}(?:er)?\\s+${m[3].replace(/e/g, '[eéè]').replace(/u/g, '[uû]')}\\b`, 'i') };
   }
   for (let i = 0; i < 7; i++) {
     const re = new RegExp(`\\b(${JOURS_RE[i]})( prochain)?\\b`);
@@ -181,6 +183,7 @@ export function comprendre(texte, prenoms = []) {
       const cible = mm[1]; const p = prenoms.find((x) => sansAccent(x) === cible) || null;
       // On reprend le texte d'origine (avec accents) à partir de la même position
       const debut = nb0.length - mm[2].length; const texteMsg = brut.slice(debut).trim();
+      if (!texteMsg || /^(de|d'|que|qu'|qu)$/i.test(texteMsg)) return { type: 'inconnu', texte: brut };
       return { type: 'message', pour: p, texte: majuscule(texteMsg), texteBrut: brut };
     }
   }
@@ -204,7 +207,7 @@ export function comprendre(texte, prenoms = []) {
   }
   // Questions : « qu'est-ce qu'on a demain ? », « c'est quand l'anniversaire de Lucas ? »…
   const nq = n.replace(/\?/g, '').trim();
-  const DEBUT_Q = /^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|qu'avons|quoi|quand|c'?est quand|c'?est quoi|quel|quelle|quels|quelles|est[- ]?ce qu(?:e|')|on a quoi|j'ai quoi|ai[- ]je|avons[- ]nous|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]?moi|donne[- ]?moi|lis|lire|relis|montre|affiche|afficher|ouvre|ouvrir|fais voir|combien|on fait quoi|on mange|il va|il fait|va[- ]t[- ]il|fait[- ]il|(le\s+)?programme\s+(de|d'|pour|du)|quoi de (prevu|neuf))\b/;
+  const DEBUT_Q = /^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|qu'avons|quoi|quand|c'?est quand|c'?est quoi|quel|quelle|quels|quelles|est[- ]?ce qu(?:e|')|on a quoi|j'ai quoi|ai[- ]je|avons[- ]nous|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]?moi|donne[- ]?moi|lis|lire|relis|montre|affiche|afficher|ouvre|ouvrir|fais voir|combien|on fait quoi|on mange|qui|quelle heure|il est quelle heure|il va|il fait|va[- ]t[- ]il|fait[- ]il|(le\s+)?programme\s+(de|d'|pour|du)|quoi de (prevu|neuf))\b/;
   if (DEBUT_Q.test(nq) || /\b(on a quoi|il y a quoi|c'?est quand|y a[- ]t[- ]il|de prevu|est prevu)\b/.test(nq) || /\?\s*$/.test(t)) {
     const d = trouverDate(t);
     let sujet = 'agenda';
@@ -217,16 +220,20 @@ export function comprendre(texte, prenoms = []) {
     else if (/message/.test(nq)) sujet = 'messages';
     else if (/tache|corvee|menage|vaisselle|aspirateur|ranger/.test(nq)) sujet = 'taches';
     else if (/minuteur|minuterie|chrono/.test(nq)) sujet = 'minuteur';
+    else if (/quelle heure|l'heure qu'il|il est quelle heure/.test(nq)) sujet = 'heure';
+    else if (/reglage|parametre/.test(nq)) sujet = 'reglages';
+    else if (/planning|horaire|travail|bosse/.test(nq)) sujet = 'planning';
     const semaine = /\bsemaine\b/.test(nq);
     return { type: 'question', sujet, date: d ? d.date : null, semaine, montrer, texte: t };
   }
 
   // Notes
-  let m = t.match(DEBUT_NOTE);
+  let m = brut.match(DEBUT_NOTE);
   if (m) return { type: 'note', texte: majuscule(m[1].trim()) };
 
   // Courses
-  m = !/rendez|rdv|reunion|evenement/.test(n) && !/^(il )?faut qu/.test(n) && t.match(RE_COURSE);
+  const ACTIONS = /^(mets|met|mettre)\s+(la table|le couvert|la musique|la radio|la tele|la television)\b/;
+  m = !/rendez|rdv|reunion|evenement/.test(n) && !/^(il )?faut qu/.test(n) && !ACTIONS.test(n) && !/\b(a|vers)\s+\d{1,2}\s*h/.test(n) && brut.match(RE_COURSE);
   if (m) {
     const reste = m[1].replace(FIN_LISTE, '').trim();
     if (reste) {
@@ -236,12 +243,23 @@ export function comprendre(texte, prenoms = []) {
   }
 
   // Rendez-vous
-  const date = trouverDate(t);
-  const heure = trouverHeure(t);
-  if (DEBUT_RDV.test(t) || (date && heure)) {
+  const dt = trouverDate(t); if (dt && dt.invalide) return { type: 'inconnu', texte: t, raison: 'date' };
+  const date = dt;
+  // Plage « de 14 h à 16 h », « entre 9 h et 11 h 30 »
+  const rp = /\b(?:de|entre)\s+(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?\s*(?:à|a|-|et|jusqu'à)\s+(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?\b/i;
+  const pl = t.match(rp);
+  let heure = trouverHeure(t); let finH = null;
+  if (pl && Number(pl[1]) < 24 && Number(pl[3]) < 24) { heure = { h: Number(pl[1]), min: Number(pl[2] || 0), re: rp }; finH = { h: Number(pl[3]), min: Number(pl[4] || 0) }; }
+  // Durée « pendant 2 heures », « pendant 45 minutes »
+  const rdur = /\s*\bpendant\s+(\d{1,3})\s*(h|heures?|min|minutes?|mn)(?:\s*(\d{2}))?\b/i;
+  const pd = t.match(rdur);
+  const dureeMin = pd ? (/^h/i.test(pd[2]) ? Number(pd[1]) * 60 + Number(pd[3] || 0) : Number(pd[1])) : 0;
+  const motsT = t.split(' ').length;
+  if (DEBUT_RDV.test(t) || (date && heure) || (heure && /(?:^|\s)(a|à|vers)\s+\d{1,2}\s*h/i.test(t) && motsT <= 8) || (date && motsT >= 2 && motsT <= 8)) {
     let titre = t;
     if (date) titre = titre.replace(date.re, ' ');
     if (heure) titre = titre.replace(heure.re, ' ');
+    if (pd) titre = titre.replace(rdur, ' ');
     if (!/^r[ée]union/i.test(titre.trim())) titre = titre.trim().replace(DEBUT_RDV, '').trim();
     titre = titre.replace(/^(?:(?:avec|chez|pour|de)\b|:)\s*/i, (x) => (/^(avec|chez)/i.test(x) ? x : ''));
     titre = titre.replace(/^(?:de\s+|d')/i, '');
@@ -249,10 +267,17 @@ export function comprendre(texte, prenoms = []) {
     titre = titre.replace(/\s+(pour|avec|le|à|a)\s*$/i, '').replace(/\s+/g, ' ').trim();
     const d = date ? new Date(date.date) : debutJour(new Date());
     if (heure) d.setHours(heure.h, heure.min, 0, 0); else d.setHours(9, 0, 0, 0);
-    return { type: 'rdv', titre: majuscule(titre || 'Rendez-vous'), debut: d, journee: !heure, qui };
+    let fin = null;
+    if (heure && finH) { fin = new Date(d); fin.setHours(finH.h, finH.min, 0, 0); if (fin <= d) fin = null; }
+    if (heure && !fin && dureeMin > 0 && dureeMin <= 24 * 60) fin = new Date(d.getTime() + dureeMin * 60000);
+    return { type: 'rdv', titre: majuscule(titre || 'Rendez-vous'), debut: d, fin, journee: !heure, qui };
   }
 
   // Phrase courte sans verbe : on suppose un article de courses
+  if (ACTIONS.test(n)) return { type: 'inconnu', texte: t };
+  const MOTS_ACTION = /^(note|notes|ajoute|ajouter|rajoute|mets|met|tablette|aide|help|merci|oui|non|ok|okay|stop|annule|rien|bonjour|salut|test|essai|courses?|liste|agenda|rendez[- ]vous|rdv|message|messages|minuteur|meteo|reglages?|parametres)$/;
+  if (MOTS_ACTION.test(n.trim())) return { type: 'inconnu', texte: t };
+  if (/^(mets|met|mettre|fais|fait|range|ranger|appelle|appeler|va|vas|sors|sortir|ferme|ouvre)\b/.test(n) && !RE_COURSE.test(brut)) return { type: 'inconnu', texte: t };
   if (t.split(' ').length <= 3) return { type: 'course', noms: [majuscule(t.replace(ARTICLES, ''))] };
   return { type: 'inconnu', texte: t };
 }
