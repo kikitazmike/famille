@@ -109,7 +109,7 @@ function enteteHtml() {
     const lever = m.lever ? new Date(m.lever) : null; const coucher = m.coucher ? new Date(m.coucher) : null;
     const duree = lever && coucher ? Math.round((coucher - lever) / 60000) : null;
     meteo = `<div class="meteo clic" data-a="ouvrirPage" data-v="meteo" role="button" tabindex="0" aria-label="Ouvrir la météo">
-      <div><span style="color:${couleurMeteo(m.code)}">${i(iconeMeteo(m.code), 46, 1.4)}</span><div class="col"><span class="temp">${m.temp}°</span><small class="desc">${esc(CODES[m.code] || '')} · ${esc(m.ville || '')}</small></div></div>
+      <div><span style="color:${couleurMeteo(m.code)}">${i(iconeMeteo(m.code), 46, 1.4)}</span><div class="col"><span class="temp">${m.temp == null ? '–' : m.temp}°</span><small class="desc">${esc(CODES[m.code] || '')} · ${esc(m.ville || '')}</small></div></div>
       <div class="sep"></div>
       ${lever ? `<div><span style="color:#D9774A">${i('lever', 34, 1.6)}</span><div class="col"><small>Lever</small><strong>${hhmm(lever)}</strong></div></div>` : ''}
       ${coucher ? `<div><span style="color:#D9774A">${i('coucher', 34, 1.6)}</span><div class="col"><small>Coucher</small><strong>${hhmm(coucher)}</strong></div></div>` : ''}
@@ -861,7 +861,7 @@ function repondre(c) {
   if (c.sujet === 'poubelle') {
     const l = state.rappels.filter((r) => r.type === 'tache').map((t) => ({ ...t, d: prochaineTache(t.jour_semaine || 1, t.fait_le) })).sort((a, b) => a.d - b.d);
     if (!l.length) return 'Aucune poubelle n\'est programmée.';
-    return l.slice(0, 2).map((t) => `${memeJour(t.d, auj) ? 'Ce' + (t.moment ? ' ' + t.moment : ' jour') : (memeJour(t.d, ajouterJours(auj, 1)) ? 'Demain' : majuscule(JOURS[jourIso(t.d) - 1])) + (t.moment ? ' ' + t.moment : '')}, ${t.titre.toLowerCase()}`).join('. ') + '.';
+    return l.slice(0, 2).map((t) => `${memeJour(t.d, auj) ? (t.moment ? 'Ce ' + t.moment : 'Aujourd\'hui') : (memeJour(t.d, ajouterJours(auj, 1)) ? 'Demain' : majuscule(JOURS[jourIso(t.d) - 1])) + (t.moment ? ' ' + t.moment : '')}, ${t.titre.toLowerCase()}`).join('. ') + '.';
   }
   if (c.sujet === 'anniv') {
     const l = (state.anniv || []).map((a) => ({ ...a, p: prochainAnniv(a.mois_jour, a.annee) })).filter((a) => a.p).sort((a, b) => a.p.dans - b.p.dans);

@@ -34,7 +34,7 @@ export const taire = () => { try { window.speechSynthesis && speechSynthesis.can
 export function heureParlee(d) {
   const h = d.getHours(); const m = d.getMinutes();
   if (h === 12 && m === 0) return 'midi';
-  if (h === 0 && m === 0) return 'minuit';
+  if (h === 0) return m ? `minuit ${m}` : 'minuit';
   return `${h} heure${h > 1 ? 's' : ''}${m ? ' ' + m : ''}`;
 }
 

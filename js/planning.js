@@ -74,6 +74,7 @@ export function lirePlanning(texte, types, lundi) {
       if (!isNaN(d) && d.getDate() === Number(md[1]) && d.getMonth() === Number(md[2]) - 1) {
         // Planning à cheval sur l'année : « 01/01 » vu depuis fin décembre = l'année suivante
         if (!md[3] && d < lundi - 182 * 86400000) d.setFullYear(d.getFullYear() + 1);
+        else if (!md[3] && d > lundi.getTime() + 182 * 86400000) d.setFullYear(d.getFullYear() - 1);
         jour = d; dateOk = true;
       }
     }
