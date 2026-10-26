@@ -11,6 +11,7 @@ import {
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { FETAMI_SITE, VERSION } from './config.js';
+import { avisSucre, infoSucre, sucreRecette, pastilleSucre, EMOJI, LIMITE_JOUR } from './sucre.js';
 import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, lireDictee, isoJour, cleNom, chercherRecette, sansDoublons, dejaDansListe } from './repas.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
@@ -165,7 +166,7 @@ function ecranCourses() {
     const tag = c.source === 'titus' ? '<span class="etiquette">Titus</span>' : c.source === 'tablette' ? '<span class="etiquette">Tablette</span>' : '';
     return `<div class="article ${c.pris ? 'pris' : ''}">
       <label><input type="checkbox" data-c="prendre" data-id="${c.id}" ${c.pris ? 'checked' : ''}>
-        <span class="ic-article" aria-hidden="true">${iconeArticle(c.nom)}</span><span style="flex:1;display:flex;flex-direction:column"><span>${esc(c.nom)}</span>${c.quantite ? `<small style="color:var(--pale);font-size:.8rem">${esc(c.quantite)}</small>` : ''}</span></label>
+        <span class="ic-article" aria-hidden="true">${iconeArticle(c.nom)}</span><span style="flex:1;display:flex;flex-direction:column"><span>${esc(c.nom)}${(() => { const s = infoSucre(c.nom); return s ? ' ' + pastilleSucre(s.niveau) : ''; })()}</span>${c.quantite ? `<small style="color:var(--pale);font-size:.8rem">${esc(c.quantite)}</small>` : ''}</span></label>
       ${tag}${m && !tag ? `<span class="pastille" style="background:${m.couleur}" title="Ajouté par ${esc(m.prenom)}"></span>` : ''}
       <button class="icone-btn" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 18)}</button>
     </div>`;
@@ -515,7 +516,7 @@ function ecranRepas() {
     <label class="sr" for="rpRecherche">Chercher une recette</label>
     <input id="rpRecherche" class="rp-recherche" placeholder="🔎 Écrire le nom d'une recette…" value="${esc(ui.rp.recherche)}" autocomplete="off">
     <div class="puces" role="group" aria-label="Filtres">${filtres.map(([v, t]) => `<button class="puce" aria-pressed="${f === v}" data-a="rpFiltre" data-v="${v}">${esc(t)}</button>`).join('')}</div>
-    <div class="liste">${l.map((r) => `<button class="article rp-ligne" data-a="rpOuvrir" data-id="${r.id}"><span class="rp-ic">${esc(r.icone)}</span><span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${esc(r.nom)}</span><small style="color:var(--pale)">${(r.ingredients || []).length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''}${(r.tags || []).filter((t) => t === 'cookeo' || t === 'companion').map((t) => ' · ' + (t === 'cookeo' ? 'Cookeo' : 'Companion')).join('')}</small></span>${i('droite', 18)}</button>`).join('') || '<p class="vide">Aucune recette trouvée.</p>'}</div>
+    <div class="liste">${l.map((r) => `<button class="article rp-ligne" data-a="rpOuvrir" data-id="${r.id}"><span class="rp-ic">${esc(r.icone)}</span><span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${esc(r.nom)} ${pastilleSucre(sucreRecette(r).niveau)}</span><small style="color:var(--pale)">${(r.ingredients || []).length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''}${(r.tags || []).filter((t) => t === 'cookeo' || t === 'companion').map((t) => ' · ' + (t === 'cookeo' ? 'Cookeo' : 'Companion')).join('')}</small></span>${i('droite', 18)}</button>`).join('') || '<p class="vide">Aucune recette trouvée.</p>'}</div>
     ${ui.rp.recherche && !l.some((r) => cleNom(r.nom) === q) ? `<button class="bouton" data-a="rpNouvelle" data-v="${esc(ui.rp.recherche)}">Créer la recette « ${esc(ui.rp.recherche)} »</button>` : ''}
     <button class="bouton second" data-a="rpNouvelle" data-v="">${i('ajouter', 18, 2.2)}Nouvelle recette</button>`;
 }
@@ -528,7 +529,8 @@ function ecranRecette() {
     <div class="pl-barre"><a href="#/repas" class="lien-planning">${i('gauche', 16, 2.2)}Repas</a><span style="flex:1"></span>
       <div class="rp-pers"><button class="icone-btn" data-a="rpPers" data-v="-1" aria-label="Moins de personnes">−</button><b>${pers} pers.</b><button class="icone-btn" data-a="rpPers" data-v="1" aria-label="Plus de personnes">+</button></div></div>
     <div class="rp-tete"><span class="rp-grand">${esc(r.icone)}</span><span>Coche ce qu'il faut acheter.${(r.tags || []).length ? `<br><small style="color:var(--pale)">${r.tags.map((t) => esc((TAGS.find(([v]) => v === t) || [t, t])[1])).join(' · ')}</small>` : ''}</span></div>
-    <div class="liste">${ing.map((x) => `<label class="article ${x.dans ? 'pris' : ''}"><input type="checkbox" data-c="rpCoche" data-k="${x.k}" ${x.dans ? 'disabled' : ''} ${ui.rp.coches.has(x.k) && !x.dans ? 'checked' : ''}><span class="ic-article" aria-hidden="true">${iconeArticle(x.nom)}</span><span style="flex:1">${esc(x.nom)}</span><small style="color:var(--pale)">${x.dans ? 'déjà dans la liste' : esc(x.q)}</small></label>`).join('') || '<p class="vide">Aucun ingrédient : modifie la recette pour en ajouter.</p>'}</div>
+    ${(() => { const s = sucreRecette(r); return `<button class="sucre-ligne ${s.niveau}" data-a="rpSucre" style="border:none;font:inherit;text-align:left;width:100%">${EMOJI[s.niveau]} Sucre : environ ${s.total} g par portion${s.ajoute ? `, dont ${s.ajoute} g ajouté` : ', sans sucre ajouté'} <span style="margin-left:auto">›</span></button>`; })()}
+    <div class="liste">${ing.map((x) => `<label class="article ${x.dans ? 'pris' : ''}"><input type="checkbox" data-c="rpCoche" data-k="${x.k}" ${x.dans ? 'disabled' : ''} ${ui.rp.coches.has(x.k) && !x.dans ? 'checked' : ''}><span class="ic-article" aria-hidden="true">${iconeArticle(x.nom)}</span><span style="flex:1">${esc(x.nom)}${(() => { const s = infoSucre(x.nom); return s && s.niveau !== 'vert' ? ' ' + pastilleSucre(s.niveau) : ''; })()}</span><small style="color:var(--pale)">${x.dans ? 'déjà dans la liste' : esc(x.q)}</small></label>`).join('') || '<p class="vide">Aucun ingrédient : modifie la recette pour en ajouter.</p>'}</div>
     <div class="actions"><button class="bouton second" data-a="rpToutCocher">Tout cocher</button><button class="bouton" data-a="rpAjouter" ${n ? '' : 'disabled'}>${n ? `Ajouter (${n}) aux courses` : 'Coche des articles'}</button></div>
     <button class="bouton second" data-a="rpPrevoir">${i('agenda', 18)}Prévoir ce repas (jour facultatif)</button>
     <div class="actions"><button class="bouton second" data-a="rpModifier">${i('modifier', 18)}Modifier la recette</button><button class="bouton danger" data-a="rpSupprimer">Supprimer</button></div>`;
@@ -789,7 +791,7 @@ async function dicter(contexte) {
   try { texte = await ecouter(); } catch (e) { ui.ecoute = false; rendre(); return toast(e.message); }
   ui.ecoute = false; rendre();
   let c = comprendre(texte, personnes().map((p) => p.prenom));
-  if (contexte === 'course' && !['course', 'repas', 'question'].includes(c.type)) c = { type: 'course', noms: [majuscule(texte.trim())] };
+  if (contexte === 'course' && !['course', 'repas', 'question', 'sucre'].includes(c.type)) c = { type: 'course', noms: [majuscule(texte.trim())] };
   if (contexte === 'note' && c.type !== 'note') c = { type: 'note', texte: majuscule(texte.trim()) };
   if (c.type === 'course') {
     const { nouveaux, deja } = sansDoublons(c.noms);
@@ -808,6 +810,13 @@ async function dicter(contexte) {
     msgVus.add(l.id);
     try { await ecrire({ cle: 'messages', op: 'insert', ligne: l }); } catch (e) { return erreur(e); }
     toast(`Message pour ${p ? p.prenom : 'tout le monde'} : ${c.texte}`, () => ecrire({ cle: 'messages', op: 'delete', ligne: { id: l.id } }));
+  } else if (c.type === 'sucre') {
+    toast('Je regarde le sucre…');
+    const r = await avisSucre(c.nom);
+    zoneToast.innerHTML = '';
+    ouvrirFenetre('Sucre', `<div class="sucre-avis ${r.niveau || ''}"><span class="gros">${r.niveau ? EMOJI[r.niveau] : '❔'}</span><p>${esc(r.texte)}</p></div>
+      <p class="info">Estimation indicative. Limite conseillée : ${LIMITE_JOUR} g de sucres ajoutés par jour. Ton médecin reste la référence.</p>
+      <button class="bouton" data-a="fermer">OK</button>`);
   } else if (c.type === 'repas') {
     const r = chercherRecette(c.nom);
     if (!r) return toast(`Je ne connais pas la recette « ${c.nom} ».`);
@@ -872,6 +881,7 @@ function planifierRappels() {
 // ---------------- Actions ----------------
 const actions = {
   rpFiltre(d) { ui.rp.filtre = d.v; rendre(); },
+  rpSucre() { const r = recette(ui.rp.id); if (!r) return; avisSucre(r.nom).then((a) => ouvrirFenetre('Sucre', `<div class="sucre-avis ${a.niveau || ''}"><span class="gros">${a.niveau ? EMOJI[a.niveau] : '❔'}</span><p>${esc(a.texte)}</p></div><p class="info">Estimation calculée à partir des ingrédients. Limite conseillée : ${LIMITE_JOUR} g de sucres ajoutés par jour.</p><button class="bouton" data-a="fermer">OK</button>`)); },
   rpOuvrir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; if (location.hash !== '#/recette') location.hash = '#/recette'; else rendre(); },
   rpPers(d) { const r = recette(ui.rp.id); if (!r) return; ui.rp.pers = Math.min(20, Math.max(1, (ui.rp.pers || r.personnes) + Number(d.v))); rendre(); },
   rpToutCocher() { const r = recette(ui.rp.id); if (!r) return; const l = ingredients(r, ui.rp.pers || r.personnes).filter((x) => !x.dans); const tous = l.every((x) => ui.rp.coches.has(x.k)); ui.rp.coches = tous ? new Set() : new Set(l.map((x) => x.k)); rendre(); },

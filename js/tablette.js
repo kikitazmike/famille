@@ -6,6 +6,7 @@ import { i, esc } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { VERSION } from './config.js';
 import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, isoJour, cleNom, chercherRecette, sansDoublons, dejaDansListe } from './repas.js';
+import { avisSucre, infoSucre, sucreRecette, pastilleSucre, EMOJI, COULEUR, LIMITE_JOUR } from './sucre.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
@@ -386,7 +387,7 @@ function pageCourses() {
   const aPrendre = state.courses.filter((c) => !c.pris).sort((a, b) => a.created_at < b.created_at ? -1 : 1);
   const pris = state.courses.filter((c) => c.pris).sort((a, b) => (a.pris_le || '') > (b.pris_le || '') ? -1 : 1);
   const ligne = (c) => { const m = membre(c.ajoute_par); return `<div class="ligne-p ${c.pris ? 'fait' : ''}">
-    <label><input type="checkbox" data-c="prendre" data-id="${c.id}" ${c.pris ? 'checked' : ''}><span class="ic-article" aria-hidden="true">${iconeArticle(c.nom)}</span><span class="tx"><b>${esc(c.nom)}</b>${c.quantite ? `<small>${esc(c.quantite)}</small>` : ''}</span></label>
+    <label><input type="checkbox" data-c="prendre" data-id="${c.id}" ${c.pris ? 'checked' : ''}><span class="ic-article" aria-hidden="true">${iconeArticle(c.nom)}</span><span class="tx"><b>${esc(c.nom)}${(() => { const s = infoSucre(c.nom); return s ? ' ' + pastilleSucre(s.niveau) : ''; })()}</b>${c.quantite ? `<small>${esc(c.quantite)}</small>` : ''}</span></label>
     ${c.source === 'titus' ? '<span class="etq">Titus</span>' : m ? `<span class="pt" style="background:${m.couleur}" title="${esc(m.prenom)}"></span>` : ''}
     <button class="btn rond" data-a="modifCourse" data-id="${c.id}" aria-label="Modifier ${esc(c.nom)}">${i('modifier', 20)}</button>
     <button class="btn rond rouge" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 20)}</button></div>`; };
@@ -433,6 +434,7 @@ function pageAide() {
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
     ${bloc('courses', '#C2410C', 'Repas', 'ajoute les ingrédients de, on mange quoi, montre les recettes', ['Ajoute les ingrédients des lasagnes', 'Qu\'est-ce qu\'on mange ce soir ?', 'On mange quoi demain ?', 'Montre les recettes'], 'Bouton 🍽️ à côté de « Ajouter » : choisis une recette, coche ce qu\'il faut acheter, puis « Ajouter aux courses ». « Prévoir » met le repas dans « À cuisiner », avec ou sans jour. Le repas du soir s\'affiche en haut et dans la carte Courses.')}
+    ${bloc('coche', '#D3392F', 'Sucre', 'c\'est bon pour moi, je peux manger, je peux boire, combien de sucre', ['Est-ce que le Coca c\'est bon pour moi ?', 'Je peux manger une banane ?', 'Combien de sucre dans les lasagnes ?', 'Le thé glacé est-il bon pour moi ?'], 'Réponse : 🟢 peu sucré, 🟠 avec modération, 🔴 à éviter. Les pastilles s\'affichent aussi dans les recettes et les courses. Pour un produit de marque inconnu, la tablette cherche sur Open Food Facts (Internet). Ce sont des estimations : ton médecin reste la référence.')}
     ${bloc('soleil', '#D9774A', 'Le point du jour', '', ['Bonjour', 'Le point de la journée', 'C\'est quoi ma journée ?'], 'Donne la météo et les rendez-vous du jour, seulement quand tu le demandes.')}
     ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels. Le planning de travail (Matin, Nuit…) se remplit depuis l\'onglet Agenda du téléphone et s\'affiche ici à côté des prénoms.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
     ${bloc('soleil', '#D9774A', 'Questions', 'qu\'est-ce que, on a quoi, quand, quel, est-ce que, il va, dis-moi', ['Qu\'est-ce qu\'on a demain ?', 'On a quoi cette semaine ?', 'Quel temps fait-il ?', 'Météo pour demain', 'Montre-moi la météo de la semaine', 'Est-ce qu\'il va pleuvoir mardi ?', 'Qu\'est-ce qu\'il y a sur la liste ?', 'Quelles sont les notes ?', 'C\'est quand la prochaine poubelle ?', 'C\'est quand l\'anniversaire de Morgane ?', 'Quelle heure est-il ?', 'Qui travaille demain ?', 'Lucas travaille samedi ?', 'Quelles tâches demain ?'])}
@@ -450,7 +452,7 @@ function pageRepas() {
   const af = repasAFaire();
   const gauche = `<div class="rp-gauche"><input class="rp-cherche" data-rp-cherche placeholder="🔎 Écrire le nom d'une recette…" aria-label="Chercher une recette" autocomplete="off">
     <div class="rp-filtres">${[['tous', 'Tous'], ['mes', '★ Mes recettes'], ...TAGS].map(([v, t]) => `<button class="${f === v ? 'on' : ''}" data-a="rpFiltre" data-v="${v}">${esc(t)}</button>`).join('')}</div>
-    <div class="rp-liste">${l.map((r) => `<button class="rp-item ${ui.rp.id === r.id ? 'on' : ''}" data-a="rpVoir" data-id="${r.id}" data-nom="${esc(cleNom(r.nom))}"><span class="ic">${esc(r.icone)}</span><span class="tx"><b>${esc(r.nom)}</b><small>${(r.ingredients || []).length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''}</small></span></button>`).join('')}
+    <div class="rp-liste">${l.map((r) => `<button class="rp-item ${ui.rp.id === r.id ? 'on' : ''}" data-a="rpVoir" data-id="${r.id}" data-nom="${esc(cleNom(r.nom))}"><span class="ic">${esc(r.icone)}</span><span class="tx"><b>${esc(r.nom)} ${pastilleSucre(sucreRecette(r).niveau)}</b><small>${(r.ingredients || []).length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''}</small></span></button>`).join('')}
       <p class="vide rp-aucun" hidden>Aucune recette : touche « + Nouvelle recette » pour la créer.</p></div>
     <button class="gros-btn second" data-a="rpNouvelle">${i('ajouter', 20, 2.2)} Nouvelle recette</button></div>`;
   let droite;
@@ -459,7 +461,8 @@ function pageRepas() {
     const pers = ui.rp.pers || r.personnes; const ing = ingredients(r, pers); const n = ing.filter((x) => !x.dans && ui.rp.coches.has(x.k)).length;
     droite = `<div class="rp-droite"><div class="rp-tete"><span class="grand">${esc(r.icone)}</span><div class="tx"><h2>${esc(r.nom)}</h2><small>${ing.length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''} · coche ce qu'il faut acheter</small></div>
       <div class="rp-pers"><button data-a="rpPers" data-v="-1" aria-label="Moins de personnes">−</button><b>${pers} personnes</b><button data-a="rpPers" data-v="1" aria-label="Plus de personnes">+</button></div></div>
-      <div class="rp-ing">${ing.map((x) => `<label class="${x.dans ? 'dans' : ''}"><input type="checkbox" data-c="rpCoche" data-k="${x.k}" ${x.dans ? 'disabled' : ''} ${ui.rp.coches.has(x.k) && !x.dans ? 'checked' : ''}><span class="ic-article">${iconeArticle(x.nom)}</span><span class="nm">${esc(x.nom)}</span><small>${x.dans ? 'déjà dans la liste' : esc(x.q)}</small></label>`).join('') || '<p class="vide">Aucun ingrédient.</p>'}</div>
+      ${(() => { const s = sucreRecette(r); return `<button class="sucre-ligne ${s.niveau}" data-a="rpSucre" style="border:none;font:inherit;text-align:left">${EMOJI[s.niveau]} Sucre : environ ${s.total} g par portion${s.ajoute ? `, dont ${s.ajoute} g ajouté` : ', sans sucre ajouté'} <span style="margin-left:auto">›</span></button>`; })()}
+      <div class="rp-ing">${ing.map((x) => `<label class="${x.dans ? 'dans' : ''}"><input type="checkbox" data-c="rpCoche" data-k="${x.k}" ${x.dans ? 'disabled' : ''} ${ui.rp.coches.has(x.k) && !x.dans ? 'checked' : ''}><span class="ic-article">${iconeArticle(x.nom)}</span><span class="nm">${esc(x.nom)}${(() => { const s = infoSucre(x.nom); return s && s.niveau !== 'vert' ? ' ' + pastilleSucre(s.niveau) : ''; })()}</span><small>${x.dans ? 'déjà dans la liste' : esc(x.q)}</small></label>`).join('') || '<p class="vide">Aucun ingrédient.</p>'}</div>
       <div class="rp-bas"><button class="gros-btn second" data-a="rpToutCocher">Tout cocher</button><button class="gros-btn second" data-a="rpPrevoir">${i('agenda', 20)} Prévoir</button><button class="gros-btn second" data-a="rpModifier">${i('modifier', 20)} Modifier</button><button class="gros-btn" data-a="rpAjouter" ${n ? '' : 'disabled'}>${n ? `Ajouter (${n}) aux courses` : 'Coche des articles'}</button></div></div>`;
   } else {
     const nb = ingredientsAFaire().length;
@@ -767,6 +770,14 @@ async function parler() {
     formRdv({ titre: c.titre, debut: c.debut, fin: c.fin || undefined, journee: c.journee, qui });
     toast(`« ${t} » → rendez-vous à vérifier.`);
     parlerSi(`Rendez-vous ${c.titre}, ${jourParle(debutJour(c.debut))}${c.journee ? '' : ' à ' + heureParlee(c.debut)}. Vérifie et appuie sur Enregistrer.`);
+  } else if (c.type === 'sucre') {
+    toast(`« ${t} » → je regarde le sucre…`);
+    const r = await avisSucre(c.nom);
+    zToast.innerHTML = '';
+    fenetre('Sucre', `<div class="sucre-avis ${r.niveau || ''}"><span class="gros">${r.niveau ? EMOJI[r.niveau] : '❔'}</span><p>${esc(r.texte)}</p></div>
+      <p style="margin:0;font-size:13px;color:var(--pale)">Estimation indicative. Limite conseillée : ${LIMITE_JOUR} g de sucres ajoutés par jour. Ton médecin reste la référence.</p>
+      <div class="rangee"><button class="gros-btn" data-a="fermer">OK</button></div>`);
+    parlerSi(r.texte.replace(/\(d'après Open Food Facts\)/, ''));
   } else if (c.type === 'repas') {
     const r = chercherRecette(c.nom);
     if (!r) { toast(`Je ne connais pas la recette « ${c.nom} ». Ajoute-la dans Repas.`); parlerSi(`Je ne connais pas la recette ${c.nom}.`); return; }
@@ -987,6 +998,7 @@ const actions = {
   ouvrirPage(d) { ui.page = d.v; if (d.v === 'meteo') { ui.meteoVue = '2j'; if (!ui.meteo || Date.now() - (ui.meteo.le || 0) > 20 * 60000) chargerMeteo(); } rendre(); },
   meteoVue(d) { ui.meteoVue = d.v; rendre(); },
   rpVoir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; ui.page = 'repas'; rendre(); },
+  rpSucre() { const r = recette(ui.rp.id); if (!r) return; avisSucre(r.nom).then((a) => { fenetre('Sucre', `<div class="sucre-avis ${a.niveau || ''}"><span class="gros">${a.niveau ? EMOJI[a.niveau] : '❔'}</span><p>${esc(a.texte)}</p></div><p style="margin:0;font-size:13px;color:var(--pale)">Estimation calculée à partir des ingrédients. Limite conseillée : ${LIMITE_JOUR} g de sucres ajoutés par jour.</p><div class="rangee"><button class="gros-btn" data-a="fermer">OK</button></div>`); parlerSi(a.texte); }); },
   rpAccueil() { ui.rp.id = null; rendre(); },
   rpFiltre(d) { ui.rp.filtre = d.v; rendre(); },
   rpPers(d) { const r = recette(ui.rp.id); if (!r) return; ui.rp.pers = Math.min(20, Math.max(1, (ui.rp.pers || r.personnes) + Number(d.v))); rendre(); },

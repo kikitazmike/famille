@@ -332,3 +332,11 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .rp-tags label { min-height: 44px; }
 .rp-tags input { width: 24px; height: 24px; accent-color: var(--accent); }
 .pp.msg, .pp.alerte, .pp.soir { min-height: 36px; padding: 6px 12px; }
+/* Sucre */
+.sucre-pt { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px #fff; }
+.sucre-avis { display: flex; gap: 16px; align-items: flex-start; padding: 18px 20px; border-radius: 20px; }
+.sucre-avis .gros { font-size: 44px; line-height: 1; }
+.sucre-avis p { margin: 0; font-size: 20px; line-height: 1.45; }
+.sucre-avis.vert { background: #E3F4EA; } .sucre-avis.orange { background: #FDF0DC; } .sucre-avis.rouge { background: #FBE3E1; }
+.sucre-ligne { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; font-size: 16px; }
+.sucre-ligne.vert { background: #E3F4EA; color: #1B5E36; } .sucre-ligne.orange { background: #FDF0DC; color: #7A4A0C; } .sucre-ligne.rouge { background: #FBE3E1; color: #8E211A; }

@@ -251,3 +251,12 @@ label.article > span:not(.ic-article), label.article small { overflow-wrap: anyw
 .puce { height: auto; min-height: 2.75rem; }
 .hab { min-height: 2.75rem; }
 #nouvelArticle { min-height: 2.75rem; }
+/* Sucre */
+.sucre-pt { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px var(--carte); vertical-align: middle; }
+.sucre-avis { display: flex; gap: .8rem; align-items: flex-start; padding: .9rem 1rem; border-radius: 1rem; background: var(--creux, rgba(0,0,0,.04)); }
+.sucre-avis .gros { font-size: 2rem; line-height: 1; }
+.sucre-avis p { margin: 0; font-size: 1.05rem; line-height: 1.45; }
+.sucre-avis.vert { background: #E3F4EA; } .sucre-avis.orange { background: #FDF0DC; } .sucre-avis.rouge { background: #FBE3E1; }
+[data-theme="fonce"] .sucre-avis.vert { background: #1E3A2A; } [data-theme="fonce"] .sucre-avis.orange { background: #3D2E17; } [data-theme="fonce"] .sucre-avis.rouge { background: #42201D; }
+.sucre-ligne { display: flex; align-items: center; gap: .5rem; padding: .6rem .8rem; border-radius: .9rem; font-size: .95rem; }
+.sucre-ligne.vert { background: #E3F4EA; color: #1B5E36; } .sucre-ligne.orange { background: #FDF0DC; color: #7A4A0C; } .sucre-ligne.rouge { background: #FBE3E1; color: #8E211A; }

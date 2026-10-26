@@ -174,6 +174,32 @@ export function comprendre(texte, prenoms = []) {
     return { type: 'minuteur', action: 'sansduree', texte: brut };
   }
 
+  // Sucre : « est-ce que le Coca c'est bon pour moi ? », « je peux manger une banane ? », « combien de sucre dans les lasagnes ? »
+  {
+    const q = nb0.replace(/\?/g, '').replace(/\s+/g, ' ').trim();
+    const motifs = [
+      /^(?:est[- ]ce que |est[- ]ce qu')?(?:je peux|j'ai le droit de|j'ai droit a|on peut|je pourrais|puis[- ]je)\s+(?:manger|boire|prendre|avaler|grignoter)\s+(.+?)(?:\s+(?:ou pas|ou non))?$/,
+      /^(?:est[- ]ce que |est[- ]ce qu')?(.+?)\s*,?\s*(?:c'?est|c est|est[- ]ce|est|sont|ce sont|ca reste|il est|elle est)\s+(?:bon|bien|ok|autorise|permis|mauvais|interdit|conseille|trop sucre|sucres?|tres sucres?|riche en sucre)\s*(?:pour moi|pour ma sante|pour mon regime)?(?:\s+(?:ou pas|ou non))?$/,
+      /^(?:est[- ]ce que |est[- ]ce qu')?(.+?)\s+(?:est[- ]il|est[- ]elle|sont[- ]ils|sont[- ]elles)\s+(?:bon|bons|bonne|bonnes|bien|ok|autorises?|permis|mauvais|trop sucres?|sucres?|tres sucres?)\s*(?:pour moi|pour ma sante)?$/,
+      /^(?:c'?est|est[- ]ce que c'?est|y a[- ]t[- ]il)\s+(?:bon|trop sucre|sucre|beaucoup de sucre)\s+(?:pour moi\s+)?(?:le |la |les |l'|un |une |du |de la |des |dans (?:le |la |les |l')?)?(.+)$/,
+      /^(?:combien (?:de |y a[- ]t[- ]il de |il y a de |ya de )?(?:grammes? de )?sucres?|quelle quantite de sucre|y a[- ]t[- ]il (?:du|beaucoup de) sucre|il y a (?:du|beaucoup de) sucre|(?:le |la )?(?:taux|teneur|quantite) (?:de|en) sucre)\s+(?:y a[- ]t[- ]il\s+|il y a\s+)?(?:dans|pour|du|de la|des|de l'|de)\s+(.+)$/,
+      /^(?:sucre|niveau de sucre|teneur en sucre)\s*:?\s+(?:du |de la |des |de l'|dans )?(.+)$/
+    ];
+    for (const re of motifs) {
+      const mm = q.match(re);
+      if (!mm) continue;
+      let nom = mm[1].replace(/^(?:le |la |les |l'|un |une |du |de la |des |de l'|d'|de |mon |ma |mes |ce |cette |ces )/, '')
+        .replace(/^(?:verre|canette|bouteille|tasse|bol|part|morceau|tranche|carre|cuillere|poignee|pot|assiette|portion)s? (?:de |d')/, '')
+        .replace(/^(?:le |la |les |l'|du |de la |des )/, '').replace(/\s+(?:ce soir|ce midi|aujourd'hui|demain|maintenant|le soir|le matin)$/, '').trim();
+      if (!nom || nom.length > 60 || /^(rendez|rdv|la table|ca|cela|ceci)\b/.test(nom)) continue;
+      // On reprend les mots d'origine (avec accents) pour l'affichage
+      const mots = brut.replace(/\?/g, '').split(/\s+/); const cles = mots.map((w) => sansAccent(w)); const cible = nom.split(' ');
+      let affiche = nom;
+      for (let i = 0; i + cible.length <= cles.length; i++) { if (cible.every((w, j) => cles[i + j] === w)) { affiche = mots.slice(i, i + cible.length).join(' '); break; } }
+      return { type: 'sucre', nom: affiche, texte: brut };
+    }
+  }
+
   // Messages : « dis à Lucas de sortir le chien », « préviens tout le monde que le repas est prêt »
   {
     const qui = `(${[...prenoms.map((p) => sansAccent(p)), 'tout le monde', 'tous', 'toute la famille', 'la famille'].map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`;
