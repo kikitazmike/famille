@@ -11,7 +11,7 @@ import {
 import { i, esc, ICONES_PROFIL, COULEURS_APPLI, COULEURS_PERSO, eclaircir, assombrir, initiales } from './icones.js';
 import { ecouter, comprendre, voixDisponible } from './voix.js';
 import { FETAMI_SITE, VERSION } from './config.js';
-import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, lireDictee, isoJour, cleNom } from './repas.js';
+import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, lireDictee, isoJour, cleNom, chercherRecette } from './repas.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
 
@@ -454,6 +454,7 @@ async function enregistrerRdv(form) {
     const [h2, m2] = (fd.get('hfin') || '').split(':').map(Number);
     debut.setHours(h1, m1, 0, 0);
     fin = new Date(debut); if (!isNaN(h2)) fin.setHours(h2, m2, 0, 0);
+    if (fin < debut && !isNaN(h2)) fin = ajouterJours(fin, 1);
     if (fin <= debut) fin = new Date(debut.getTime() + 3600000);
   }
   const rep = fd.get('repetition');
@@ -538,7 +539,7 @@ function formRecette(r, nom = '', ingr = []) {
     <div class="champ">Icône<div class="rp-icones">${ICONES_RECETTE.map((c, k) => `<label><input type="radio" name="icone" value="${c}" class="sr" ${(r ? r.icone === c : k === ICONES_RECETTE.length - 1) ? 'checked' : ''}><span>${c}</span></label>`).join('')}</div></div>
     <div class="ligne"><label class="champ">Durée<input name="duree" maxlength="30" value="${esc(r ? r.duree || '' : '')}" placeholder="1 h"></label><label class="champ">Personnes<input name="personnes" type="number" min="1" max="20" value="${r ? r.personnes : 4}"></label></div>
     <div class="champ">Étiquettes<div class="rp-tags">${TAGS.map(([v, t]) => `<label><input type="checkbox" name="tags" value="${v}" ${r && (r.tags || []).includes(v) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div></div>
-    <label class="champ">Ingrédients (un par ligne, « nom, quantité »)<textarea name="ingredients" rows="7" placeholder="Pommes de terre, 1 kg&#10;Bœuf haché, 500 g&#10;Lait, 20 cl">${esc(liste.map((x) => x.q ? `${x.nom}, ${x.q}` : x.nom).join('\n'))}</textarea></label>
+    <label class="champ">Ingrédients (un par ligne, « nom, quantité »)<textarea name="ingredients" rows="7" maxlength="4000" placeholder="Pommes de terre, 1 kg&#10;Bœuf haché, 500 g&#10;Lait, 20 cl">${esc(liste.map((x) => x.q ? `${x.nom}, ${x.q}` : x.nom).join('\n'))}</textarea></label>
     ${voixDisponible() ? `<button type="button" class="bouton second" data-a="rpDicter">${i('micro', 18, 2)}Dicter « nom : ingrédient, ingrédient… »</button>` : ''}
     <div class="actions"><button class="bouton" type="submit">Enregistrer</button><button class="bouton second" type="button" data-a="fermer">Annuler</button></div></form>`);
 }
@@ -788,7 +789,7 @@ async function dicter(contexte) {
   try { texte = await ecouter(); } catch (e) { ui.ecoute = false; rendre(); return toast(e.message); }
   ui.ecoute = false; rendre();
   let c = comprendre(texte, personnes().map((p) => p.prenom));
-  if (contexte === 'course' && c.type !== 'course') c = { type: 'course', noms: [majuscule(texte.trim())] };
+  if (contexte === 'course' && c.type !== 'course' && c.type !== 'repas') c = { type: 'course', noms: [majuscule(texte.trim())] };
   if (contexte === 'note' && c.type !== 'note') c = { type: 'note', texte: majuscule(texte.trim()) };
   if (c.type === 'course') {
     const lignes = c.noms.map((nom) => ({ id: nouvelId(), nom: nom.slice(0, 120), source: 'voix', ajoute_par: state.moi.id, pris: false, created_at: new Date().toISOString() }));
@@ -804,6 +805,13 @@ async function dicter(contexte) {
     msgVus.add(l.id);
     try { await ecrire({ cle: 'messages', op: 'insert', ligne: l }); } catch (e) { return erreur(e); }
     toast(`Message pour ${p ? p.prenom : 'tout le monde'} : ${c.texte}`, () => ecrire({ cle: 'messages', op: 'delete', ligne: { id: l.id } }));
+  } else if (c.type === 'repas') {
+    const r = chercherRecette(c.nom);
+    if (!r) return toast(`Je ne connais pas la recette « ${c.nom} ».`);
+    const ops = opsCourses(ingredients(r, r.personnes), 'voix', state.moi.id);
+    if (!ops.length) return toast(`Tous les ingrédients de « ${r.nom} » sont déjà dans la liste.`);
+    try { await ecrire(ops); } catch (e) { return erreur(e); }
+    toast(`${ops.length} ingrédients de ${r.nom} ajoutés aux courses.`, () => ecrire(ops.map((o) => ({ cle: 'courses', op: 'delete', ligne: { id: o.ligne.id } }))));
   } else if (c.type === 'minuteur') {
     toast('Le minuteur fonctionne sur la tablette : dis-le-lui directement.');
   } else if (c.type === 'rdv') {

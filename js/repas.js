@@ -22,11 +22,18 @@ export const repasDuJour = (jourIso) => repasAFaire().filter((r) => r.jour === j
 // Quantité adaptée au nombre de personnes : « 500 g » pour 4 → « 750 g » pour 6
 export function quantite(q, base, pers) {
   if (!q || !base || base === pers) return q || '';
-  const m = q.match(/^\s*(\d+(?:[.,]\d+)?)(.*)$/);
+  const f = pers / base;
+  const fmt = (v) => { v = v >= 10 ? Math.round(v) : v >= 1 ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100; return String(v).replace('.', ','); };
+  const nb = (x) => parseFloat(x.replace(',', '.'));
+  // Fraction « 1/2 kg »
+  let m = q.match(/^\s*(\d+)\s*\/\s*(\d+)(.*)$/);
+  if (m && Number(m[2])) return `${fmt(Number(m[1]) / Number(m[2]) * f)}${m[3]}`;
+  // Fourchette « 2-3 » ou « 2 à 3 »
+  m = q.match(/^\s*(\d+(?:[.,]\d+)?)\s*(-|–|à)\s*(\d+(?:[.,]\d+)?)(.*)$/);
+  if (m) return `${fmt(nb(m[1]) * f)}${m[2] === 'à' ? ' à ' : '-'}${fmt(nb(m[3]) * f)}${m[4]}`;
+  m = q.match(/^\s*(\d+(?:[.,]\d+)?)(.*)$/);
   if (!m) return q;
-  let v = parseFloat(m[1].replace(',', '.')) * pers / base;
-  v = v >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
-  return `${String(v).replace('.', ',')}${m[2]}`;
+  return `${fmt(nb(m[1]) * f)}${m[2]}`;
 }
 // Ingrédients d'une recette, avec indication « déjà dans la liste »
 export function ingredients(r, pers) {
@@ -52,15 +59,15 @@ export function ingredientsAFaire() {
 }
 // « Nom, quantité » ou « Nom - quantité » par ligne → [{nom, q}]
 export function lireIngredients(texte) {
-  return (texte || '').split(/\n|;/).map((l) => l.trim()).filter(Boolean).map((l) => {
+  return (texte || '').split(/\n|;/).map((l) => l.trim()).filter((l) => /[\p{L}\p{N}]/u.test(l)).map((l) => {
     const m = l.match(/^(.+?)\s*(?:,|\s-\s|:)\s*(.+)$/);
-    const nom = (m ? m[1] : l).trim(); const q = m ? m[2].trim() : '';
+    const nom = (m ? m[1] : l).trim().slice(0, 120); const q = m ? m[2].trim().slice(0, 60) : '';
     return { nom: nom.charAt(0).toUpperCase() + nom.slice(1), q };
-  }).slice(0, 60);
+  }).filter((x) => /[\p{L}\p{N}]/u.test(x.nom)).slice(0, 60);
 }
 // Dictée « hachis parmentier : pommes de terre, bœuf haché, lait »
 export function lireDictee(t) {
   const m = (t || '').match(/^(.+?)\s*(?::|avec|il faut)\s*(.+)$/i);
   if (!m) return null;
-  return { nom: m[1].trim().replace(/^(recette|nouvelle recette)\s*/i, ''), ingredients: m[2].split(/\s*(?:,|\bet\b)\s*/).filter(Boolean).map((n) => ({ nom: n.charAt(0).toUpperCase() + n.slice(1), q: '' })) };
+  return { nom: m[1].trim().replace(/^(recette|nouvelle recette)\s*/i, ''), ingredients: m[2].split(/\s*(?:,|\bet\b)\s*/).map((n) => n.trim()).filter(Boolean).map((n) => ({ nom: n.charAt(0).toUpperCase() + n.slice(1), q: '' })) };
 }

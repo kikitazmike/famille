@@ -317,3 +317,10 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .rp-tags label { display: flex; gap: 6px; align-items: center; }
 .rp-bas .gros-btn.second { padding: 0 16px; }
 .rp-bas [data-a=rpAjouter] { margin-left: auto; }
+
+/* Vérification : débordements */
+.rangee > * { min-width: 0; }
+.champ input, .champ select { min-width: 0; }
+.rp-item .tx b { overflow-wrap: anywhere; }
+.rp-item .tx { flex: 1; }
+.rdv span { overflow: hidden; min-width: 0; }

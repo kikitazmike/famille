@@ -237,3 +237,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .rp-icones input:checked + span { box-shadow: 0 0 0 2px var(--accent); background: var(--accent-doux); }
 .rp-tags { display: flex; flex-wrap: wrap; gap: .8rem; }
 .rp-tags label { display: flex; gap: .35rem; align-items: center; font-size: .95rem; }
+
+/* Vérification : mots très longs, cases, liens de retour */
+.article label, .rp-ligne > span { min-width: 0; }
+.article label span, .rp-ligne span, .article.message span { overflow-wrap: anywhere; }
+.rp-tags input { width: 1.35rem; height: 1.35rem; min-height: 0; padding: 0; flex-shrink: 0; }
+.lien-planning { min-height: 44px; }
+.champ > .ligne > span[aria-hidden] { flex: 0 0 auto !important; }
+.semaine .icone-btn { width: 100%; min-width: 0; }

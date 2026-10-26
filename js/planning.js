@@ -65,21 +65,26 @@ export function lirePlanning(texte, types, lundi) {
   const lignes = (texte || '').split(/\n+/).map((l) => l.trim()).filter(Boolean);
   for (const brut of lignes) {
     const n = sansAccent(brut).replace(/[|]/g, ' ');
-    let jour = null;
+    let jour = null; let dateOk = false;
     const md = n.match(/\b(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?\b/);
     if (md) {
       const a = md[3] ? (md[3].length === 2 ? 2000 + Number(md[3]) : Number(md[3])) : lundi.getFullYear();
       const d = new Date(a, Number(md[2]) - 1, Number(md[1]));
-      if (!isNaN(d) && d.getDate() === Number(md[1])) jour = d;
+      // Date valide seulement (« 6-13 » ou « 6.30 » sont des horaires, pas des dates)
+      if (!isNaN(d) && d.getDate() === Number(md[1]) && d.getMonth() === Number(md[2]) - 1) {
+        // Planning à cheval sur l'année : « 01/01 » vu depuis fin décembre = l'année suivante
+        if (!md[3] && d < lundi - 182 * 86400000) d.setFullYear(d.getFullYear() + 1);
+        jour = d; dateOk = true;
+      }
     }
     if (!jour) {
-      const j = JOURS_RE.find(([p]) => new RegExp(`\\b${p}`).test(n));
+      const j = JOURS_RE.find(([p]) => new RegExp(`\\b${p}(?![a-z])|\\b${p}${{ lun: 'di', mar: 'di', mer: 'credi', jeu: 'di', ven: 'dredi', sam: 'edi', dim: 'anche' }[p]}\\b`).test(n));
       if (j) { jour = new Date(lundi); jour.setDate(lundi.getDate() + j[1] - 1); }
     }
     if (!jour) continue;
     const k = iso(jour); if (vus.has(k)) continue;
     let debut = null; let fin = null; let repos = false;
-    const sansDate = md ? n.replace(md[0], ' ') : n;
+    const sansDate = dateOk ? n.replace(md[0], ' ') : n;
     const h = sansDate.match(/(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*(?:-|–|à|a|>|au|\s)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?/);
     if (h) { debut = heure(h[1], h[2]); fin = heure(h[3], h[4]); }
     if (/\b(repos|rh|rtt|cp|conge|off|ferie|libre)\b/.test(n)) repos = true;

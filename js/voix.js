@@ -34,7 +34,7 @@ function trouverDate(t) {
   let m;
   if (/apres[- ]demain/.test(n)) return { date: ajouterJours(auj, 2), re: /apr[eè]s[- ]demain/i };
   if (/\bdemain\b/.test(n)) return { date: ajouterJours(auj, 1), re: /\bdemain\b/i };
-  if (/\baujourd'?hui\b|\bce soir\b|\bce matin\b|\bcet apres[- ]midi\b/.test(n)) return { date: auj, re: /\baujourd'?hui\b/i };
+  if (/\baujourd'?hui\b|\bce soir\b|\bce matin\b|\bcet apres[- ]midi\b/.test(n)) return { date: auj, re: /\baujourd'?hui\b|\bce soir\b|\bce matin\b|\bcet apr[eè]s[- ]midi\b/i };
   if ((m = n.match(/\b(le\s+)?(\d{1,2})\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/))) {
     const mois = MOIS.map(sansAccent).indexOf(m[3]);
     let d = new Date(auj.getFullYear(), mois, Number(m[2]));
@@ -52,7 +52,7 @@ function trouverDate(t) {
 }
 
 function trouverHeure(t) {
-  const re = /(?:(?:^|\s)(?:à|a|vers)\s+|\b)(\d{1,2})\s*(?:h|heures?|:)\s*(\d{2})?(?![\d])/i;
+  const re = /(?:(?:^|\s)(?:à|a|vers)\s+|\b)(\d{1,2})\s*(?:heures?|h|:)\s*(\d{2})?(?![\d])/i;
   const m = t.match(re);
   if (!m) {
     if (/\bmidi\b/i.test(t)) return { h: 12, min: 0, re: /\s*(?:à\s+|\ba\s+)?midi\b/i };
@@ -68,6 +68,7 @@ const UNITES = { zero: 0, 'zéro': 0, un: 1, une: 1, premier: 1, deux: 2, trois:
 const MOT_NB = Object.keys(UNITES).join('|');
 const NB = `(?:${MOT_NB})(?:(?:[\\s-]+et[\\s-]+|[\\s-]+)(?:${MOT_NB}))*`;
 function valeur(txt) {
+  if (/^\d+$/.test(txt.trim())) return Number(txt);
   let total = 0;
   for (const m of txt.toLowerCase().split(/[\s-]+/)) { if (m in UNITES) total += UNITES[m]; }
   return total;
@@ -75,7 +76,7 @@ function valeur(txt) {
 export function chiffrer(t) {
   const MOIS_RE = 'janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[uû]t|septembre|octobre|novembre|d[ée]cembre';
   // « quatorze heures trente », « neuf heures et quart », « dix heures moins le quart »
-  t = t.replace(new RegExp(`\\b(${NB})\\s+heures?(?:\\s+(et quart|et demie|moins le quart|moins quart|${NB}))?(?![\\wà-ÿ])`, 'gi'), (x, h, m) => {
+  t = t.replace(new RegExp(`\\b(${NB}|\\d{1,2})\\s*(?:heures?|h)(?:\\s+(et quart|et demie|moins le quart|moins quart|${NB}|\\d{2}))?(?![\\wà-ÿ])`, 'gi'), (x, h, m) => {
     let hh = valeur(h); let mm = 0;
     if (m) {
       const ml = m.toLowerCase();
@@ -110,7 +111,7 @@ export function nettoyer(t) {
   return t;
 }
 
-const ARTICLES = /^(?:(?:du|de la|des|de|un|une|le|la|les)\s+|(?:de l'|d'|l'))/i;
+const ARTICLES = /^(?:de l'|d'|l'|(?:du|de la|des|de|un|une|le|la|les)\s+)/i;
 const VERBES_COURSES = [
   "n'oublie pas d'acheter", "oublie pas d'acheter", "n'oublie pas de prendre", "pense à acheter", "penser à acheter", "pense à prendre", 'pense a acheter',
   'il faudrait acheter', 'il faudrait', 'il nous faut', 'il faut acheter', 'il faut racheter', 'il faut', 'faut acheter', 'faut',
@@ -203,11 +204,11 @@ export function comprendre(texte, prenoms = []) {
   }
   // Questions : « qu'est-ce qu'on a demain ? », « c'est quand l'anniversaire de Lucas ? »…
   const nq = n.replace(/\?/g, '').trim();
-  const DEBUT_Q = /^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|qu'avons|quoi|quand|c'?est quand|c'?est quoi|quel|quelle|quels|quelles|est[- ]?ce qu(?:e|')|on a quoi|j'ai quoi|ai[- ]je|avons[- ]nous|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]?moi|donne[- ]?moi|lis|lire|relis|montre|combien|on fait quoi|on mange|il va|il fait|va[- ]t[- ]il|fait[- ]il|(le\s+)?programme\s+(de|d'|pour|du)|quoi de (prevu|neuf))\b/;
+  const DEBUT_Q = /^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|qu'avons|quoi|quand|c'?est quand|c'?est quoi|quel|quelle|quels|quelles|est[- ]?ce qu(?:e|')|on a quoi|j'ai quoi|ai[- ]je|avons[- ]nous|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]?moi|donne[- ]?moi|lis|lire|relis|montre|affiche|afficher|ouvre|ouvrir|fais voir|combien|on fait quoi|on mange|il va|il fait|va[- ]t[- ]il|fait[- ]il|(le\s+)?programme\s+(de|d'|pour|du)|quoi de (prevu|neuf))\b/;
   if (DEBUT_Q.test(nq) || /\b(on a quoi|il y a quoi|c'?est quand|y a[- ]t[- ]il|de prevu|est prevu)\b/.test(nq) || /\?\s*$/.test(t)) {
     const d = trouverDate(t);
     let sujet = 'agenda';
-    if (/meteo|quel temps|temps fait|temps va|temps demain|pleuv|pluie|temperature|degres|froid|chaud|soleil|neige|beau|moche|nuage|vent|parapluie/.test(nq)) sujet = 'meteo';
+    if (/meteo|quel temps|temps fait|temps va|temps demain|pleuv|pleu|pluie|temperature|degres|froid|chaud|soleil|neige|beau|moche|nuage|vent|parapluie/.test(nq)) sujet = 'meteo';
     else if (/anniv/.test(nq)) sujet = 'anniv';
     else if (/poubelle|ordure|dechet|tri\b/.test(nq)) sujet = 'poubelle';
     else if (/\bon mange\b|\bmanger\b|\brepas\b|\bmenu\b|\brecette|a cuisiner|au diner|pour le diner|pour diner/.test(nq)) sujet = 'repas';
@@ -225,7 +226,7 @@ export function comprendre(texte, prenoms = []) {
   if (m) return { type: 'note', texte: majuscule(m[1].trim()) };
 
   // Courses
-  m = !/rendez|rdv|reunion|evenement/.test(n) && t.match(RE_COURSE);
+  m = !/rendez|rdv|reunion|evenement/.test(n) && !/^(il )?faut qu/.test(n) && t.match(RE_COURSE);
   if (m) {
     const reste = m[1].replace(FIN_LISTE, '').trim();
     if (reste) {

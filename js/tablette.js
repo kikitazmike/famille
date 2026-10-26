@@ -67,6 +67,7 @@ async function chargerMeteo() {
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${cfg.latitude}&longitude=${cfg.longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code&hourly=temperature_2m,weather_code,precipitation_probability&daily=sunrise,sunset,weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,uv_index_max&timezone=auto&forecast_days=7`;
     const r = await fetch(u); if (!r.ok) return;
     const d = await r.json();
+    if (!d || !d.daily || !Array.isArray(d.daily.time) || !d.daily.time.length) return; // réponse incomplète : on garde le cache
     const dl = d.daily; const rd = (x) => (x == null ? null : Math.round(x));
     const jours = (dl.time || []).map((t, k) => ({ date: t, code: dl.weather_code[k], min: rd(dl.temperature_2m_min[k]), max: rd(dl.temperature_2m_max[k]), pluie: dl.precipitation_probability_max ? rd(dl.precipitation_probability_max[k]) : null, mm: dl.precipitation_sum ? dl.precipitation_sum[k] : null, vent: dl.wind_speed_10m_max ? rd(dl.wind_speed_10m_max[k]) : null, uv: dl.uv_index_max ? rd(dl.uv_index_max[k]) : null, lever: dl.sunrise[k], coucher: dl.sunset[k] }));
     const h = d.hourly || {};
@@ -470,7 +471,7 @@ function formRecetteT(r, nom = '') {
     <div class="rangee"><label class="champ">Nom du repas<input name="nom" required maxlength="80" value="${esc(r ? r.nom : nom)}"></label><label class="champ" style="max-width:140px">Personnes<input name="personnes" type="number" min="1" max="20" value="${r ? r.personnes : 4}"></label><label class="champ" style="max-width:140px">Durée<input name="duree" maxlength="30" value="${esc(r ? r.duree || '' : '')}"></label></div>
     <div class="champ">Icône<div class="rp-icones">${ICONES_RECETTE.map((c, k) => `<label><input type="radio" name="icone" value="${c}" class="sr" ${(r ? r.icone === c : k === ICONES_RECETTE.length - 1) ? 'checked' : ''}><span>${c}</span></label>`).join('')}</div></div>
     <div class="rp-tags">${TAGS.map(([v, t]) => `<label><input type="checkbox" name="tags" value="${v}" ${r && (r.tags || []).includes(v) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>
-    <label class="champ">Ingrédients (un par ligne, « nom, quantité »)<textarea name="ingredients" rows="6">${esc(liste.map((x) => x.q ? `${x.nom}, ${x.q}` : x.nom).join('\n'))}</textarea></label>
+    <label class="champ">Ingrédients (un par ligne, « nom, quantité »)<textarea name="ingredients" rows="6" maxlength="4000">${esc(liste.map((x) => x.q ? `${x.nom}, ${x.q}` : x.nom).join('\n'))}</textarea></label>
     <div class="rangee"><button class="gros-btn">Enregistrer</button>${r ? `<button type="button" class="gros-btn danger" data-a="rpSupprimer">Supprimer</button>` : ''}<button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
 }
 function ingredientsCochesT() { const r = recette(ui.rp.id); if (!r) return []; return ingredients(r, ui.rp.pers || r.personnes).filter((x) => !x.dans && ui.rp.coches.has(x.k)); }
@@ -550,7 +551,7 @@ function formRappel(r, type) {
     <label class="champ">${tache ? 'Tâche' : 'Rappel'}<input name="titre" required maxlength="200" value="${esc(r ? r.titre : '')}" placeholder="${tache ? 'Poubelle jaune, arroser…' : 'Contrôle technique, facture…'}"></label>
     ${tache ? `<div class="rangee"><label class="champ">Jour<select name="jour">${JOURS.map((j, k) => `<option value="${k + 1}" ${r && r.jour_semaine === k + 1 ? 'selected' : ''}>${majuscule(j)}</option>`).join('')}</select></label>
       <label class="champ">Moment<select name="moment">${['soir', 'matin', 'midi', ''].map((v) => `<option value="${v}" ${r && (r.moment || '') === v ? 'selected' : ''}>${v ? majuscule(v) : '—'}</option>`).join('')}</select></label></div>
-      <div class="champ">Couleur<div class="choix">${[['#D8B84A', 'Jaune'], ['#3B6FD8', 'Bleu'], ['#1F8A4C', 'Vert'], ['#8A8A8A', 'Gris'], ['#D9774A', 'Orange']].map(([c, l], k) => `<label><input type="radio" name="couleur" value="${c}" ${(r ? r.couleur === c : k === 0) ? 'checked' : ''}><span style="width:16px;height:16px;border-radius:50%;background:${c}"></span>${l}</label>`).join('')}</div></div>`
+      <div class="champ">Couleur<div class="choix">${[['#D8B84A', 'Jaune'], ['#3B6FD8', 'Bleu'], ['#1F8A4C', 'Vert'], ['#8A8A8A', 'Gris'], ['#C8446F', 'Rose'], ['#D9774A', 'Orange']].map(([c, l], k) => `<label><input type="radio" name="couleur" value="${c}" ${(r ? r.couleur === c : k === 0) ? 'checked' : ''}><span style="width:16px;height:16px;border-radius:50%;background:${c}"></span>${l}</label>`).join('')}</div></div>`
     : `<div class="rangee"><label class="champ">Avant le<input type="date" name="echeance" value="${esc(r && r.echeance || '')}"></label>
       <label class="champ">Pour<select name="pour"><option value="">Tous</option>${personnes().map((p) => `<option value="${p.id}" ${r && r.pour === p.id ? 'selected' : ''}>${esc(p.prenom)}</option>`).join('')}</select></label></div>`}
     <div class="rangee"><button class="gros-btn">Enregistrer</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
@@ -909,7 +910,7 @@ function annonces() {
     if (!memeJour(d, auj)) continue;
     const h = /matin/i.test(t.moment || '') ? 7.5 : /midi/i.test(t.moment || '') ? 11.5 : 19;
     if (n.getHours() + n.getMinutes() / 60 >= h && !dejaAnnonce(`tache:${t.id}:${jourCle}`)) {
-      dire(`${/soir/i.test(t.moment || '') || h === 19 ? 'Ce soir' : 'Aujourd\'hui'}, pensez à sortir la ${t.titre.toLowerCase().replace(/^la\s+/, '')}.`); return;
+      dire(`${/soir/i.test(t.moment || '') || h === 19 ? 'Ce soir' : 'Aujourd\'hui'}, ${/poubelle|^(la\s+)?(jaune|bleue?|verte?|grise?|noire?|marron|rouge|orange|ordures?|tri|verre|recyclage|compost)$/i.test(t.titre.trim()) ? 'pensez à sortir la ' + (/poubelle/i.test(t.titre) ? '' : 'poubelle ') + t.titre.toLowerCase().replace(/^la\s+/, '').trim() : 'pensez à : ' + t.titre.toLowerCase()}.`); return;
     }
   }
   // Alerte météo pour demain, à 19 h 30
@@ -1064,7 +1065,7 @@ const formulaires = {
     const journee = !fd.get('h1');
     const debut = new Date(y, m - 1, j); let fin;
     if (journee) fin = ajouterJours(debut, 1);
-    else { const [a, b] = fd.get('h1').split(':').map(Number); debut.setHours(a, b, 0, 0); fin = new Date(debut.getTime() + 3600000); if (fd.get('h2')) { const [c, e] = fd.get('h2').split(':').map(Number); const f2 = new Date(debut); f2.setHours(c, e, 0, 0); if (f2 > debut) fin = f2; } }
+    else { const [a, b] = fd.get('h1').split(':').map(Number); debut.setHours(a, b, 0, 0); fin = new Date(debut.getTime() + 3600000); if (fd.get('h2')) { const [c, e] = fd.get('h2').split(':').map(Number); const f2 = new Date(debut); f2.setHours(c, e, 0, 0); if (f2 > debut) fin = f2; else if (f2 < debut) fin = ajouterJours(f2, 1); } }
     const rep = fd.get('repetition') || 'aucune';
     const id = form.dataset.id || nouvelId();
     const ancien = form.dataset.id ? state.evenements.find((x) => x.id === id) : null;
