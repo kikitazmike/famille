@@ -520,7 +520,7 @@ function ecranRepas() {
   if (q) l = l.filter((r) => cleNom(r.nom).includes(q));
   const afaire = repasAFaire(); const nbIng = ingredientsAFaire().length;
   const filtres = [['tous', 'Tous'], ['mes', '★ Mes recettes'], ...TAGS];
-  return `${entete('Repas', 'Vers la liste de courses')}
+  return `${entete('Repas', `${state.recettes.length} recette${state.recettes.length > 1 ? 's' : ''} · vers la liste de courses`)}
     <div class="pl-barre"><a href="#/courses" class="lien-planning">${i('gauche', 16, 2.2)}Courses</a></div>
     ${afaire.length ? `<h2 class="titre-section">À cuisiner</h2><div class="liste">${afaire.map((p) => { const r = recette(p.recette_id); return `<div class="article">
       <button class="rp-ligne" data-a="rpOuvrir" data-id="${r.id}"><span class="rp-ic">${esc(r.icone)}</span><span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${esc(r.nom)}</span><small style="color:var(--pale)">${esc(libJour(p.jour))} · ${p.personnes} pers.</small></span></button>
