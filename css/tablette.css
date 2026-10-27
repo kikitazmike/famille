@@ -367,3 +367,34 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .veille .photo .fond { position: absolute; inset: -60px; background-size: cover; background-position: center; filter: blur(40px) brightness(.55); }
 .veille .photo .img { position: absolute; inset: 0; background-size: contain; background-repeat: no-repeat; background-position: center; animation: veilleZoom 300s ease-in-out both; }
 @keyframes veilleZoom { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+/* Effets n° 5 à 10 (l'accueil animé) */
+.eff-copie { position: absolute; width: 1280px; height: 800px; overflow: hidden; }
+.eff-morceau { position: absolute; overflow: hidden; will-change: transform, opacity; }
+.eff-sombre { position: absolute; inset: 0; filter: brightness(.7); }
+.eff-ciel { background: linear-gradient(135deg, #2B2E4A, #3E3A5F 50%, #5B4B6E); }
+.eff-nuitfond { background: #232038; }
+.eff-espace { background: #07060F; }
+.eff-plan { background-color: #0E2A47; background-image: linear-gradient(rgba(120,190,255,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(120,190,255,.16) 1px, transparent 1px), linear-gradient(rgba(120,190,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(120,190,255,.07) 1px, transparent 1px); background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px; }
+.eff-grande { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; color: #fff; text-shadow: 0 4px 30px rgba(0,0,0,.45); white-space: nowrap; pointer-events: none; }
+.eff-grande.haut { top: 27%; } .eff-grande.devant { z-index: 5; }
+.eff-grande .h { font-size: 200px; font-weight: 200; line-height: 1; letter-spacing: -6px; }
+.eff-grande .d { font-size: 30px; font-weight: 300; margin-top: 6px; }
+.eff-vents { position: absolute; inset: 0; pointer-events: none; }
+.eff-vents i { position: absolute; left: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.85), transparent); }
+.eff-carte { position: absolute; perspective: 900px; }
+.eff-tour { position: absolute; inset: 0; transform-style: preserve-3d; }
+.eff-face { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.eff-face.arriere { transform: rotateY(180deg); }
+.eff-dos { position: absolute; width: 1280px; height: 800px; background: linear-gradient(135deg, #2B2E4A, #4A3B6E); }
+.eff-etoile { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; }
+.eff-disque { position: absolute; left: 640px; top: 400px; width: 700px; height: 700px; }
+.eff-anneau { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, #5EE7FF00, #5EE7FF, #8F6BFF, #FF4FD8, #FFD36E, #5EE7FF00); filter: blur(28px); opacity: .8; }
+.eff-centre { position: absolute; left: 640px; top: 400px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(#000 58%, rgba(0,0,0,.6) 66%, transparent 74%); box-shadow: 0 0 60px 10px rgba(143,107,255,.5); }
+.eff-traits { position: absolute; inset: 0; }
+.eff-traits text { fill: #9FD3FF; font-size: 13px; font-family: monospace; }
+.eff-squelette { position: absolute; border-radius: 18px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 40px, rgba(255,255,255,.18) 40px 80px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+.eff-bloc { border-radius: 6px; filter: brightness(.72); }
+.eff-term { position: absolute; right: 24px; bottom: 56px; width: 360px; z-index: 3; background: rgba(5,12,24,.88); border-radius: 12px; padding: 12px 14px; font-family: monospace; font-size: 12.5px; line-height: 1.7; color: #DDE8F5; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.eff-term .t { color: #7CC4FF; margin-bottom: 4px; } .eff-term .l { white-space: nowrap; overflow: hidden; width: 0; } .eff-term .l:last-of-type { color: #7CFFB2; } .eff-term .f { color: #FFD36E; }
+.eff-curseur { position: absolute; left: 0; top: 0; z-index: 4; }

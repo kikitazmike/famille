@@ -715,7 +715,7 @@ function retourAccueil() {
 function infosHud() {
   const n = new Date(); const prochain = occsJour(debutJour(n)).filter((o) => !o.ev.journee_entiere && o.debut > n).sort((a, b) => a.debut - b.debut)[0];
   const m = ui.meteo; const nonLus = state.messages.filter((x) => !x.lu_le).length; const nc = state.courses.filter((x) => !x.pris).length;
-  return { heure: `${deux(n.getHours())}:${deux(n.getMinutes())}`, date: `${JOURS[jourIso(n) - 1]} ${n.getDate()} ${MOIS[n.getMonth()]}`,
+  return { heure: `${deux(n.getHours())}:${deux(n.getMinutes())}`, date: `${JOURS[jourIso(n) - 1]} ${n.getDate()} ${MOIS[n.getMonth()]}`, temp: m && m.temp != null ? `${m.temp}° ${(CODES[m.code] || '').toLowerCase()}` : '',
     ligne: [m && m.temp != null ? `${m.temp}°` : '', prochain ? `Prochain : ${hhmm(prochain.debut)} ${prochain.ev.titre}` : 'Plus rien aujourd\'hui'].filter(Boolean).join(' · '),
     gauche: [`SYS ▸ FAMILLE OK`, m ? `MÉTÉO ▸ ${m.temp}°C ${(CODES[m.code] || '').toUpperCase()}` : 'MÉTÉO ▸ —'], droite: [`COURSES ▸ ${nc} ARTICLE${nc > 1 ? 'S' : ''}`, `MESSAGES ▸ ${nonLus} NON LU${nonLus > 1 ? 'S' : ''}`] };
 }
@@ -723,7 +723,7 @@ function fetesDuJour() { return (state.anniv || []).filter((a) => { const p = pr
 function lancerEffet(n) {
   const noms = fetesDuJour();
   const choix = n || (noms.length ? 'confettis' : reglages.effet === 'auto' || !reglages.effet ? effetDuJour() : Number(reglages.effet));
-  zFen.innerHTML = ''; demarrerEffet(zEffet, choix, { infos: infosHud, noms });
+  zFen.innerHTML = ''; demarrerEffet(zEffet, choix, { infos: infosHud, noms, page: vue });
 }
 // Un toucher arrête l'effet sans déclencher le bouton qui est dessous
 let avalerClic = false;
