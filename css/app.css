@@ -260,3 +260,10 @@ label.article > span:not(.ic-article), label.article small { overflow-wrap: anyw
 [data-theme="fonce"] .sucre-avis.vert { background: #1E3A2A; } [data-theme="fonce"] .sucre-avis.orange { background: #3D2E17; } [data-theme="fonce"] .sucre-avis.rouge { background: #42201D; }
 .sucre-ligne { display: flex; align-items: center; gap: .5rem; padding: .6rem .8rem; border-radius: .9rem; font-size: .95rem; }
 .sucre-ligne.vert { background: #E3F4EA; color: #1B5E36; } .sucre-ligne.orange { background: #FDF0DC; color: #7A4A0C; } .sucre-ligne.rouge { background: #FBE3E1; color: #8E211A; }
+/* Courses : qui a ajouté + légende des points */
+.qui-ajoute { display: inline-flex; align-items: center; justify-content: center; width: 1.45rem; height: 1.45rem; border-radius: 50%; color: #fff; font-size: .72rem; font-weight: 700; flex-shrink: 0; }
+.titre-legende { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+.lien-legende { border: none; background: none; color: var(--accent-texte); font: inherit; font-size: .85rem; font-weight: 600; min-height: 44px; padding: 0 .2rem; }
+.legende { background: var(--carte); border-radius: 1rem; padding: .8rem 1rem; display: flex; flex-direction: column; gap: .35rem; font-size: .92rem; }
+.legende > div:not(.leg-ligne) { margin-top: .3rem; } .legende small { color: var(--pale); }
+.leg-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }

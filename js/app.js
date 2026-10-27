@@ -167,7 +167,7 @@ function ecranCourses() {
     return `<div class="article ${c.pris ? 'pris' : ''}">
       <label><input type="checkbox" data-c="prendre" data-id="${c.id}" ${c.pris ? 'checked' : ''}>
         <span class="ic-article" aria-hidden="true">${iconeArticle(c.nom)}</span><span style="flex:1;display:flex;flex-direction:column"><span>${esc(c.nom)}${(() => { const s = infoSucre(c.nom); return s ? ' ' + pastilleSucre(s.niveau) : ''; })()}</span>${c.quantite ? `<small style="color:var(--pale);font-size:.8rem">${esc(c.quantite)}</small>` : ''}</span></label>
-      ${tag}${m && !tag ? `<span class="pastille" style="background:${m.couleur}" title="Ajouté par ${esc(m.prenom)}"></span>` : ''}
+      ${tag}${m && !tag ? `<span class="qui-ajoute" style="background:${m.couleur}" title="Ajouté par ${esc(m.prenom)}" aria-label="Ajouté par ${esc(m.prenom)}">${esc((m.prenom || '?').charAt(0).toUpperCase())}</span>` : ''}
       <button class="icone-btn" data-a="supprCourse" data-id="${c.id}" aria-label="Supprimer ${esc(c.nom)}">${i('poubelle', 18)}</button>
     </div>`;
   };
@@ -181,10 +181,23 @@ function ecranCourses() {
     <a class="bouton second plein" href="#/repas" style="text-decoration:none">🍽️ Choisir un repas${repasAFaire().length ? ` · ${repasAFaire().length} à cuisiner` : ''}</a>
     ${menuArticles(aPrendre)}
     ${habituelsHtml(aPrendre)}
-    <h2 class="titre-section">À prendre</h2>
+    <div class="titre-legende"><h2 class="titre-section">À prendre</h2><button class="lien-legende" data-a="legendeCourses" aria-expanded="${ui.legende ? 'true' : 'false'}">ⓘ Que veulent dire les points ?</button></div>
+    ${ui.legende ? legendeCoursesHtml() : ''}
     <div class="liste">${aPrendre.map(ligne).join('') || '<p class="vide">La liste est vide.</p>'}</div>
     ${pris.length ? `<h2 class="titre-section">Déjà pris</h2><div class="liste">${pris.map(ligne).join('')}</div>
     <button class="bouton danger" data-a="viderPris" style="align-self:flex-start">Vider les articles pris</button>` : ''}`;
+}
+
+function legendeCoursesHtml() {
+  const gens = personnes();
+  return `<div class="legende">
+    <div><b>Sucre</b> (point à côté du nom)</div>
+    <div class="leg-ligne">${pastilleSucre('vert')} peu sucré · ${pastilleSucre('orange')} avec modération · ${pastilleSucre('rouge')} très sucré</div>
+    <div><b>Qui a ajouté l'article</b> (rond avec l'initiale, à droite)</div>
+    <div class="leg-ligne">${gens.map((p) => `<span class="qui-ajoute" style="background:${p.couleur}">${esc(p.prenom.charAt(0).toUpperCase())}</span> ${esc(p.prenom)}`).join(' · ')}</div>
+    <div class="leg-ligne"><span class="etiquette">Tablette</span> ajouté depuis la tablette · <span class="etiquette">Titus</span> ajouté par Titus</div>
+    <small>Les articles que l'appli ne connaît pas n'ont pas de point de sucre.</small>
+  </div>`;
 }
 
 function ecranNotes() {
@@ -881,6 +894,7 @@ function planifierRappels() {
 // ---------------- Actions ----------------
 const actions = {
   rpFiltre(d) { ui.rp.filtre = d.v; rendre(); },
+  legendeCourses() { ui.legende = !ui.legende; rendre(); },
   rpSucre() { const r = recette(ui.rp.id); if (!r) return; avisSucre(r.nom).then((a) => ouvrirFenetre('Sucre', `<div class="sucre-avis ${a.niveau || ''}"><span class="gros">${a.niveau ? EMOJI[a.niveau] : '❔'}</span><p>${esc(a.texte)}</p></div><p class="info">Estimation calculée à partir des ingrédients. Limite conseillée : ${LIMITE_JOUR} g de sucres ajoutés par jour.</p><button class="bouton" data-a="fermer">OK</button>`)); },
   rpOuvrir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; if (location.hash !== '#/recette') location.hash = '#/recette'; else rendre(); },
   rpPers(d) { const r = recette(ui.rp.id); if (!r) return; ui.rp.pers = Math.min(20, Math.max(1, (ui.rp.pers || r.personnes) + Number(d.v))); rendre(); },
