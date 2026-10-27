@@ -398,3 +398,15 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .eff-term { position: absolute; right: 24px; bottom: 56px; width: 360px; z-index: 3; background: rgba(5,12,24,.88); border-radius: 12px; padding: 12px 14px; font-family: monospace; font-size: 12.5px; line-height: 1.7; color: #DDE8F5; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
 .eff-term .t { color: #7CC4FF; margin-bottom: 4px; } .eff-term .l { white-space: nowrap; overflow: hidden; width: 0; } .eff-term .l:last-of-type { color: #7CFFB2; } .eff-term .f { color: #FFD36E; }
 .eff-curseur { position: absolute; left: 0; top: 0; z-index: 4; }
+/* Qu'est-ce que je peux faire ? */
+.fr-choix { display: flex; flex-wrap: wrap; gap: 8px; }
+.fr-choix .puce { border: none; font: inherit; font-size: 17px; min-height: 44px; background: #fff; box-shadow: 0 0 0 1px var(--trait); }
+.fr-aide { margin: 0; font-size: 14px; color: var(--pale); line-height: 1.45; }
+.fr-titre { margin: 6px 0 0; font-size: 20px; }
+.fr-titre small { font-weight: 400; color: var(--pale); }
+.fr-carte { display: flex; align-items: center; gap: 10px; border-radius: 18px; background: #FBF7F0; padding: 4px 10px 4px 4px; border-left: 5px solid #E07A2E; }
+.fr-carte.tout { border-left-color: #2E9E5B; }
+.fr-carte.peu { border-left-color: #E0A800; }
+.fr-carte .rp-item { flex: 1; background: transparent; }
+.fr-carte .btn { flex-shrink: 0; min-height: 48px; }
+.fr-manque { color: #B45309 !important; font-weight: 600; }

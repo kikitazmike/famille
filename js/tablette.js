@@ -9,6 +9,7 @@ import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour
 import { avisSucre, infoSucre, sucreRecette, pastilleSucre, EMOJI, COULEUR, LIMITE_JOUR } from './sucre.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
+import { alimentsProposes, lireAliments, ajouterAliments, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 const VERSION_APPLI = VERSION;
 import { EFFETS, effetDuJour, demarrerEffet, arreterEffet, effetActif } from './effets.js';
@@ -440,6 +441,7 @@ function pageAide() {
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
     ${bloc('courses', '#C2410C', 'Repas', 'ajoute les ingrédients de, on mange quoi, montre les recettes', ['Ajoute les ingrédients des lasagnes', 'Qu\'est-ce qu\'on mange ce soir ?', 'On mange quoi demain ?', 'Montre les recettes'], 'Bouton 🍽️ à côté de « Ajouter » : choisis une recette, coche ce qu\'il faut acheter, puis « Ajouter aux courses ». « Prévoir » met le repas dans « À cuisiner », avec ou sans jour. Le repas du soir s\'affiche en haut et dans la carte Courses.')}
+    ${bloc('courses', '#0E9F6E', 'Avec ce qu\'il reste', 'qu\'est-ce que je peux faire avec, recettes avec, j\'ai … qu\'est-ce qu\'on peut faire', ['Qu\'est-ce que je peux faire avec des œufs, du jambon et du fromage ?', 'Que faire avec du riz et du poulet ?', 'J\'ai des pâtes et du thon, qu\'est-ce qu\'on peut cuisiner ?'], 'Page Repas, bouton 🧊 : choisis les aliments dans la liste ou écris-les. Tu vois ✅ ce qu\'on peut faire tout de suite, 🟡 ce qu\'il manque à 1 ou 2 ingrédients près (bouton pour les ajouter aux courses), 🔸 le reste. Sel, poivre, huile, beurre, épices, herbes et bouillon sont supposés être là. Les moins sucrées d\'abord.')}
     ${bloc('coche', '#D3392F', 'Sucre', 'c\'est bon pour moi, je peux manger, je peux boire, combien de sucre', ['Est-ce que le Coca c\'est bon pour moi ?', 'Je peux manger une banane ?', 'Combien de sucre dans les lasagnes ?', 'Le thé glacé est-il bon pour moi ?'], 'Réponse : 🟢 peu sucré, 🟠 avec modération, 🔴 à éviter. Les pastilles s\'affichent aussi dans les recettes et les courses. Pour un produit de marque inconnu, la tablette cherche sur Open Food Facts (Internet). Ce sont des estimations : ton médecin reste la référence.')}
     ${bloc('soleil', '#D9774A', 'Le point du jour', '', ['Bonjour', 'Le point de la journée', 'C\'est quoi ma journée ?'], 'Donne la météo et les rendez-vous du jour, seulement quand tu le demandes.')}
     ${bloc('coche', '#1F8A4C', 'Tâches', '', ['Qu\'est-ce qu\'il y a comme tâches ?', 'C\'est quand la prochaine poubelle ?'], 'Les tâches de chacun se gèrent dans la carte Rappels. Le planning de travail (Matin, Nuit…) se remplit depuis l\'onglet Agenda du téléphone et s\'affiche ici à côté des prénoms.<br>Astuce : commence par « montre-moi » ou « affiche » (la météo, les courses, les notes, les messages, l\'agenda de demain…) pour ouvrir la page en plus de la réponse.')}
@@ -452,6 +454,25 @@ function pageAide() {
 // ---------- Repas et recettes ----------
 ui.rp = { id: null, pers: null, coches: new Set(), filtre: 'tous' };
 const libJourT = (iso) => { if (!iso) return 'sans jour'; const d = new Date(iso + 'T12:00:00'); const a = debutJour(new Date()); return memeJour(d, a) ? 'ce soir' : memeJour(d, ajouterJours(a, 1)) ? 'demain' : `${JOURS[jourIso(d) - 1]} ${d.getDate()}`; };
+// ---------------- Qu'est-ce que je peux faire ? ----------------
+ui.frigo = lireChoix();
+function pageFrigo() {
+  const ch = ui.frigo; const res = queFaire(ch); const g = alimentsProposes(ch);
+  const carte = (x, groupe) => `<div class="fr-carte ${groupe}"><button class="rp-item" data-a="rpVoir" data-id="${x.r.id}" data-retour="frigo"><span class="ic">${esc(x.r.icone)}</span><span class="tx"><b>${esc(x.r.nom)} ${pastilleSucre(x.sucre.niveau)}</b><small>${x.r.duree ? esc(x.r.duree) + ' · ' : ''}avec ${esc(x.avec.join(', ').toLowerCase())}</small>${x.manque.length ? `<small class="fr-manque">Il manque : ${esc(x.manque.map((m) => m.nom).join(', ').toLowerCase())}</small>` : ''}</span></button>
+    ${x.manque.length && groupe !== 'plus' ? `<button class="btn" data-a="frigoManque" data-id="${x.r.id}">${i('ajouter', 18, 2.2)} Ajouter aux courses</button>` : ''}</div>`;
+  const bloc = (titre, l, groupe, vide) => `<h3 class="fr-titre">${titre} <small>· ${l.length}</small></h3>${l.length ? l.map((x) => carte(x, groupe)).join('') : `<p class="vide">${vide}</p>`}`;
+  const gauche = `<div class="rp-gauche">
+    <select class="menu-articles" data-c="frigoChoix" aria-label="Choisir un aliment"><option value="" selected>🧊 Choisir un aliment dans la liste…</option>${g.map((x) => `<optgroup label="${esc(x.icone + ' ' + x.categorie)}">${x.articles.map((a) => `<option value="${esc(a.nom)}">${a.icone} ${esc(a.nom)}</option>`).join('')}</optgroup>`).join('')}</select>
+    <form class="ajout-p" data-form="frigo" autocomplete="off"><input name="t" maxlength="300" placeholder="Ou écrire : œufs, jambon…" aria-label="Écrire des aliments"><button class="gros-btn">${i('ajouter', 20, 2.2)}</button></form>
+    <div class="fr-choix">${ch.map((n, k) => `<button class="puce" data-a="frigoRetirer" data-k="${k}" aria-label="Retirer ${esc(n)}">${esc(n)} ✕</button>`).join('') || '<p class="vide" style="margin:0">Ajoute ce qu’il y a dans le frigo ou le placard.</p>'}</div>
+    ${ch.length ? '<button class="gros-btn second" data-a="frigoVider">Tout effacer</button>' : ''}
+    <p class="fr-aide">${TEXTE_BASES}<br>Tu peux aussi dire : « qu'est-ce que je peux faire avec des œufs et du jambon ? »</p></div>`;
+  const droite = `<div class="rp-droite">${!ch.length ? '<p class="vide">Choisis des aliments à gauche : je te montre les recettes possibles, les moins sucrées d’abord.</p>' : `
+    ${bloc('✅ Tout est là', res.tout, 'tout', 'Aucune recette complète avec ça.')}
+    ${bloc('🟡 Il manque 1 ou 2 choses', res.peu, 'peu', 'Rien à 1 ou 2 ingrédients près.')}
+    ${res.plus.length ? bloc('🔸 Il manque plus', res.plus, 'plus', '') : ''}`}</div>`;
+  return { titre: `Qu'est-ce que je peux faire ? <small>· avec ce qu’il reste à la maison</small>`, outils: `<button class="btn" data-a="ouvrirPage" data-v="repas">‹ Repas</button>${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`, corps: `<div class="rp-grille">${gauche}${droite}</div>` };
+}
 function pageRepas() {
   const f = ui.rp.filtre; let l = recettesTriees();
   if (f === 'mes') l = l.filter((r) => r.cree_par); else if (f !== 'tous') l = l.filter((r) => (r.tags || []).includes(f));
@@ -478,7 +499,7 @@ function pageRepas() {
         ${nb ? `<button class="gros-btn" data-a="rpToutAjouter">Ajouter tous les ingrédients (${nb}) aux courses</button>` : '<p class="vide">Tous les ingrédients sont déjà dans la liste.</p>'}`
         : '<p class="vide" style="font-size:18px">Aucun repas prévu. Choisis une recette à gauche, puis « Prévoir » (avec ou sans jour).</p>'}</div>`;
   }
-  return { titre: `Repas <small>· ${state.recettes.length} recette${state.recettes.length > 1 ? 's' : ''} · vers la liste de courses</small>`, outils: `${r ? '<button class="btn" data-a="rpAccueil">À cuisiner</button>' : ''}${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`, corps: `<div class="rp-grille">${gauche}${droite}</div>` };
+  return { titre: `Repas <small>· ${state.recettes.length} recette${state.recettes.length > 1 ? 's' : ''} · vers la liste de courses</small>`, outils: `${r && ui.rp.retour === 'frigo' ? '<button class="btn" data-a="ouvrirPage" data-v="frigo">‹ Avec ce que j’ai</button>' : ''}${r ? '<button class="btn" data-a="rpAccueil">À cuisiner</button>' : ''}<button class="btn" data-a="ouvrirPage" data-v="frigo">🧊 Qu'est-ce que je peux faire ?</button>${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`, corps: `<div class="rp-grille">${gauche}${droite}</div>` };
 }
 function formRecetteT(r, nom = '') {
   const liste = r ? (r.ingredients || []) : [];
@@ -534,7 +555,7 @@ function rendrePage() {
   if (!ui.page) { zPage.innerHTML = ''; return; }
   const act = document.activeElement;
   if (act && zPage.contains(act) && act.tagName === 'INPUT' && act.type === 'text' && act.value) return; // on ne coupe pas une saisie
-  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : ui.page === 'messages' ? pageMessages() : ui.page === 'repas' ? pageRepas() : pageRappels();
+  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : ui.page === 'messages' ? pageMessages() : ui.page === 'repas' ? pageRepas() : ui.page === 'frigo' ? pageFrigo() : pageRappels();
   const garder = zPage.querySelector('.page-corps'); const defil = garder ? garder.scrollTop : 0;
   zPage.innerHTML = `<div class="page" role="dialog" aria-modal="true" aria-label="${ui.page}"><header><h1>${p.titre}</h1><div class="outils">${p.outils}<button class="btn rond grand" data-a="fermerPage" aria-label="Fermer et revenir à l'accueil">${i('fermer', 26, 2.2)}</button></div></header><div class="page-corps">${p.corps}</div></div>`;
   const c = zPage.querySelector('.page-corps'); if (c) c.scrollTop = defil;
@@ -798,6 +819,12 @@ async function parler() {
     formRdv({ titre: c.titre, debut: c.debut, fin: c.fin || undefined, journee: c.journee, qui });
     toast(`« ${t} » → rendez-vous à vérifier.`);
     parlerSi(`Rendez-vous ${c.titre}, ${jourParle(debutJour(c.debut))}${c.journee ? '' : ' à ' + heureParlee(c.debut)}. Vérifie et appuie sur Enregistrer.`);
+  } else if (c.type === 'frigo') {
+    const al = lireAliments(c.liste);
+    if (!al.length) { toast('Je n’ai pas compris les aliments.'); return; }
+    ui.frigo = ajouterAliments([], al); garderChoix(ui.frigo); ui.page = 'frigo'; rendre();
+    const p = phraseQueFaire(queFaire(ui.frigo));
+    toast(`« ${t} » → ${p}`); parlerSi(p);
   } else if (c.type === 'sucre') {
     toast(`« ${t} » → je regarde le sucre…`);
     const r = await avisSucre(c.nom);
@@ -1025,7 +1052,10 @@ const actions = {
   allerJour(d) { const [y, m, j] = d.v.split('-').map(Number); ui.ref = new Date(y, m - 1, j); ui.vue = 'jour'; rendre(); },
   ouvrirPage(d) { ui.page = d.v; if (d.v === 'meteo') { ui.meteoVue = '2j'; if (!ui.meteo || Date.now() - (ui.meteo.le || 0) > 20 * 60000) chargerMeteo(); } rendre(); },
   meteoVue(d) { ui.meteoVue = d.v; rendre(); },
-  rpVoir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; ui.page = 'repas'; rendre(); },
+  rpVoir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; ui.rp.retour = d.retour || null; ui.page = 'repas'; rendre(); },
+  frigoRetirer(d) { ui.frigo.splice(Number(d.k), 1); garderChoix(ui.frigo); rendre(); },
+  frigoVider() { ui.frigo = []; garderChoix(ui.frigo); rendre(); },
+  frigoManque(d) { const r = queFaire(ui.frigo); const x = [...r.tout, ...r.peu].find((y) => y.r.id === d.id); if (!x) return; const ops = opsCourses(x.manque, 'tablette', state.moi.id); if (!ops.length) return toast('Déjà dans la liste de courses.'); ecrire(ops).then(() => toast(`${ops.length} article${ops.length > 1 ? 's' : ''} ajouté${ops.length > 1 ? 's' : ''} aux courses.`, () => ecrire(ops.map((o) => ({ cle: 'courses', op: 'delete', ligne: { id: o.ligne.id } }))))).catch(() => {}); },
   rpSucre() { const r = recette(ui.rp.id); if (!r) return; avisSucre(r.nom).then((a) => { fenetre('Sucre', `<div class="sucre-avis ${a.niveau || ''}"><span class="gros">${a.niveau ? EMOJI[a.niveau] : '❔'}</span><p>${esc(a.texte)}</p></div><p style="margin:0;font-size:13px;color:var(--pale)">Estimation calculée à partir des ingrédients. Limite conseillée : ${LIMITE_JOUR} g de sucres ajoutés par jour.</p><div class="rangee"><button class="gros-btn" data-a="fermer">OK</button></div>`); parlerSi(a.texte); }); },
   rpAccueil() { ui.rp.id = null; rendre(); },
   rpFiltre(d) { ui.rp.filtre = d.v; rendre(); },
@@ -1091,6 +1121,7 @@ const actions = {
   async deconnexion() { arreterTempsReel(); await sb.auth.signOut(); viderCache(); ui.session = null; ui.pret = false; fermer(); rendre(); }
 };
 const changements = {
+  frigoChoix(el) { const v = el.value; el.value = ''; if (!v) return; ui.frigo = ajouterAliments(ui.frigo, [v]); garderChoix(ui.frigo); rendre(); },
   prendre(el) { ecrire({ cle: 'courses', op: 'update', ligne: { id: el.dataset.id, pris: el.checked, pris_le: el.checked ? new Date().toISOString() : null } }); },
   tacheFaite(el) { const t = state.rappels.find((x) => x.id === el.dataset.id); const avant = t ? t.fait_le || null : null; ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: el.dataset.v } }); toast('Bien joué ! C\'est noté pour cette semaine.', () => ecrire({ cle: 'rappels', op: 'update', ligne: { id: el.dataset.id, fait_le: avant } })); },
   rpCoche(el) { const k = Number(el.dataset.k); if (el.checked) ui.rp.coches.add(k); else ui.rp.coches.delete(k); rendre(); },
@@ -1116,6 +1147,7 @@ const changements = {
   modeVoix(el) { reglages.voix = el.value; sauverReglages(); if (el.value === 'locale') preparerVoixLocale().catch(() => {}); rendre(); }
 };
 const formulaires = {
+  frigo(form) { const l = lireAliments(new FormData(form).get('t')); if (!l.length) return; ui.frigo = ajouterAliments(ui.frigo, l); garderChoix(ui.frigo); form.reset(); rendre(); },
   async connexion(form, sub) {
     const fd = new FormData(form); const email = (fd.get('email') || '').trim(); const mdp = fd.get('mdp') || '';
     const mode = sub && sub.value === 'inscription' ? 'inscription' : 'connexion';

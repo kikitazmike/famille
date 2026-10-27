@@ -14,6 +14,7 @@ import { FETAMI_SITE, VERSION } from './config.js';
 import { avisSucre, infoSucre, sucreRecette, pastilleSucre, EMOJI, LIMITE_JOUR } from './sucre.js';
 import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, lireDictee, isoJour, cleNom, chercherRecette, sansDoublons, dejaDansListe } from './repas.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
+import { alimentsProposes, lireAliments, ajouterAliments, queFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
 import { COULEURS_PLANNING, fondType, texteType, iso as isoJ, hm, horaires, dureeH, typesDe, typeParId, typeDuJour, opsJour, poserJour, creerBase, lirePlanning, lirePhoto } from './planning.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -86,7 +87,7 @@ function entete(titre, sous) {
 
 function onglets() {
   const o = [['agenda', 'Agenda', 'agenda'], ['courses', 'Courses', 'courses'], ['notes', 'Notes', 'notes'], ['anniv', 'Anniv.', 'anniv'], ['plus', 'Plus', 'plus']];
-  const actif = ui.route === 'reglages' ? 'plus' : (ui.route === 'planning' || ui.route === 'horaires') ? 'agenda' : (ui.route === 'repas' || ui.route === 'recette') ? 'courses' : ui.route;
+  const actif = ui.route === 'reglages' ? 'plus' : (ui.route === 'planning' || ui.route === 'horaires') ? 'agenda' : (ui.route === 'repas' || ui.route === 'recette' || ui.route === 'frigo') ? 'courses' : ui.route;
   return `<div class="onglets"><nav aria-label="Navigation">${o.map(([r, l, ic]) =>
     `<a href="#/${r}" ${actif === r ? 'aria-current="page"' : ''} style="position:relative">${i(ic, 24)}${l}${r === 'plus' && nbMessagesPourMoi() ? `<span class="badge">${nbMessagesPourMoi()}</span>` : ''}</a>`).join('')}</nav></div>`;
 }
@@ -396,7 +397,7 @@ function rendre() {
       <p class="c">Ce compte sert à l'écran de la maison.</p><a class="bouton plein" href="tablette.html">Ouvrir l'écran tablette</a>
       <button class="lien" data-a="deconnexion" style="align-self:center">Se déconnecter</button></div>`;
   } else {
-    const ecrans = { agenda: ecranAgenda, courses: ecranCourses, notes: ecranNotes, anniv: ecranAnniv, plus: ecranPlus, reglages: ecranReglages, planning: ecranPlanning, horaires: ecranHoraires, repas: ecranRepas, recette: ecranRecette };
+    const ecrans = { agenda: ecranAgenda, courses: ecranCourses, notes: ecranNotes, anniv: ecranAnniv, plus: ecranPlus, reglages: ecranReglages, planning: ecranPlanning, horaires: ecranHoraires, repas: ecranRepas, recette: ecranRecette, frigo: ecranFrigo };
     html = `${bandeau()}<main class="ecran">${(ecrans[ui.route] || ecranAgenda)()}</main>${onglets()}`;
   }
   contenu.innerHTML = html;
@@ -522,6 +523,7 @@ function ecranRepas() {
   const filtres = [['tous', 'Tous'], ['mes', '★ Mes recettes'], ...TAGS];
   return `${entete('Repas', `${state.recettes.length} recette${state.recettes.length > 1 ? 's' : ''} · vers la liste de courses`)}
     <div class="pl-barre"><a href="#/courses" class="lien-planning">${i('gauche', 16, 2.2)}Courses</a></div>
+    <a class="bouton frigo-btn" href="#/frigo">🧊 Qu'est-ce que je peux faire ?<small>avec ce qu'il reste à la maison</small></a>
     ${afaire.length ? `<h2 class="titre-section">À cuisiner</h2><div class="liste">${afaire.map((p) => { const r = recette(p.recette_id); return `<div class="article">
       <button class="rp-ligne" data-a="rpOuvrir" data-id="${r.id}"><span class="rp-ic">${esc(r.icone)}</span><span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${esc(r.nom)}</span><small style="color:var(--pale)">${esc(libJour(p.jour))} · ${p.personnes} pers.</small></span></button>
       <button class="icone-btn doux" data-a="rpFait" data-id="${p.id}" aria-label="Repas fait">${i('coche', 18, 2.4)}</button><button class="icone-btn" data-a="rpRetirer" data-id="${p.id}" aria-label="Retirer">${i('fermer', 18)}</button></div>`; }).join('')}</div>
@@ -539,7 +541,7 @@ function ecranRecette() {
   const pers = ui.rp.pers || r.personnes; const ing = ingredients(r, pers);
   const n = ing.filter((x) => !x.dans && ui.rp.coches.has(x.k)).length;
   return `${entete(r.nom, `${ing.length} ingrédients${r.duree ? ' · ' + r.duree : ''}`)}
-    <div class="pl-barre"><a href="#/repas" class="lien-planning">${i('gauche', 16, 2.2)}Repas</a><span style="flex:1"></span>
+    <div class="pl-barre"><a href="#/${ui.rp.retour === 'frigo' ? 'frigo' : 'repas'}" class="lien-planning">${i('gauche', 16, 2.2)}${ui.rp.retour === 'frigo' ? 'Avec ce que j’ai' : 'Repas'}</a><span style="flex:1"></span>
       <div class="rp-pers"><button class="icone-btn" data-a="rpPers" data-v="-1" aria-label="Moins de personnes">−</button><b>${pers} pers.</b><button class="icone-btn" data-a="rpPers" data-v="1" aria-label="Plus de personnes">+</button></div></div>
     <div class="rp-tete"><span class="rp-grand">${esc(r.icone)}</span><span>Coche ce qu'il faut acheter.${(r.tags || []).length ? `<br><small style="color:var(--pale)">${r.tags.map((t) => esc((TAGS.find(([v]) => v === t) || [t, t])[1])).join(' · ')}</small>` : ''}</span></div>
     ${(() => { const s = sucreRecette(r); return `<button class="sucre-ligne ${s.niveau}" data-a="rpSucre" style="border:none;font:inherit;text-align:left;width:100%">${EMOJI[s.niveau]} Sucre : environ ${s.total} g par portion${s.ajoute ? `, dont ${s.ajoute} g ajouté` : ', sans sucre ajouté'} <span style="margin-left:auto">›</span></button>`; })()}
@@ -547,6 +549,31 @@ function ecranRecette() {
     <div class="actions"><button class="bouton second" data-a="rpToutCocher">Tout cocher</button><button class="bouton" data-a="rpAjouter" ${n ? '' : 'disabled'}>${n ? `Ajouter (${n}) aux courses` : 'Coche des articles'}</button></div>
     <button class="bouton second" data-a="rpPrevoir">${i('agenda', 18)}Prévoir ce repas (jour facultatif)</button>
     <div class="actions"><button class="bouton second" data-a="rpModifier">${i('modifier', 18)}Modifier la recette</button><button class="bouton danger" data-a="rpSupprimer">Supprimer</button></div>`;
+}
+// ---------------- Qu'est-ce que je peux faire ? ----------------
+ui.frigo = lireChoix();
+function carteFrigo(x, groupe) {
+  const r = x.r;
+  return `<div class="frigo-carte ${groupe}"><button class="rp-ligne" data-a="rpOuvrir" data-id="${r.id}"><span class="rp-ic">${esc(r.icone)}</span><span style="flex:1;display:flex;flex-direction:column;text-align:left"><span>${esc(r.nom)} ${pastilleSucre(x.sucre.niveau)}</span>
+    <small style="color:var(--pale)">${r.duree ? esc(r.duree) + ' · ' : ''}avec ${esc(x.avec.join(', ').toLowerCase())}</small>
+    ${x.manque.length ? `<small class="frigo-manque">Il manque : ${esc(x.manque.map((m) => m.nom).join(', ').toLowerCase())}</small>` : ''}</span>${i('droite', 18)}</button>
+    ${x.manque.length && groupe !== 'plus' ? `<button class="bouton second petit" data-a="frigoManque" data-id="${r.id}">${i('ajouter', 16, 2.2)}Ajouter ${x.manque.length > 1 ? `les ${x.manque.length}` : 'le manquant'} aux courses</button>` : ''}</div>`;
+}
+function ecranFrigo() {
+  const ch = ui.frigo; const res = queFaire(ch); const g = alimentsProposes(ch);
+  const bloc = (titre, l, groupe, vide) => `<h2 class="titre-section">${titre} <small>· ${l.length}</small></h2>${l.length ? `<div class="liste">${l.map((x) => carteFrigo(x, groupe)).join('')}</div>` : `<p class="aide" style="margin:0">${vide}</p>`}`;
+  return `${entete("Qu'est-ce que je peux faire ?", 'avec ce qu’il reste à la maison')}
+    <div class="pl-barre"><a href="#/repas" class="lien-planning">${i('gauche', 16, 2.2)}Repas</a></div>
+    <label class="sr" for="frigoMenu">Choisir un aliment</label>
+    <select id="frigoMenu" class="menu-articles" data-c="frigoChoix"><option value="" selected>🧊 Choisir un aliment dans la liste…</option>${g.map((x) => `<optgroup label="${esc(x.icone + ' ' + x.categorie)}">${x.articles.map((a) => `<option value="${esc(a.nom)}">${a.icone} ${esc(a.nom)}</option>`).join('')}</optgroup>`).join('')}</select>
+    <form class="ajout" data-form="frigo" autocomplete="off"><label class="sr" for="frigoTexte">Écrire des aliments</label><input id="frigoTexte" name="t" maxlength="300" placeholder="Ou écrire : œufs, jambon, fromage…" enterkeyhint="done">${voixDisponible() ? `<button type="button" class="icone-btn doux ${ui.ecoute ? 'ecoute' : ''}" data-a="dicter" data-v="frigo" aria-label="Dire les aliments">${i('micro', 20, 2)}</button>` : ''}<button type="submit" class="icone-btn doux" aria-label="Ajouter">${i('ajouter', 20, 2.2)}</button></form>
+    ${ch.length ? `<div class="frigo-choix">${ch.map((n, k) => `<button class="puce" data-a="frigoRetirer" data-k="${k}" aria-label="Retirer ${esc(n)}">${esc(n)} ✕</button>`).join('')}<button class="lien" data-a="frigoVider">Tout effacer</button></div>` : ''}
+    <p class="aide" style="margin:0">${TEXTE_BASES}</p>
+    ${!ch.length ? '<p class="vide">Ajoute ce que tu as (frigo, placard), je te dis ce qu’on peut cuisiner.</p>' : `
+      ${bloc('✅ Tout est là', res.tout, 'tout', 'Aucune recette complète avec ça.')}
+      ${bloc('🟡 Il manque 1 ou 2 choses', res.peu, 'peu', 'Rien à 1 ou 2 ingrédients près.')}
+      ${res.plus.length ? bloc('🔸 Il manque plus', res.plus, 'plus', '') : ''}
+      <p class="aide" style="margin:0">Les recettes les moins sucrées sont en premier.</p>`}`;
 }
 function formRecette(r, nom = '', ingr = []) {
   const liste = r ? (r.ingredients || []) : ingr;
@@ -806,6 +833,14 @@ async function dicter(contexte) {
   let c = comprendre(texte, personnes().map((p) => p.prenom));
   if (contexte === 'course' && !['course', 'repas', 'question', 'sucre'].includes(c.type)) c = { type: 'course', noms: [majuscule(texte.trim())] };
   if (contexte === 'note' && c.type !== 'note') c = { type: 'note', texte: majuscule(texte.trim()) };
+  if (contexte === 'frigo' && c.type !== 'frigo') c = { type: 'frigo', aliments: lireAliments(texte) };
+  if (c.type === 'frigo') {
+    if (!c.aliments) c.aliments = lireAliments(c.liste);
+    if (!c.aliments.length) return toast('Je n’ai pas compris les aliments.');
+    ui.frigo = ajouterAliments(ui.frigo, c.aliments); garderChoix(ui.frigo);
+    if (location.hash !== '#/frigo') location.hash = '#/frigo'; else rendre();
+    return;
+  }
   if (c.type === 'course') {
     const { nouveaux, deja } = sansDoublons(c.noms);
     if (!nouveaux.length) return toast(`Déjà dans la liste : ${deja.join(', ')}`);
@@ -894,9 +929,12 @@ function planifierRappels() {
 // ---------------- Actions ----------------
 const actions = {
   rpFiltre(d) { ui.rp.filtre = d.v; rendre(); },
+  frigoRetirer(d) { ui.frigo.splice(Number(d.k), 1); garderChoix(ui.frigo); rendre(); },
+  frigoVider() { ui.frigo = []; garderChoix(ui.frigo); rendre(); },
+  frigoManque(d) { const x = [...queFaire(ui.frigo).peu, ...queFaire(ui.frigo).tout].find((y) => y.r.id === d.id); if (!x) return; const ops = opsCourses(x.manque, 'app', state.moi.id); if (!ops.length) return toast('Déjà dans la liste de courses.'); ecrire(ops).then(() => toast(`${ops.length} article${ops.length > 1 ? 's' : ''} ajouté${ops.length > 1 ? 's' : ''} aux courses.`, () => ecrire(ops.map((o) => ({ cle: 'courses', op: 'delete', ligne: { id: o.ligne.id } }))))).catch(erreur); },
   legendeCourses() { ui.legende = !ui.legende; rendre(); },
   rpSucre() { const r = recette(ui.rp.id); if (!r) return; avisSucre(r.nom).then((a) => ouvrirFenetre('Sucre', `<div class="sucre-avis ${a.niveau || ''}"><span class="gros">${a.niveau ? EMOJI[a.niveau] : '❔'}</span><p>${esc(a.texte)}</p></div><p class="info">Estimation calculée à partir des ingrédients. Limite conseillée : ${LIMITE_JOUR} g de sucres ajoutés par jour.</p><button class="bouton" data-a="fermer">OK</button>`)); },
-  rpOuvrir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; if (location.hash !== '#/recette') location.hash = '#/recette'; else rendre(); },
+  rpOuvrir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; ui.rp.retour = ui.route === 'frigo' ? 'frigo' : 'repas'; if (location.hash !== '#/recette') location.hash = '#/recette'; else rendre(); },
   rpPers(d) { const r = recette(ui.rp.id); if (!r) return; ui.rp.pers = Math.min(20, Math.max(1, (ui.rp.pers || r.personnes) + Number(d.v))); rendre(); },
   rpToutCocher() { const r = recette(ui.rp.id); if (!r) return; const l = ingredients(r, ui.rp.pers || r.personnes).filter((x) => !x.dans); const tous = l.every((x) => ui.rp.coches.has(x.k)); ui.rp.coches = tous ? new Set() : new Set(l.map((x) => x.k)); rendre(); },
   rpAjouter() { const ops = opsCourses(ingredientsCoches(), 'app', state.moi.id); if (!ops.length) return; ui.rp.coches = new Set(); ecrire(ops).then(() => toast(`${ops.length} article${ops.length > 1 ? 's' : ''} ajouté${ops.length > 1 ? 's' : ''} aux courses.`)).catch(erreur); },
@@ -1050,6 +1088,7 @@ const actions = {
 
 const changements = {
   rpCoche(el) { const k = Number(el.dataset.k); if (el.checked) ui.rp.coches.add(k); else ui.rp.coches.delete(k); rendre(); },
+  frigoChoix(el) { const v = el.value; el.value = ''; if (!v) return; ui.frigo = ajouterAliments(ui.frigo, [v]); garderChoix(ui.frigo); rendre(); },
   choixCategorie(el) { ui.catCourses = el.value; rendre(); },
   choixArticle(el) {
     const v = el.value; el.value = '';
@@ -1131,6 +1170,7 @@ const changements = {
 };
 
 const formulaires = {
+  frigo(form) { const l = lireAliments(new FormData(form).get('t')); if (!l.length) return; ui.frigo = ajouterAliments(ui.frigo, l); garderChoix(ui.frigo); form.reset(); rendre(); const inp = $('#frigoTexte'); if (inp) inp.focus(); },
   async auth(form) {
     const fd = new FormData(form); const a = ui.auth;
     const email = (fd.get('email') || '').trim(); const mdp = fd.get('mdp') || '';
@@ -1266,7 +1306,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && zoneFene
 // ---------------- Navigation ----------------
 function lireRoute() {
   const r = (location.hash.replace(/^#\/?/, '') || 'agenda').split('?')[0];
-  ui.route = ['agenda', 'courses', 'notes', 'anniv', 'plus', 'reglages', 'planning', 'horaires', 'repas', 'recette'].includes(r) ? r : 'agenda';
+  ui.route = ['agenda', 'courses', 'notes', 'anniv', 'plus', 'reglages', 'planning', 'horaires', 'repas', 'recette', 'frigo'].includes(r) ? r : 'agenda';
   if (ui.route === 'plus') ui.photos = null;
   ui.codeVisible = false;
   if (ui.route === 'anniv') chargerAnniv();

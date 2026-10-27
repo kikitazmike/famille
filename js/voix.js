@@ -174,6 +174,24 @@ export function comprendre(texte, prenoms = []) {
     return { type: 'minuteur', action: 'sansduree', texte: brut };
   }
 
+  // Restes : « qu'est-ce que je peux faire avec des œufs, du jambon et du fromage ? », « j'ai des courgettes et des œufs, qu'est-ce qu'on peut cuisiner ? »
+  {
+    const q = nb0.replace(/[?!.]/g, '').replace(/\s+/g, ' ').trim();
+    const verbe = '(?:faire|cuisiner|preparer|manger|faire a manger|faire comme (?:recette|repas|plat))';
+    const qui = "(?:qu'?est[- ]ce (?:que|qu'?)\\s*(?:je|j'|on|tu|nous|l'on)?|que|quoi|qu'?)\\s*(?:je |j'|on |tu |nous )?(?:peux|peut|pourrais|pourrait|pouvons|pourrions|vais|va|peut-on|pourrait-on|puis-je)";
+    const m1 = q.match(new RegExp(`^${qui}\\s+${verbe}(?:\\s+(?:a manger|comme (?:recette|repas|plat)|ce soir|ce midi))?\\s+avec\\s+(.+)$`))
+      || q.match(new RegExp(`^(?:que|quoi)\\s+${verbe}\\s+avec\\s+(.+)$`))
+      || q.match(/^(?:une |des |quelle |quelles )?(?:recettes?|idees? (?:de |d')?(?:repas|recettes?|plats?))\s+(?:possibles?\s+)?avec\s+(.+)$/)
+      || q.match(new RegExp(`^(?:j'ai|on a|il (?:me |nous )?reste|il y a|y a)\\s+(.+?)\\s*,?\\s*(?:${qui}|que|quoi)\\s+${verbe}(?:\\s+avec(?: ca)?)?(?:\\s+(?:ce soir|ce midi))?$`));
+    if (m1) {
+      // Mots d'origine (avec accents) pour l'affichage
+      const mots = brut.replace(/[?!.]/g, '').split(/\s+/); const cles = mots.map((w) => sansAccent(w).replace(/[,;]+$/, '')); const cible = m1[1].split(' ').map((w) => w.replace(/[,;]+$/, ''));
+      let liste = m1[1];
+      for (let i = 0; i + cible.length <= cles.length; i++) { if (cible.every((w, j) => cles[i + j] === w)) { liste = mots.slice(i, i + cible.length).join(' '); break; } }
+      return { type: 'frigo', liste, texte: brut };
+    }
+  }
+
   // Sucre : « est-ce que le Coca c'est bon pour moi ? », « je peux manger une banane ? », « combien de sucre dans les lasagnes ? »
   {
     const q = nb0.replace(/\?/g, '').replace(/\s+/g, ' ').trim();
