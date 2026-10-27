@@ -114,3 +114,21 @@ export function phraseQueFaire(res) {
 const CLE = 'famille-frigo';
 export function lireChoix() { try { const v = JSON.parse(localStorage.getItem(CLE) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.length <= 40).slice(0, 30) : []; } catch (e) { return []; } }
 export function garderChoix(l) { try { localStorage.setItem(CLE, JSON.stringify(l.slice(0, 30))); } catch (e) { /* ignore */ } }
+
+// Tuiles à toucher (tablette) : les plus courants, puis par catégorie
+const COURANTS = [['Œufs', '🥚'], ['Jambon', '🥓'], ['Fromage', '🧀'], ['Poulet', '🍗'], ['Steaks hachés', '🥩'], ['Lardons', '🥓'], ['Saucisses', '🌭'], ['Thon', '🐟'],
+  ['Crème fraîche', '🥛'], ['Lait', '🥛'], ['Riz', '🍚'], ['Pâtes', '🍝'], ['Pommes de terre', '🥔'], ['Courgettes', '🥒'], ['Tomates', '🍅'], ['Oignons', '🧅'],
+  ['Carottes', '🥕'], ['Champignons', '🍄'], ['Salade', '🥬'], ['Pain de mie', '🍞']];
+export const cleAliment = (n) => mots(n).join(' ') || sansAccent(n);
+export function categoriesTuiles() {
+  return [{ id: 'courants', nom: 'Courants', icone: '⭐' }, ...alimentsProposes([]).filter((g) => g.categorie !== 'Épices et condiments').map((g) => ({ id: g.categorie, nom: g.categorie.replace(/ et .*$/, ''), icone: g.icone }))];
+}
+export function tuilesAliments(cat) {
+  if (!cat || cat === 'courants') return COURANTS.map(([nom, icone]) => ({ nom, icone }));
+  const g = alimentsProposes([]).find((x) => x.categorie === cat);
+  return g ? g.articles : [];
+}
+export function basculerAliment(liste, nom) {
+  const k = cleAliment(nom); const i = liste.findIndex((x) => cleAliment(x) === k);
+  return i >= 0 ? liste.filter((_, j) => j !== i) : ajouterAliments(liste, [nom]);
+}

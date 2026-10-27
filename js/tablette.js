@@ -9,7 +9,7 @@ import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour
 import { avisSucre, infoSucre, sucreRecette, pastilleSucre, EMOJI, COULEUR, LIMITE_JOUR } from './sucre.js';
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
-import { alimentsProposes, lireAliments, ajouterAliments, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
+import { lireAliments, ajouterAliments, categoriesTuiles, tuilesAliments, basculerAliment, cleAliment, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 const VERSION_APPLI = VERSION;
 import { EFFETS, effetDuJour, demarrerEffet, arreterEffet, effetActif } from './effets.js';
@@ -244,7 +244,7 @@ function agendaHtml() {
     <div class="barre-outils"><div class="gauche"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>${periode}</div>
       <div class="outils">${titre}
         ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button><button class="btn rond aide" data-a="ouvrirPage" data-v="aide" aria-label="Ce que je comprends à la voix">?</button>` : ''}
-        <button class="btn rond repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes">🍽️</button>
+        <button class="btn repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes"><span>🍽️</span>Repas</button>
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
         <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
@@ -457,21 +457,25 @@ const libJourT = (iso) => { if (!iso) return 'sans jour'; const d = new Date(iso
 // ---------------- Qu'est-ce que je peux faire ? ----------------
 ui.frigo = lireChoix();
 function pageFrigo() {
-  const ch = ui.frigo; const res = queFaire(ch); const g = alimentsProposes(ch);
-  const carte = (x, groupe) => `<div class="fr-carte ${groupe}"><button class="rp-item" data-a="rpVoir" data-id="${x.r.id}" data-retour="frigo"><span class="ic">${esc(x.r.icone)}</span><span class="tx"><b>${esc(x.r.nom)} ${pastilleSucre(x.sucre.niveau)}</b><small>${x.r.duree ? esc(x.r.duree) + ' · ' : ''}avec ${esc(x.avec.join(', ').toLowerCase())}</small>${x.manque.length ? `<small class="fr-manque">Il manque : ${esc(x.manque.map((m) => m.nom).join(', ').toLowerCase())}</small>` : ''}</span></button>
-    ${x.manque.length && groupe !== 'plus' ? `<button class="btn" data-a="frigoManque" data-id="${x.r.id}">${i('ajouter', 18, 2.2)} Ajouter aux courses</button>` : ''}</div>`;
-  const bloc = (titre, l, groupe, vide) => `<h3 class="fr-titre">${titre} <small>· ${l.length}</small></h3>${l.length ? l.map((x) => carte(x, groupe)).join('') : `<p class="vide">${vide}</p>`}`;
-  const gauche = `<div class="rp-gauche">
-    <select class="menu-articles" data-c="frigoChoix" aria-label="Choisir un aliment"><option value="" selected>🧊 Choisir un aliment dans la liste…</option>${g.map((x) => `<optgroup label="${esc(x.icone + ' ' + x.categorie)}">${x.articles.map((a) => `<option value="${esc(a.nom)}">${a.icone} ${esc(a.nom)}</option>`).join('')}</optgroup>`).join('')}</select>
-    <form class="ajout-p" data-form="frigo" autocomplete="off"><input name="t" maxlength="300" placeholder="Ou écrire : œufs, jambon…" aria-label="Écrire des aliments"><button class="gros-btn">${i('ajouter', 20, 2.2)}</button></form>
-    <div class="fr-choix">${ch.map((n, k) => `<button class="puce" data-a="frigoRetirer" data-k="${k}" aria-label="Retirer ${esc(n)}">${esc(n)} ✕</button>`).join('') || '<p class="vide" style="margin:0">Ajoute ce qu’il y a dans le frigo ou le placard.</p>'}</div>
-    ${ch.length ? '<button class="gros-btn second" data-a="frigoVider">Tout effacer</button>' : ''}
-    <p class="fr-aide">${TEXTE_BASES}<br>Tu peux aussi dire : « qu'est-ce que je peux faire avec des œufs et du jambon ? »</p></div>`;
-  const droite = `<div class="rp-droite">${!ch.length ? '<p class="vide">Choisis des aliments à gauche : je te montre les recettes possibles, les moins sucrées d’abord.</p>' : `
-    ${bloc('✅ Tout est là', res.tout, 'tout', 'Aucune recette complète avec ça.')}
-    ${bloc('🟡 Il manque 1 ou 2 choses', res.peu, 'peu', 'Rien à 1 ou 2 ingrédients près.')}
-    ${res.plus.length ? bloc('🔸 Il manque plus', res.plus, 'plus', '') : ''}`}</div>`;
-  return { titre: `Qu'est-ce que je peux faire ? <small>· avec ce qu’il reste à la maison</small>`, outils: `<button class="btn" data-a="ouvrirPage" data-v="repas">‹ Repas</button>${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`, corps: `<div class="rp-grille">${gauche}${droite}</div>` };
+  const ch = ui.frigo; const res = queFaire(ch); const pris = new Set(ch.map(cleAliment));
+  const cat = ui.frigoCat || 'courants'; const tuiles = tuilesAliments(cat);
+  const carte = (x, groupe) => { const tot = x.avec.length + x.manque.length; return `<div class="fr-carte ${groupe}">
+    <button class="fr-tete" data-a="rpVoir" data-id="${x.r.id}" data-retour="frigo"><span class="fr-ic">${esc(x.r.icone)}</span><span class="fr-nom"><b>${esc(x.r.nom)}</b><small>${x.r.duree ? esc(x.r.duree) + ' · ' : ''}${EMOJI[x.sucre.niveau] || ''} ${x.sucre.niveau === 'vert' ? 'peu sucré' : x.sucre.niveau === 'rouge' ? 'très sucré' : 'sucré'}</small></span><span class="fr-fl">›</span></button>
+    <div class="fr-ings">${x.avec.map((n) => `<span class="ch ok">✓ ${esc(n.toLowerCase())}</span>`).join('')}${x.manque.map((m) => `<span class="ch ko">+ ${esc(m.nom.toLowerCase())}</span>`).join('')}</div>
+    <div class="fr-barre" aria-label="${x.avec.length} sur ${tot} ingrédients"><i style="width:${Math.round(x.avec.length / tot * 100)}%"></i></div>
+    ${x.manque.length && groupe !== 'plus' ? `<button class="btn fr-ajout" data-a="frigoManque" data-id="${x.r.id}">${i('ajouter', 18, 2.2)} Ajouter ${x.manque.length > 1 ? `les ${x.manque.length}` : 'le manquant'} aux courses</button>` : ''}</div>`; };
+  const bloc = (titre, l, groupe, vide) => `<h3 class="fr-titre">${titre} <small>· ${l.length}</small></h3>${l.length ? `<div class="fr-cartes">${l.map((x) => carte(x, groupe)).join('')}</div>` : `<p class="vide">${vide}</p>`}`;
+  const gauche = `<div class="rp-gauche fr-gauche">
+    <div class="fr-cats">${categoriesTuiles().map((c) => `<button class="${c.id === cat ? 'on' : ''}" data-a="frigoCat" data-v="${esc(c.id)}">${c.icone} ${esc(c.nom)}</button>`).join('')}</div>
+    <div class="fr-tuiles">${tuiles.map((t) => `<button class="fr-tuile ${pris.has(cleAliment(t.nom)) ? 'on' : ''}" data-a="frigoTuile" data-v="${esc(t.nom)}" aria-pressed="${pris.has(cleAliment(t.nom))}"><i>${t.icone}</i><span>${esc(t.nom)}</span></button>`).join('')}<button class="fr-tuile autre" data-a="frigoAutre"><i>✏️</i><span>Autre…</span></button></div>
+    <form class="ajout-p fr-ecrire" data-form="frigo" autocomplete="off"><input name="t" maxlength="300" placeholder="Écrire : œufs, jambon…" aria-label="Écrire des aliments"><button class="gros-btn" aria-label="Ajouter">${i('ajouter', 20, 2.2)}</button></form>
+    ${ch.length ? `<div class="fr-choix"><b>Dans le frigo :</b>${ch.map((n, k) => `<button class="puce" data-a="frigoRetirer" data-k="${k}" aria-label="Retirer ${esc(n)}">${esc(n)} ✕</button>`).join('')}<button class="puce fr-vider" data-a="frigoVider">Tout effacer</button></div>` : ''}</div>`;
+  const droite = `<div class="rp-droite fr-droite">${!ch.length ? `<div class="fr-accueil"><span>🧊</span><b>Touche ce qu'il y a dans le frigo</b><p>Je te montre ce qu'on peut cuisiner, les recettes les moins sucrées d'abord.<br>Tu peux aussi dire : « qu'est-ce que je peux faire avec des œufs et du jambon ? »</p><small>${TEXTE_BASES}</small></div>` : `
+    ${res.tout.length ? bloc('✅ Tout est là', res.tout, 'tout', '') : `<p class="vide" style="margin:0">${res.peu.length || res.plus.length ? 'Pas de recette complète : voici les plus proches.' : 'Aucune recette trouvée avec ça.'}</p>`}
+    ${res.peu.length ? bloc('🟡 Il manque 1 ou 2 choses', res.peu, 'peu', '') : ''}
+    ${res.plus.length ? bloc('🔸 Il manque plus', res.plus, 'plus', '') : ''}
+    <small class="fr-aide">${TEXTE_BASES}</small>`}</div>`;
+  return { titre: `Qu'est-ce que je peux faire ? <small>· avec ce qu’il reste à la maison</small>`, outils: `<button class="btn" data-a="ouvrirPage" data-v="repas">‹ Repas</button>${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`, corps: `<div class="rp-grille fr-grille">${gauche}${droite}</div>` };
 }
 function pageRepas() {
   const f = ui.rp.filtre; let l = recettesTriees();
@@ -1055,6 +1059,9 @@ const actions = {
   rpVoir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; ui.rp.retour = d.retour || null; ui.page = 'repas'; rendre(); },
   frigoRetirer(d) { ui.frigo.splice(Number(d.k), 1); garderChoix(ui.frigo); rendre(); },
   frigoVider() { ui.frigo = []; garderChoix(ui.frigo); rendre(); },
+  frigoCat(d) { ui.frigoCat = d.v; rendre(); },
+  frigoTuile(d) { ui.frigo = basculerAliment(ui.frigo, d.v); garderChoix(ui.frigo); rendre(); },
+  frigoAutre() { const inp = zPage.querySelector('form[data-form=frigo] input'); if (inp) inp.focus(); },
   frigoManque(d) { const r = queFaire(ui.frigo); const x = [...r.tout, ...r.peu].find((y) => y.r.id === d.id); if (!x) return; const ops = opsCourses(x.manque, 'tablette', state.moi.id); if (!ops.length) return toast('Déjà dans la liste de courses.'); ecrire(ops).then(() => toast(`${ops.length} article${ops.length > 1 ? 's' : ''} ajouté${ops.length > 1 ? 's' : ''} aux courses.`, () => ecrire(ops.map((o) => ({ cle: 'courses', op: 'delete', ligne: { id: o.ligne.id } }))))).catch(() => {}); },
   rpSucre() { const r = recette(ui.rp.id); if (!r) return; avisSucre(r.nom).then((a) => { fenetre('Sucre', `<div class="sucre-avis ${a.niveau || ''}"><span class="gros">${a.niveau ? EMOJI[a.niveau] : '❔'}</span><p>${esc(a.texte)}</p></div><p style="margin:0;font-size:13px;color:var(--pale)">Estimation calculée à partir des ingrédients. Limite conseillée : ${LIMITE_JOUR} g de sucres ajoutés par jour.</p><div class="rangee"><button class="gros-btn" data-a="fermer">OK</button></div>`); parlerSi(a.texte); }); },
   rpAccueil() { ui.rp.id = null; rendre(); },
