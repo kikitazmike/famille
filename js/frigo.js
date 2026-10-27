@@ -121,10 +121,15 @@ const COURANTS = [['Œufs', '🥚'], ['Jambon', '🥓'], ['Fromage', '🧀'], ['
   ['Carottes', '🥕'], ['Champignons', '🍄'], ['Salade', '🥬'], ['Pain de mie', '🍞']];
 export const cleAliment = (n) => mots(n).join(' ') || sansAccent(n);
 export function categoriesTuiles() {
-  return [{ id: 'courants', nom: 'Courants', icone: '⭐' }, ...alimentsProposes([]).filter((g) => g.categorie !== 'Épices et condiments').map((g) => ({ id: g.categorie, nom: g.categorie.replace(/ et .*$/, ''), icone: g.icone }))];
+  return [{ id: 'courants', nom: 'Courants', icone: '⭐' }, { id: 'tout', nom: 'Tout', icone: '📋' }, ...alimentsProposes([]).filter((g) => g.categorie !== 'Épices et condiments').map((g) => ({ id: g.categorie, nom: g.categorie.replace(/ et .*$/, ''), icone: g.icone }))];
 }
 export function tuilesAliments(cat) {
   if (!cat || cat === 'courants') return COURANTS.map(([nom, icone]) => ({ nom, icone }));
+  if (cat === 'tout') {
+    const vus = new Map();
+    [...COURANTS.map(([nom, icone]) => ({ nom, icone })), ...alimentsProposes([]).flatMap((g) => g.articles)].forEach((a) => { const k = cleAliment(a.nom); if (!vus.has(k)) vus.set(k, a); });
+    return [...vus.values()].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+  }
   const g = alimentsProposes([]).find((x) => x.categorie === cat);
   return g ? g.articles : [];
 }

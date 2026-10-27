@@ -503,7 +503,7 @@ function pageRepas() {
         ${nb ? `<button class="gros-btn" data-a="rpToutAjouter">Ajouter tous les ingrédients (${nb}) aux courses</button>` : '<p class="vide">Tous les ingrédients sont déjà dans la liste.</p>'}`
         : '<p class="vide" style="font-size:18px">Aucun repas prévu. Choisis une recette à gauche, puis « Prévoir » (avec ou sans jour).</p>'}</div>`;
   }
-  return { titre: `Repas <small>· ${state.recettes.length} recette${state.recettes.length > 1 ? 's' : ''} · vers la liste de courses</small>`, outils: `${r && ui.rp.retour === 'frigo' ? '<button class="btn" data-a="ouvrirPage" data-v="frigo">‹ Avec ce que j’ai</button>' : ''}${r ? '<button class="btn" data-a="rpAccueil">À cuisiner</button>' : ''}<button class="btn" data-a="ouvrirPage" data-v="frigo">🧊 Qu'est-ce que je peux faire ?</button>${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`, corps: `<div class="rp-grille">${gauche}${droite}</div>` };
+  return { titre: `Repas <small>· ${state.recettes.length} recette${state.recettes.length > 1 ? 's' : ''} · vers la liste de courses</small>`, outils: `${r && ui.rp.retour === 'frigo' ? '<button class="btn" data-a="ouvrirPage" data-v="frigo">‹ Avec ce que j’ai</button>' : ''}${r ? '<button class="btn" data-a="rpAccueil">À cuisiner</button>' : ''}<button class="btn frigo" data-a="ouvrirPage" data-v="frigo"><span>🧊</span>Qu'est-ce que je peux faire ?</button>${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`, corps: `<div class="rp-grille">${gauche}${droite}</div>` };
 }
 function formRecetteT(r, nom = '') {
   const liste = r ? (r.ingredients || []) : [];
