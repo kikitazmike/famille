@@ -340,3 +340,30 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .sucre-avis.vert { background: #E3F4EA; } .sucre-avis.orange { background: #FDF0DC; } .sucre-avis.rouge { background: #FBE3E1; }
 .sucre-ligne { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; font-size: 16px; }
 .sucre-ligne.vert { background: #E3F4EA; color: #1B5E36; } .sucre-ligne.orange { background: #FDF0DC; color: #7A4A0C; } .sucre-ligne.rouge { background: #FBE3E1; color: #8E211A; }
+
+/* Écran de repos (effets après 10 min sans activité) */
+#effet { position: absolute; inset: 0; z-index: 18; pointer-events: none; }
+#effet:not(:empty) { pointer-events: auto; }
+.eff-voile { position: absolute; inset: 0; background: rgba(0, 0, 0, .3); } /* luminosité −30 % */
+.eff-zone, .eff-toile { position: absolute; inset: 0; width: 1280px; height: 800px; }
+.eff-toucher { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: rgba(255, 255, 255, .85); color: #5F5A52; font-size: 14px; padding: 6px 14px; border-radius: 999px; z-index: 2; }
+.eff-fonce { position: absolute; inset: 0; background: rgba(8, 10, 30, .55); }
+.eff-hud { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.eff-hud-an { position: absolute; filter: drop-shadow(0 0 6px #5EE7FF); }
+@keyframes effRot { to { transform: rotate(360deg); } }
+@keyframes effRotR { to { transform: rotate(-360deg); } }
+.eff-hud-c { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); text-align: center; color: #DFFBFF; text-shadow: 0 0 18px #5EE7FF; white-space: nowrap; }
+.eff-hud-c .h { font-size: 96px; font-weight: 200; letter-spacing: 4px; line-height: 1; }
+.eff-hud-c .d { font-size: 16px; letter-spacing: 6px; margin-top: 8px; opacity: .85; }
+.eff-hud-c .p { font-size: 14px; letter-spacing: 3px; margin-top: 14px; color: #9FEFFF; }
+.eff-hud-g, .eff-hud-dr { position: absolute; color: #9FEFFF; font-size: 13px; letter-spacing: 2px; font-family: monospace; opacity: .8; white-space: nowrap; line-height: 1.8; }
+.eff-hud-g { left: -470px; top: -250px; } .eff-hud-dr { left: 330px; top: 200px; }
+.eff-anniv { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); background: rgba(255, 255, 255, .94); border-radius: 28px; padding: 22px 40px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, .2); z-index: 1; }
+.eff-anniv .t { font-size: 34px; font-weight: 500; color: #2E2A25; }
+
+/* Nuit : photo entière (« ajuster »), fond flou, zoom lent, luminosité −50 % */
+.veille { filter: brightness(.5); }
+.veille .photo { background: none !important; }
+.veille .photo .fond { position: absolute; inset: -60px; background-size: cover; background-position: center; filter: blur(40px) brightness(.55); }
+.veille .photo .img { position: absolute; inset: 0; background-size: contain; background-repeat: no-repeat; background-position: center; animation: veilleZoom 300s ease-in-out both; }
+@keyframes veilleZoom { from { transform: scale(1); } to { transform: scale(1.06); } }

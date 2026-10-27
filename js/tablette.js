@@ -11,13 +11,14 @@ import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, option
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 const VERSION_APPLI = VERSION;
+import { EFFETS, effetDuJour, demarrerEffet, arreterEffet, effetActif } from './effets.js';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
 const micro = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() || voixDisponible());
 
 const cadre = document.getElementById('cadre');
 const scene = document.getElementById('scene');
-scene.innerHTML = '<div id="vue"></div><div id="page"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div>';
+scene.innerHTML = '<div id="vue"></div><div id="page"></div><div id="effet"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div>';
 const vue = document.getElementById('vue');
 const zVeille = document.getElementById('veille');
 const zFen = document.getElementById('fen');
@@ -25,13 +26,15 @@ const zToast = document.getElementById('tst');
 const zPage = document.getElementById('page');
 const zAlerte = document.getElementById('alerte');
 const zMin = document.getElementById('minut');
+const zEffet = document.getElementById('effet');
 
 // Toute écriture qui échoue affiche un message (au lieu d'échouer en silence)
 const ecrire = (ops) => ecrireBase(ops).catch((x) => { toast(messageErreur(x)); throw x; });
 window.addEventListener('unhandledrejection', (e) => { if (e.reason && e.reason.status) e.preventDefault(); });
 const REG = 'famille-tablette';
-const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', parole: true, annonces: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:30', veilleFin: '06:30', voix: 'locale', parole: true, annonces: true }; } })();
+const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', voix: 'locale', parole: true, annonces: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', v2: true, voix: 'locale', parole: true, annonces: true }; } })();
 const sauverReglages = () => { try { localStorage.setItem(REG, JSON.stringify(reglages)); } catch (e) { /* ignore */ } };
+if (!reglages.v2) { reglages.veilleDebut = '22:00'; reglages.veilleFin = '07:00'; reglages.effet = 'auto'; reglages.v2 = true; sauverReglages(); }
 
 const ui = { session: null, pret: false, vue: 'jour', ref: debutJour(new Date()), page: null, derniere: Date.now(), alerte: null, ecoute: false, meteo: null, photos: [], photoIdx: 0, reveilJusqua: 0, veilleForcee: false, auth: { erreur: null, info: null }, rejoindre: { erreur: null } };
 
@@ -315,6 +318,7 @@ function enVeille() {
 }
 function rendreVeille() {
   if (!enVeille()) { zVeille.innerHTML = ''; return; }
+  if (effetActif()) arreterEffet();
   const n = new Date(); const demain = ajouterJours(debutJour(n), 1);
   const occs = (n.getHours() < 6 ? occsJour(debutJour(n)) : occsJour(demain)).sort((a, b) => a.debut - b.debut).slice(0, 3);
   const photo = ui.photos.length ? ui.photos[ui.photoIdx % ui.photos.length] : null;
@@ -328,18 +332,20 @@ function rendreVeille() {
       ${occs.map((o) => { const ids = liensDe(o.ev.id); return `<div style="display:flex;align-items:center;gap:12px"><span style="width:10px;height:10px;border-radius:50%;background:${tous(ids) ? '#B7ADF5' : couleurDe(ids) || '#B7ADF5'}"></span><span style="font-size:17px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.ev.titre)}</span><span style="font-size:16px;font-weight:500">${o.ev.journee_entiere ? 'journée' : hhmm(o.debut)}</span></div>`; }).join('') || '<span style="font-size:16px;opacity:.8">Rien de prévu</span>'}
       <span style="font-size:13px;color:#E6DDD2">Touchez l'écran pour revenir</span></div>`;
   if (!existante) {
-    zVeille.innerHTML = `<div class="veille" data-a="reveil"><div class="photo" id="ph1"></div><div class="photo" id="ph2"></div><div id="vinfo">${contenuInfo}</div></div>`;
-    if (photo) { const p = zVeille.querySelector('#ph1'); p.style.backgroundImage = `url('${photo}')`; p.classList.add('vis'); }
+    zVeille.innerHTML = `<div class="veille" data-a="reveil"><div class="photo" id="ph1"><div class="fond"></div><div class="img"></div></div><div class="photo" id="ph2"><div class="fond"></div><div class="img"></div></div><div id="vinfo">${contenuInfo}</div></div>`;
+    if (photo) { const p = zVeille.querySelector('#ph1'); poserPhoto(p, photo); p.classList.add('vis'); }
   } else {
     zVeille.querySelector('#vinfo').innerHTML = contenuInfo;
   }
 }
+// La photo entière est affichée (« ajuster ») ; le vide autour est rempli par la même photo floutée
+function poserPhoto(el, url) { const u = `url('${String(url).replace(/'/g, '%27')}')`; el.querySelector('.fond').style.backgroundImage = u; el.querySelector('.img').style.backgroundImage = u; el.querySelector('.img').style.animation = 'none'; void el.offsetWidth; el.querySelector('.img').style.animation = ''; }
 function photoSuivante() {
   if (!enVeille() || ui.photos.length < 2) return;
   ui.photoIdx = (ui.photoIdx + 1) % ui.photos.length;
   const a = zVeille.querySelector('#ph1'); const b = zVeille.querySelector('#ph2'); if (!a || !b) return;
   const [vis, cache] = a.classList.contains('vis') ? [a, b] : [b, a];
-  cache.style.backgroundImage = `url('${ui.photos[ui.photoIdx]}')`;
+  poserPhoto(cache, ui.photos[ui.photoIdx]);
   cache.classList.add('vis'); vis.classList.remove('vis');
 }
 async function chargerPhotos() {
@@ -705,9 +711,29 @@ function retourAccueil() {
   ui.page = null; ui.vue = 'jour'; ui.ref = debutJour(new Date()); ui.alerte = null;
   zFen.innerHTML = ''; zAlerte.innerHTML = ''; rendre();
 }
+// Écran de repos : effet du jour après 10 min sans toucher l'écran (sur l'accueil)
+function infosHud() {
+  const n = new Date(); const prochain = occsJour(debutJour(n)).filter((o) => !o.ev.journee_entiere && o.debut > n).sort((a, b) => a.debut - b.debut)[0];
+  const m = ui.meteo; const nonLus = state.messages.filter((x) => !x.lu_le).length; const nc = state.courses.filter((x) => !x.pris).length;
+  return { heure: `${deux(n.getHours())}:${deux(n.getMinutes())}`, date: `${JOURS[jourIso(n) - 1]} ${n.getDate()} ${MOIS[n.getMonth()]}`,
+    ligne: [m && m.temp != null ? `${m.temp}°` : '', prochain ? `Prochain : ${hhmm(prochain.debut)} ${prochain.ev.titre}` : 'Plus rien aujourd\'hui'].filter(Boolean).join(' · '),
+    gauche: [`SYS ▸ FAMILLE OK`, m ? `MÉTÉO ▸ ${m.temp}°C ${(CODES[m.code] || '').toUpperCase()}` : 'MÉTÉO ▸ —'], droite: [`COURSES ▸ ${nc} ARTICLE${nc > 1 ? 'S' : ''}`, `MESSAGES ▸ ${nonLus} NON LU${nonLus > 1 ? 'S' : ''}`] };
+}
+function fetesDuJour() { return (state.anniv || []).filter((a) => { const p = prochainAnniv(a.mois_jour, a.annee); return p && p.dans === 0; }).map((a) => a.nom); }
+function lancerEffet(n) {
+  const noms = fetesDuJour();
+  const choix = n || (noms.length ? 'confettis' : reglages.effet === 'auto' || !reglages.effet ? effetDuJour() : Number(reglages.effet));
+  zFen.innerHTML = ''; demarrerEffet(zEffet, choix, { infos: infosHud, noms });
+}
+// Un toucher arrête l'effet sans déclencher le bouton qui est dessous
+let avalerClic = false;
+document.addEventListener('pointerdown', (e) => { if (effetActif()) { e.preventDefault(); e.stopPropagation(); avalerClic = true; setTimeout(() => { avalerClic = false; }, 600); arreterEffet(); ui.derniere = Date.now(); } }, { capture: true });
+document.addEventListener('pointerup', () => { if (avalerClic) setTimeout(() => { avalerClic = false; }, 60); }, { capture: true });
+document.addEventListener('click', (e) => { if (avalerClic) { e.preventDefault(); e.stopPropagation(); avalerClic = false; } }, { capture: true });
 function verifierInactivite() {
   if (!state.moi || enVeille()) return;
   const calme = Date.now() - ui.derniere;
+  if (!effetActif() && !ui.alerte && !horsAccueil() && reglages.effet !== 'aucun' && calme > 10 * 60000) { lancerEffet(); return; }
   if (ui.alerte) { if (Date.now() - ui.alerte > 60000) retourAccueil(); return; }
   if (horsAccueil() && calme > 4 * 60000) {
     ui.alerte = Date.now();
@@ -724,7 +750,9 @@ function fenReglages() {
       <p style="margin:0;text-align:center;color:var(--pale)">À taper dans l'appli téléphone pour créer un compte.</p></div>
     <div class="rangee"><button class="gros-btn second" data-a="basculeCode">${ui.codeVisible ? 'Masquer le code' : 'Afficher le code'}</button>
       <button class="gros-btn second" data-a="nouveauCode" ${ui.codeVisible ? '' : 'disabled'}>Changer le code</button></div>
-    <div class="rangee"><label class="champ">Veille de<input type="time" value="${esc(reglages.veilleDebut)}" data-c="veilleDebut"></label><label class="champ">à<input type="time" value="${esc(reglages.veilleFin)}" data-c="veilleFin"></label></div>
+    <div class="rangee"><label class="champ">Photos de nuit de<input type="time" value="${esc(reglages.veilleDebut)}" data-c="veilleDebut"></label><label class="champ">à<input type="time" value="${esc(reglages.veilleFin)}" data-c="veilleFin"></label></div>
+    <div class="rangee"><label class="champ">Écran de repos (après 10 min)<select data-c="choixEffet"><option value="auto" ${reglages.effet === 'auto' || !reglages.effet ? 'selected' : ''}>Un effet au hasard chaque jour</option>${EFFETS.map((e) => `<option value="${e.id}" ${String(reglages.effet) === String(e.id) ? 'selected' : ''}>${e.id} · ${esc(e.nom)}</option>`).join('')}<option value="aucun" ${reglages.effet === 'aucun' ? 'selected' : ''}>Aucun effet</option></select></label>
+      <button class="gros-btn second" data-a="voirEffet" style="align-self:flex-end">Voir l'effet</button></div>
     <label class="champ">Reconnaissance vocale<select data-c="modeVoix"><option value="locale" ${reglages.voix !== 'google' ? 'selected' : ''}>Locale sur la tablette (Vosk, sans Internet)</option><option value="google" ${reglages.voix === 'google' ? 'selected' : ''}>Google (plus précise, besoin d'Internet)</option></select></label>
     <div class="rangee"><label class="champ">Voix de la tablette<select data-c="parole"><option value="1" ${reglages.parole ? 'selected' : ''}>Activée</option><option value="0" ${reglages.parole ? '' : 'selected'}>Coupée (muet)</option></select></label>
       <label class="champ">Annonces automatiques<select data-c="annonces"><option value="1" ${reglages.annonces ? 'selected' : ''}>Oui (rdv, poubelles, anniv.)</option><option value="0" ${reglages.annonces ? '' : 'selected'}>Non</option></select></label></div>
@@ -1058,6 +1086,7 @@ const actions = {
   },
   veilleMaintenant() { ui.veilleForcee = true; ui.reveilJusqua = 0; fermer(); rendre(); },
   pleinEcran() { reglages.pleinEcran = true; sauverReglages(); allerPleinEcran(true); fermer(); },
+  voirEffet() { fermer(); setTimeout(() => { avalerClic = false; lancerEffet(reglages.effet === 'auto' || reglages.effet === 'aucun' ? effetDuJour() : Number(reglages.effet)); }, 200); },
   reveil() { ui.veilleForcee = false; ui.reveilJusqua = Date.now() + 5 * 60000; zVeille.innerHTML = ''; rendre(); },
   async deconnexion() { arreterTempsReel(); await sb.auth.signOut(); viderCache(); ui.session = null; ui.pret = false; fermer(); rendre(); }
 };
@@ -1080,6 +1109,7 @@ const changements = {
   quiTous(el) { el.form.querySelectorAll('input[name=qui]').forEach((x) => { x.checked = el.checked; }); },
   quiPersonne(el) { const c = [...el.form.querySelectorAll('input[name=qui]')]; el.form.querySelector('input[name=tous]').checked = c.length > 0 && c.every((x) => x.checked); },
   veilleDebut(el) { reglages.veilleDebut = el.value; sauverReglages(); },
+  choixEffet(el) { reglages.effet = el.value; sauverReglages(); },
   veilleFin(el) { reglages.veilleFin = el.value; sauverReglages(); },
   parole(el) { reglages.parole = el.value === '1'; sauverReglages(); if (!reglages.parole) taire(); },
   annonces(el) { reglages.annonces = el.value === '1'; sauverReglages(); },
@@ -1225,7 +1255,7 @@ async function demarrer() {
   setInterval(() => { const m = new Date().getMinutes(); if (m !== derniereMinute) { derniereMinute = m; if (!zFen.innerHTML) rendre(); else rendreVeille(); } }, 5000);
   setInterval(chargerMeteo, 30 * 60000);
   setInterval(() => { chargerAnniv(); chargerPhotos(); }, 6 * 3600000);
-  setInterval(photoSuivante, 30000);
+  setInterval(photoSuivante, 5 * 60000); // une photo toutes les 5 minutes la nuit
   setInterval(verifierInactivite, 10000);
   setInterval(annonces, 20000);
   setInterval(tickMinuteurs, 1000); rendreMin();
