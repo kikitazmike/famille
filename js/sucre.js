@@ -57,6 +57,8 @@ const T = [
   [/\b(madeleines?|cookies?|biscuits?|petits? beurres?|gaufrettes?|sables?|palmiers?|prince|bn|pepito|speculoos)\b/, 30, 'a', 30, 'trois biscuits'],
   [/\b(gaufres?)\b/, 20, 'a', 60, 'une gaufre', false, 60], [/\b(crepes?)\b/, 10, 'a', 60, 'une crêpe', false, 60],
   [/\b(croissants?)\b/, 10, 'a', 60, 'un croissant', false, 60], [/\b(brioches?|pains? au lait|viennoiseries?)\b/, 15, 'a', 50, 'une tranche'],
+  // Pains complets ou aux céréales : avant la règle « céréales » du petit-déjeuner
+  [/\b(pains?|baguettes?|petits? pains?)\b.*\b(cereales?|multi ?cereales?|graines|seigle|son|epeautre|complets?|nordiques?)\b|\bpains? multicereales?\b/, 3, 'a', 50, 'un morceau'],
   [/\b(cereales?|corn flakes|chocapic|tresor|special k|frosties)\b/, 25, 'a', 40, 'un bol'], [/\bmuesli\b|\bgranola\b/, 20, 'a', 50, 'un bol'],
   [/\byaourts? (a boire|aux fruits|sucres?|aromatises?)\b|\bfruits? mixes?\b|\bdanonino\b|\bpetits? suisses? sucres?/, 13, 'a', 125, 'un pot'],
   [/\b(yaourts?|yogourts?|fromage blanc|faisselle|skyr|petits? suisses?)\b/, 4, 'a', 125, 'un pot', true],
