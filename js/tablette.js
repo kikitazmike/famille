@@ -1346,6 +1346,8 @@ async function demarrer() {
   setInterval(() => { chargerAnniv(); chargerPhotos(); }, 6 * 3600000);
   setInterval(photoSuivante, 5 * 60000); // une photo toutes les 5 minutes la nuit
   setInterval(verifierInactivite, 10000);
+  // Le verrou « écran allumé » peut être relâché par Android (économie d'énergie, appel…) : on le redemande toutes les 30 s
+  garderAllume(); setInterval(() => { if (document.visibilityState === 'visible') garderAllume(); }, 30000);
   setInterval(annonces, 20000);
   setInterval(tickMinuteurs, 1000); rendreMin();
   // recharge complète chaque nuit pour récupérer les mises à jour de l'appli
