@@ -1,11 +1,21 @@
-// Mot de réveil « Hé tablette » : écoute continue, 100 % locale (Vosk), limitée à quelques mots
+// Mot de réveil « Hé tablette » : écoute continue, 100 % locale (Vosk).
+// On reconnaît librement la phrase (pas de grammaire imposée, qui faisait réagir à n'importe quel bruit),
+// puis on vérifie que « tablette » est dit en début de phrase, avec une bonne confiance.
 import { preparerVoixLocale } from './voix-locale.js';
 
-const GRAMMAIRE = JSON.stringify(['hé tablette', 'eh tablette', 'et tablette', 'hey tablette', 'ok tablette', 'tablette', '[unk]']);
 let actif = null;
 export const reveilActif = () => !!actif;
 
-// onMot() est appelé quand « tablette » est entendu ; l'écoute s'arrête alors (on la relance après)
+// Analyse une phrase reconnue : renvoie null, ou { reste } (la demande dite juste après « tablette »)
+export function analyserReveil(texte, mots) {
+  const l = (texte || '').toLowerCase().split(/\s+/).filter(Boolean);
+  const k = l.findIndex((w) => /^tablettes?$/.test(w));
+  if (k < 0 || k > 2) return null; // « tablette » doit être au début (« hé tablette », « ok tablette »)
+  if (Array.isArray(mots)) { const m = mots.find((x) => /^tablettes?$/.test(x.word || '')); if (m && typeof m.conf === 'number' && m.conf < 0.6) return null; }
+  return { reste: l.slice(k + 1).join(' ') };
+}
+
+// onMot(reste) est appelé au réveil ; l'écoute s'arrête alors (on la relance après)
 export async function demarrerReveil(onMot) {
   if (actif) return;
   actif = { stop: () => {} };
@@ -15,7 +25,8 @@ export async function demarrerReveil(onMot) {
     if (!actif) { flux.getTracks().forEach((t) => t.stop()); return; }
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const source = ctx.createMediaStreamSource(flux);
-    const reco = new modele.KaldiRecognizer(ctx.sampleRate, GRAMMAIRE);
+    const reco = new modele.KaldiRecognizer(ctx.sampleRate);
+    try { reco.setWords(true); } catch (e) { /* ancienne version */ }
     const noeud = ctx.createScriptProcessor(4096, 1, 1);
     let fini = false;
     const stop = () => {
@@ -26,9 +37,11 @@ export async function demarrerReveil(onMot) {
       try { reco.remove(); } catch (e) { /* ignore */ }
     };
     actif.stop = stop;
-    const entendu = (t) => { if (!fini && /\btablette\b/.test(t || '')) { stop(); actif = null; onMot(); } };
-    reco.on('partialresult', (m) => entendu(m.result && m.result.partial));
-    reco.on('result', (m) => entendu(m.result && m.result.text));
+    reco.on('result', (m) => {
+      if (fini) return;
+      const r = m.result || {}; const a = analyserReveil(r.text, r.result);
+      if (a) { stop(); actif = null; onMot(a.reste); }
+    });
     noeud.onaudioprocess = (e) => { if (!fini) { try { reco.acceptWaveform(e.inputBuffer); } catch (x) { /* ignore */ } } };
     source.connect(noeud); noeud.connect(ctx.destination);
     flux.getTracks().forEach((t) => t.addEventListener('ended', () => { stop(); actif = null; }));

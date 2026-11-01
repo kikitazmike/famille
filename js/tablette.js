@@ -250,7 +250,7 @@ function agendaHtml() {
     <div class="barre-outils"><div class="gauche"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>${periode}</div>
       <div class="outils">${titre}
         <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
-        ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button><button class="btn rond aide" data-a="ouvrirPage" data-v="aide" aria-label="Ce que je comprends à la voix">?</button>` : ''}
+        ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button><button class="btn rond aide" data-a="ouvrirPage" data-v="aide" aria-label="Ce que je comprends à la voix">?</button><button class="btn rond reveil-btn ${reglages.reveil ? 'on' : ''}" data-a="basculeReveil" aria-pressed="${!!reglages.reveil}" aria-label="${reglages.reveil ? 'Couper' : 'Activer'} le réveil « Hé tablette »" title="« Hé tablette » ${reglages.reveil ? 'activé' : 'coupé'}">${i('micro', 18, 2)}${reglages.reveil ? '' : '<s></s>'}</button>` : ''}
         <button class="btn repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes"><span>🍽️</span>Repas</button>
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
@@ -931,7 +931,7 @@ async function agir(c, t) {
 let enDialogue = false;
 function relancerReveil() {
   if (!reglages.reveil || enDialogue || ui.ecoute || !state.moi || document.visibilityState !== 'visible') return;
-  demarrerReveil(() => { conversation(); }).catch(() => {});
+  demarrerReveil((reste) => { conversation(reste); }).catch(() => {});
 }
 const normer = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[?!.,;]/g, ' ').replace(/\s+/g, ' ').trim();
 // Pose une question à voix haute (et à l'écran), puis écoute la réponse
@@ -955,14 +955,14 @@ async function choixFinal(resume) {
   }
   return 'annuler';
 }
-async function conversation() {
+async function conversation(reste = '') {
   if (enDialogue || ui.ecoute || !state.moi) return;
   enDialogue = true; arreterReveil();
   if (effetActif()) arreterEffet();
   if (enVeille()) { ui.veilleForcee = false; ui.reveilJusqua = Date.now() + 5 * 60000; rendreVeille(); }
   ui.derniere = Date.now();
   try {
-    const t = await demander('Je t\'écoute');
+    const t = reste && reste.split(' ').length >= 1 && reste.length > 2 ? reste : await demander('Je t\'écoute');
     if (!t) { toast('Je n\'ai rien entendu.'); return; }
     await traiterDemande(t);
   } catch (e) { toast(e.message || 'Erreur'); }
@@ -981,7 +981,7 @@ async function traiterDemande(t) {
     }
   }
   // Courses
-  if (seul(/^(les |des )?courses?$|^(la )?liste( de courses)?$|^(un |nouvel )?article$|^(aux|a la liste de|dans les) courses$/)) {
+  if (seul(/^(les |des )?courses?$|^(un |nouvel )?article$|^(aux|a la liste de|dans les) courses$/)) {
     for (;;) {
       const x = await demander('Qu\'est-ce que j\'ajoute aux courses ?'); if (!x) return repondreA('Je n\'ai rien entendu, j\'annule.');
       let c = comprendre(`ajoute ${x}`, prenoms); if (c.type !== 'course') c = { type: 'course', noms: [majuscule(x)] };
@@ -1091,6 +1091,12 @@ function repondre(c) {
     return `${l.length} message${l.length > 1 ? 's' : ''} : ` + l.slice(0, 5).map((x) => { const p = x.pour ? membre(x.pour) : null; const d = x.de ? membre(x.de) : null; return `pour ${p ? p.prenom : 'tout le monde'}${d && d.type === 'personne' ? ', de ' + d.prenom : ''} : ${x.texte}`; }).join('. ') + '.';
   }
   if (c.sujet === 'heure') return `Il est ${heureParlee(new Date())}.`;
+  if (c.sujet === 'date') { const d = new Date(); return `Nous sommes ${JOURS[jourIso(d) - 1]} ${d.getDate() === 1 ? 'premier' : d.getDate()} ${MOIS[d.getMonth()]} ${d.getFullYear()}.`; }
+  if (c.sujet === 'rappels') {
+    const l = state.rappels.filter((r) => r.type === 'rappel' && !r.fait_le).sort((a, b) => ((a.echeance || '9') < (b.echeance || '9') ? -1 : 1));
+    if (!l.length) return 'Aucun rappel en cours.';
+    return `${l.length} rappel${l.length > 1 ? 's' : ''} : ` + l.slice(0, 6).map((r) => { if (!r.echeance) return r.titre; const j = debutJour(new Date(r.echeance + 'T12:00:00')); const k = Math.round((j - auj) / 86400000); return `${r.titre}, ${k < 0 ? 'en retard' : k === 0 ? 'aujourd\'hui' : k === 1 ? 'demain' : `dans ${k} jours`}`; }).join(' ; ') + '.';
+  }
   if (c.sujet === 'reglages') return 'Voici les réglages.';
   if (c.sujet === 'planning') {
     const j = debutJour(c.date || auj); const q = sansAcc(c.texte); const vises = personnes().filter((p) => new RegExp(`\\b${sansAcc(p.prenom).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(q));
@@ -1115,7 +1121,13 @@ function repondre(c) {
     const m = ui.meteo;
     if (!m || !m.jours) return 'Je n\'ai pas la météo pour le moment.';
     const dit = (j, k) => `${k === 0 ? 'Aujourd\'hui' : k === 1 ? 'Demain' : majuscule(JOURS[jourIso(new Date(j.date + 'T12:00:00')) - 1])} : ${(CODES[j.code] || '').toLowerCase()}, maximum ${j.max} degrés, minimum ${j.min}${j.pluie != null ? `, ${j.pluie} % de risque de pluie` : ''}`;
-    if (c.semaine) return m.jours.map((j, k) => dit(j, k)).join('. ') + '.';
+    if (c.semaine) {
+      const prochaine = /semaine (prochaine|suivante|qui arrive)|prochaine semaine/.test(sansAcc(c.texte));
+      const debut = prochaine ? ajouterJours(auj, ((8 - jourIso(auj)) % 7) || 7) : auj;
+      const l = m.jours.map((j, k) => ({ j, k })).filter(({ j }) => new Date(j.date + 'T12:00:00') >= debut);
+      if (!l.length) return 'Je n\'ai la météo que pour les 7 prochains jours.';
+      return (prochaine ? 'La semaine prochaine. ' : '') + l.map(({ j, k }) => dit(j, k)).join('. ') + '.' + (prochaine && l.length < 7 ? ' Je n\'ai pas encore la suite.' : '');
+    }
     const k = c.date ? Math.round((debutJour(c.date) - auj) / 86400000) : 0;
     const j = m.jours[k];
     if (!j) return 'Je n\'ai la météo que pour les 7 prochains jours.';
@@ -1131,6 +1143,10 @@ function repondre(c) {
     const l = [...state.notes].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, 3);
     if (!l.length) return 'Il n\'y a aucune note.';
     return `${l.length > 1 ? 'Les dernières notes' : 'La dernière note'} : ${l.map((x) => x.texte).join('. ')}.`;
+  }
+  if (c.sujet === 'repas' && c.semaine) {
+    const l = repasAFaire().map((p) => `${recette(p.recette_id).nom}${p.jour ? ' ' + jourParle(debutJour(new Date(p.jour + 'T12:00:00'))) : ''}`);
+    return l.length ? `Repas prévus : ${enumerer(l.slice(0, 7))}.` : 'Aucun repas prévu cette semaine. Choisis des recettes dans Repas.';
   }
   if (c.sujet === 'repas') {
     const iso = isoJour(c.date ? debutJour(c.date) : auj); const qd = memeJour(c.date || auj, auj) ? 'Ce soir' : majuscule(jourParle(debutJour(c.date)));
@@ -1211,6 +1227,7 @@ const actions = {
   annuler() { if (ui.annuler) ui.annuler(); zToast.innerHTML = ''; },
   vue(d) { const auj = debutJour(new Date()); if (d.v === 'auj') { ui.vue = 'jour'; ui.ref = auj; } else if (d.v === 'demain') { ui.vue = 'jour'; ui.ref = ajouterJours(auj, 1); } else { ui.vue = d.v; ui.ref = auj; } rendre(); },
   parler,
+  basculeReveil() { reglages.reveil = !reglages.reveil; sauverReglages(); if (reglages.reveil) { relancerReveil(); toast('« Hé tablette » activé.'); } else { arreterReveil(); toast('« Hé tablette » coupé. Le bouton Parler marche toujours.'); } rendre(); },
   ajouterRdv() { formRdv(); },
   voirRdv(d) {
     const ev = state.evenements.find((x) => x.id === d.id); if (!ev) return;

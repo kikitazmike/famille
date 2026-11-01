@@ -471,3 +471,8 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 #voyant.on { transform: translate(-50%, 0); }
 #voyant .pt { width: 18px; height: 18px; border-radius: 50%; background: #7CFFB2; box-shadow: 0 0 0 0 rgba(124, 255, 178, .8); animation: voyantPulse 1.2s infinite; }
 @keyframes voyantPulse { 0% { box-shadow: 0 0 0 0 rgba(124, 255, 178, .8); } 100% { box-shadow: 0 0 0 16px rgba(124, 255, 178, 0); } }
+/* Bouton marche/arrêt « Hé tablette » */
+.reveil-btn { position: relative; background: #F3EEE6; color: var(--pale); }
+.reveil-btn.on { background: #E3F6EB; color: #1F8F57; }
+.reveil-btn.on::after { content: ''; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #2E9E5B; }
+.reveil-btn s { position: absolute; width: 26px; height: 2px; background: #B3261E; transform: rotate(-45deg); border-radius: 2px; }

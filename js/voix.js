@@ -249,6 +249,25 @@ export function comprendre(texte, prenoms = []) {
     const d = trouverDate(t);
     return { type: 'question', sujet: 'meteo', date: d ? d.date : null, semaine: /\bsemaine\b/.test(n), montrer, texte: t };
   }
+  // Sujet dit tout seul : « notes », « météo demain », « anniversaires », « agenda de la semaine prochaine »…
+  {
+    const q = n.replace(/[?!.]/g, '').replace(/\s+/g, ' ').trim()
+      .replace(/^(?:et |alors |bon |dis[- ]moi |donne[- ]moi |lis[- ]moi |lis |montre[- ]moi |montre |affiche |ouvre |rappelle[- ]moi )/, '')
+      .replace(/^(?:l'|la |le |les |mes |nos |des |du |de la |ma |mon )/, '');
+    if (/^(on est |nous sommes )?quel jour( on est| sommes[- ]nous| est[- ]on| nous sommes)?( aujourd'?hui)?$|^on est le combien$/.test(q)) return { type: 'question', sujet: 'date', date: null, semaine: false, montrer: false, texte: t };
+    const SUJETS = [[/^(heure)s?\b/, 'heure'], [/^(date|quel jour)\b/, 'date'], [/^(meteo|temps|previsions?)\b/, 'meteo'], [/^(notes?|memos?)\b/, 'notes'], [/^(repas|menus?)\b/, 'repas'],
+      [/^(prochains? )?(anniversaires?|anniv)\b/, 'anniv'], [/^(courses|liste(?: de| des)? courses|liste)\b/, 'courses'], [/^(messages?)\b/, 'messages'], [/^(rappels?)\b/, 'rappels'],
+      [/^(taches?|corvees?)\b/, 'taches'], [/^(poubelles?)\b/, 'poubelle'], [/^(agenda|calendrier|rendez[- ]vous|rdv|programme)\b/, 'agenda'], [/^(planning|horaires?)\b/, 'planning'], [/^(minuteurs?)\b/, 'minuteur']];
+    const TEMPS = new Set(['d', 'de', 'du', 'des', 'la', 'le', 'les', 'l', 'cette', 'ce', 'pour', 'a', 'aujourd', 'hui', "aujourd'hui", "d'aujourd'hui", 'demain', 'apres', 'apres-demain', 'semaine', 'prochaine', 'prochain', 'soir', 'matin', 'midi', 'jour', 'week-end', 'weekend', 'mois', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche', 'en', 'cours', 'qui', 'arrive', 'suivante', ...prenoms.map((p) => sansAccent(p))]);
+    for (const [re, sujet] of SUJETS) {
+      const mm = q.match(re); if (!mm) continue;
+      const reste = q.slice(mm[0].length).replace(/[,']/g, ' ').split(/\s+/).filter(Boolean);
+      if (!reste.every((w) => TEMPS.has(w))) break;
+      const prochaine = /semaine (prochaine|suivante|qui arrive)|prochaine semaine/.test(q);
+      let date = prochaine ? ajouterJours(debutJour(new Date()), ((8 - jourIso(new Date())) % 7) || 7) : (trouverDate(t) || {}).date || null;
+      return { type: 'question', sujet, date, semaine: /\bsemaine\b|week[- ]?end/.test(q), montrer: false, texte: t };
+    }
+  }
   // Questions : « qu'est-ce qu'on a demain ? », « c'est quand l'anniversaire de Lucas ? »…
   const nq = n.replace(/\?/g, '').trim();
   const DEBUT_Q = /^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|qu'avons|quoi|quand|c'?est quand|c'?est quoi|quel|quelle|quels|quelles|est[- ]?ce qu(?:e|')|on a quoi|j'ai quoi|ai[- ]je|avons[- ]nous|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]?moi|donne[- ]?moi|lis|lire|relis|montre|affiche|afficher|ouvre|ouvrir|fais voir|combien|on fait quoi|on mange|qui|quelle heure|il est quelle heure|il va|il fait|va[- ]t[- ]il|fait[- ]il|(le\s+)?programme\s+(de|d'|pour|du)|quoi de (prevu|neuf))\b/;
@@ -265,6 +284,8 @@ export function comprendre(texte, prenoms = []) {
     else if (/tache|corvee|menage|vaisselle|aspirateur|ranger/.test(nq)) sujet = 'taches';
     else if (/minuteur|minuterie|chrono/.test(nq)) sujet = 'minuteur';
     else if (/quelle heure|l'heure qu'il|il est quelle heure/.test(nq)) sujet = 'heure';
+    else if (/quel jour (on est|sommes|est[- ]on|on est aujourd)|^(on est )?quel jour$|on est quel jour|quelle date|on est le combien|la date d'aujourd/.test(nq)) sujet = 'date';
+    else if (/\brappels?\b/.test(nq)) sujet = 'rappels';
     else if (/reglage|parametre/.test(nq)) sujet = 'reglages';
     else if (/planning|horaire|travail|bosse/.test(nq)) sujet = 'planning';
     const semaine = /\bsemaine\b/.test(nq);
