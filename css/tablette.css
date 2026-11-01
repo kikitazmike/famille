@@ -466,3 +466,8 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 #batt:empty { display: none; }
 #batt.charge { color: #2E9E5B; }
 #batt.faible { color: #B3261E; opacity: 1; font-weight: 600; }
+/* Voyant vert : micro ouvert */
+#voyant { position: absolute; top: 16px; left: 50%; transform: translate(-50%, -140%); z-index: 90; display: flex; align-items: center; gap: 12px; padding: 12px 24px; border-radius: 999px; background: #1F8F57; color: #fff; font-size: 20px; font-weight: 600; box-shadow: 0 6px 24px rgba(31, 143, 87, .45); transition: transform .25s ease; pointer-events: none; }
+#voyant.on { transform: translate(-50%, 0); }
+#voyant .pt { width: 18px; height: 18px; border-radius: 50%; background: #7CFFB2; box-shadow: 0 0 0 0 rgba(124, 255, 178, .8); animation: voyantPulse 1.2s infinite; }
+@keyframes voyantPulse { 0% { box-shadow: 0 0 0 0 rgba(124, 255, 178, .8); } 100% { box-shadow: 0 0 0 16px rgba(124, 255, 178, 0); } }

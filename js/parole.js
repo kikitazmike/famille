@@ -9,8 +9,8 @@ if (window.speechSynthesis) { choisirVoix(); speechSynthesis.addEventListener('v
 export const paroleDisponible = () => !!window.speechSynthesis;
 
 let enCours = null; // garde une référence (sinon Chrome peut l'oublier en route)
-export function dire(texte, { onErreur, onDebut } = {}) {
-  if (!window.speechSynthesis || !texte) { if (onErreur) onErreur('non disponible'); return; }
+export function dire(texte, { onErreur, onDebut, onFin } = {}) {
+  if (!window.speechSynthesis || !texte) { if (onErreur) onErreur('non disponible'); if (onFin) onFin(); return; }
   try {
     if (!voixFr) choisirVoix();
     const occupe = speechSynthesis.speaking || speechSynthesis.pending;
@@ -19,12 +19,20 @@ export function dire(texte, { onErreur, onDebut } = {}) {
     u.lang = voixFr ? voixFr.lang : 'fr-FR'; if (voixFr) u.voice = voixFr;
     u.rate = 1; u.pitch = 1; u.volume = 1;
     u.onstart = () => { if (onDebut) onDebut(); };
-    u.onerror = (e) => { if (onErreur && e.error !== 'interrupted' && e.error !== 'canceled') onErreur(e.error || 'erreur'); };
-    u.onend = () => { if (enCours === u) enCours = null; };
+    u.onerror = (e) => { if (onErreur && e.error !== 'interrupted' && e.error !== 'canceled') onErreur(e.error || 'erreur'); if (onFin) onFin(); };
+    u.onend = () => { if (enCours === u) enCours = null; if (onFin) onFin(); };
     enCours = u;
     // Sur Android, parler juste après « cancel » échoue parfois : petit délai
     setTimeout(() => { try { speechSynthesis.resume(); speechSynthesis.speak(u); } catch (e) { if (onErreur) onErreur(e.message); } }, occupe ? 250 : 30);
-  } catch (e) { if (onErreur) onErreur(e.message); }
+  } catch (e) { if (onErreur) onErreur(e.message); if (onFin) onFin(); }
+}
+// Parle puis attend la fin de la phrase (avec une sécurité si Android ne prévient pas)
+export function direEtAttendre(texte) {
+  return new Promise((ok) => {
+    let fait = false; const fin = () => { if (!fait) { fait = true; setTimeout(ok, 250); } };
+    setTimeout(fin, 1500 + (texte || '').length * 90);
+    dire(texte, { onFin: fin });
+  });
 }
 export const nbVoixFr = () => (window.speechSynthesis ? speechSynthesis.getVoices().filter((x) => /^fr/i.test(x.lang)).length : 0);
 

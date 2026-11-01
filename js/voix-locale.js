@@ -32,7 +32,8 @@ export function preparerVoixLocale() {
 
 // Écoute une phrase et renvoie le texte reconnu.
 // options : { onPartiel(texte), dureeMax (ms) }
-export async function ecouterLocal({ onPartiel, dureeMax = 9000 } = {}) {
+// pause : silence (ms) après lequel on considère la phrase finie ; les morceaux reconnus avant sont mis bout à bout
+export async function ecouterLocal({ onPartiel, dureeMax = 9000, pause = 1200 } = {}) {
   const modele = await preparerVoixLocale();
   const flux = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -49,18 +50,23 @@ export async function ecouterLocal({ onPartiel, dureeMax = 9000 } = {}) {
     try { reco.remove(); } catch (e) { /* ignore */ }
   };
   return new Promise((resolve, reject) => {
-    const minuterie = setTimeout(() => { arreter(); dernierPartiel ? resolve(dernierPartiel) : reject(new Error('Je n\'ai rien entendu.')); }, dureeMax);
+    const morceaux = []; let finPause = null;
+    const texte = () => [...morceaux, dernierPartiel].filter(Boolean).join(' ').trim();
+    const terminer = () => { clearTimeout(minuterie); clearTimeout(finPause); arreter(); const t = texte(); t ? resolve(t) : reject(new Error('Je n\'ai rien entendu.')); };
+    const minuterie = setTimeout(terminer, dureeMax);
+    const relancerPause = () => { clearTimeout(finPause); finPause = setTimeout(terminer, pause); };
     reco.on('partialresult', (m) => {
       const t = (m.result && m.result.partial || '').trim();
-      if (t) { dernierPartiel = t; if (onPartiel) onPartiel(t); }
+      if (t && t !== dernierPartiel) { dernierPartiel = t; if (onPartiel) onPartiel(texte()); relancerPause(); }
     });
     reco.on('result', (m) => {
       const t = (m.result && m.result.text || '').trim();
+      dernierPartiel = '';
       if (!t) return;
-      clearTimeout(minuterie); arreter(); resolve(t);
+      morceaux.push(t); if (onPartiel) onPartiel(texte()); relancerPause();
     });
     noeud.onaudioprocess = (e) => { if (!fini) { try { reco.acceptWaveform(e.inputBuffer); } catch (x) { /* ignore */ } } };
     source.connect(noeud); noeud.connect(ctx.destination);
-    ecouterLocal.arreter = () => { clearTimeout(minuterie); arreter(); dernierPartiel ? resolve(dernierPartiel) : reject(new Error('Écoute arrêtée.')); };
+    ecouterLocal.arreter = () => { clearTimeout(minuterie); clearTimeout(finPause); arreter(); const t = texte(); t ? resolve(t) : reject(new Error('Écoute arrêtée.')); };
   });
 }

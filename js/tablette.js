@@ -10,7 +10,8 @@ import { avisSucre, infoSucre, sucreRecette, pastilleSucre, EMOJI, COULEUR, LIMI
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { lireAliments, ajouterAliments, categoriesTuiles, tuilesAliments, basculerAliment, cleAliment, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
-import { dire, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
+import { dire, direEtAttendre, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
+import { demarrerReveil, arreterReveil } from './reveil.js';
 const VERSION_APPLI = VERSION;
 import { EFFETS, effetDuJour, demarrerEffet, arreterEffet, effetActif } from './effets.js';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
@@ -19,7 +20,7 @@ const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() ||
 
 const cadre = document.getElementById('cadre');
 const scene = document.getElementById('scene');
-scene.innerHTML = '<div id="vue"></div><div id="batt" role="img"></div><div id="page"></div><div id="effet"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div>';
+scene.innerHTML = '<div id="vue"></div><div id="batt" role="img"></div><div id="page"></div><div id="effet"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div><div id="voyant" role="status" aria-live="polite"></div>';
 const vue = document.getElementById('vue');
 const zVeille = document.getElementById('veille');
 const zFen = document.getElementById('fen');
@@ -33,7 +34,7 @@ const zEffet = document.getElementById('effet');
 const ecrire = (ops) => ecrireBase(ops).catch((x) => { toast(messageErreur(x)); throw x; });
 window.addEventListener('unhandledrejection', (e) => { if (e.reason && e.reason.status) e.preventDefault(); });
 const REG = 'famille-tablette';
-const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', voix: 'locale', parole: true, annonces: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', v2: true, voix: 'locale', parole: true, annonces: true }; } })();
+const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', voix: 'locale', parole: true, annonces: true, reveil: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', v2: true, voix: 'locale', parole: true, annonces: true }; } })();
 const sauverReglages = () => { try { localStorage.setItem(REG, JSON.stringify(reglages)); } catch (e) { /* ignore */ } };
 if (!reglages.v2) { reglages.veilleDebut = '22:00'; reglages.veilleFin = '07:00'; reglages.effet = 'auto'; reglages.v2 = true; sauverReglages(); }
 
@@ -248,10 +249,10 @@ function agendaHtml() {
   return `<section class="agenda" aria-label="Agenda de la famille">
     <div class="barre-outils"><div class="gauche"><div class="vues" role="tablist">${vues.map(([v, l]) => `<button role="tab" aria-selected="${onglet === v}" data-a="vue" data-v="${v}">${l}</button>`).join('')}</div>${periode}</div>
       <div class="outils">${titre}
+        <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button><button class="btn rond aide" data-a="ouvrirPage" data-v="aide" aria-label="Ce que je comprends à la voix">?</button>` : ''}
         <button class="btn repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes"><span>🍽️</span>Repas</button>
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
-        <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
     ${corps}</section>`;
 }
@@ -301,7 +302,15 @@ function accueilHtml() {
     <button class="gros-btn danger" data-a="deconnexion">Se déconnecter</button></div></div>`;
 }
 
+// Voyant vert : le micro est ouvert, on peut parler
+function majVoyant() {
+  const z = document.getElementById('voyant'); if (!z) return;
+  const on = !!ui.ecoute;
+  if (on && !z.classList.contains('on')) z.innerHTML = '<span class="pt"></span>Parle, je t\'écoute';
+  z.classList.toggle('on', on);
+}
 function rendre() {
+  majVoyant();
   cadre.style.background = FONDS[moment()];
   if (!ui.session || !state.moi) {
     vue.innerHTML = ui.session && !ui.pret ? '<div class="accueil"><p>Chargement…</p></div>' : accueilHtml();
@@ -464,6 +473,7 @@ function pageAide() {
     ${bloc('notes', '#C9822B', 'Notes', 'note, nouvelle note, prends note, écris', ['Note : appeler le plombier', 'Écris acheter un cadeau pour mamie'], 'Aussi : mémo, pense-bête, retiens que, n\'oublie pas que, souviens-toi que.')}
     ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, prends rendez-vous, réunion, rappelle-moi, j\'ai… — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures', 'Piscine demain de 14 h à 16 h', 'Réunion jeudi à 9 h pendant 2 heures', 'Dentiste à 9 h 30 (aujourd\'hui)'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
+    ${bloc('micro', '#6D5BD0', 'Hé tablette', 'hé tablette, puis la demande', ['Hé tablette… → « Je t\'écoute » → Nouvelle note → « Je note quoi ? »', 'Hé tablette… → Courses → « Qu\'est-ce que j\'ajoute ? »', 'Hé tablette… → Rendez-vous → « C\'est quoi ? » puis « Quel jour, à quelle heure ? »', 'Hé tablette… → Message, Rappel, Minuteur, ou une question'], 'Sans toucher l\'écran. À la fin, la tablette demande « Modifier, annuler ou valider ? ». L\'écoute reste sur la tablette (rien n\'est envoyé sur Internet). Se règle dans Réglages.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
     ${bloc('courses', '#C2410C', 'Repas', 'ajoute les ingrédients de, on mange quoi, montre les recettes', ['Ajoute les ingrédients des lasagnes', 'Qu\'est-ce qu\'on mange ce soir ?', 'On mange quoi demain ?', 'Montre les recettes'], 'Bouton 🍽️ à côté de « Ajouter » : choisis une recette, coche ce qu\'il faut acheter, puis « Ajouter aux courses ». « Prévoir » met le repas dans « À cuisiner », avec ou sans jour. Le repas du soir s\'affiche en haut et dans la carte Courses.')}
     ${bloc('courses', '#0E9F6E', 'Avec ce qu\'il reste', 'qu\'est-ce que je peux faire avec, recettes avec, j\'ai … qu\'est-ce qu\'on peut faire', ['Qu\'est-ce que je peux faire avec des œufs, du jambon et du fromage ?', 'Que faire avec du riz et du poulet ?', 'J\'ai des pâtes et du thon, qu\'est-ce qu\'on peut cuisiner ?'], 'Page Repas, bouton 🧊 : choisis les aliments dans la liste ou écris-les. Tu vois ✅ ce qu\'on peut faire tout de suite, 🟡 ce qu\'il manque à 1 ou 2 ingrédients près (bouton pour les ajouter aux courses), 🔸 le reste. Sel, poivre, huile, beurre, épices, herbes et bouillon sont supposés être là. Les moins sucrées d\'abord.')}
@@ -757,7 +767,7 @@ function tickMinuteurs() {
 }
 
 // ---------- Retour automatique à l'accueil ----------
-const horsAccueil = () => !!ui.page || !!zFen.innerHTML || ui.vue !== 'jour' || !memeJour(ui.ref, debutJour(new Date()));
+const horsAccueil = () => !!ui.page || !!zFen.innerHTML; // Aujourd'hui, Demain, Semaine et Mois comptent comme l'accueil
 function retourAccueil() {
   ui.page = null; ui.vue = 'jour'; ui.ref = debutJour(new Date()); ui.alerte = null;
   zFen.innerHTML = ''; zAlerte.innerHTML = ''; rendre();
@@ -810,6 +820,7 @@ function fenReglages() {
     <div class="rangee"><label class="champ">Écran de repos (après 10 min)<select data-c="choixEffet"><option value="auto" ${reglages.effet === 'auto' || !reglages.effet ? 'selected' : ''}>Un effet au hasard chaque jour</option>${EFFETS.map((e) => `<option value="${e.id}" ${String(reglages.effet) === String(e.id) ? 'selected' : ''}>${e.id} · ${esc(e.nom)}</option>`).join('')}<option value="aucun" ${reglages.effet === 'aucun' ? 'selected' : ''}>Aucun effet</option></select></label>
       <button class="gros-btn second" data-a="voirEffet" style="align-self:flex-end">Voir l'effet</button></div>
     <label class="champ">Reconnaissance vocale<select data-c="modeVoix"><option value="locale" ${reglages.voix !== 'google' ? 'selected' : ''}>Locale sur la tablette (Vosk, sans Internet)</option><option value="google" ${reglages.voix === 'google' ? 'selected' : ''}>Google (plus précise, besoin d'Internet)</option></select></label>
+    <label class="champ">Réveil à la voix « Hé tablette »<select data-c="reveilVoix"><option value="1" ${reglages.reveil ? 'selected' : ''}>Activé (micro en écoute, tout reste sur la tablette)</option><option value="0" ${reglages.reveil ? '' : 'selected'}>Désactivé</option></select></label>
     <div class="rangee"><label class="champ">Voix de la tablette<select data-c="parole"><option value="1" ${reglages.parole ? 'selected' : ''}>Activée</option><option value="0" ${reglages.parole ? '' : 'selected'}>Coupée (muet)</option></select></label>
       <label class="champ">Annonces automatiques<select data-c="annonces"><option value="1" ${reglages.annonces ? 'selected' : ''}>Oui (rdv, poubelles, anniv.)</option><option value="0" ${reglages.annonces ? '' : 'selected'}>Non</option></select></label></div>
     <div class="rangee">${paroleDisponible() ? `<button class="gros-btn second" data-a="testerVoix">${i('micro', 20)} Test voix</button>` : ''}<button class="gros-btn second" data-a="veilleMaintenant">${i('lune', 20)} Veille</button><button class="gros-btn second" data-a="pleinEcran">${i('plein', 20)} Plein écran</button></div>
@@ -819,26 +830,39 @@ function fenReglages() {
 }
 
 // ---------- Voix ----------
+// Écoute une phrase (voix locale Vosk ou Google selon les réglages)
+async function ecouterTexte({ long = false } = {}) {
+  if (reglages.voix !== 'google' && micro()) {
+    if (etatVoixLocale() !== 'pret') toast('Préparation de la voix… (la 1re fois, environ 40 Mo)');
+    try { return await ecouterLocal({ onPartiel: (p) => toast('… ' + p), dureeMax: long ? 40000 : 12000, pause: long ? 3000 : 1300 }); }
+    catch (e) {
+      if (e && (e.name === 'NotAllowedError' || e.name === 'NotFoundError')) throw new Error(e.name === 'NotFoundError' ? 'Aucun micro trouvé.' : 'Autorise le micro pour utiliser la voix.');
+      if (e && /rien entendu|arrêtée/.test(e.message) || !voixDisponible()) throw e;
+      toast('Voix locale indisponible, j\'utilise Google.'); return await ecouter();
+    }
+  }
+  return ecouter();
+}
+
 async function parler(d) {
   const contexte = d && d.v;
+  if (enDialogue) return;
   if (ui.ecoute) { [ecouterLocal.arreter, ecouter.arreter].forEach((a) => a && a()); return; }
+  arreterReveil();
   ui.ecoute = true; rendre();
   let t;
-  try {
-    if (reglages.voix !== 'google' && micro()) {
-      if (etatVoixLocale() !== 'pret') toast('Préparation de la voix… (la 1re fois, environ 40 Mo)');
-      try { t = await ecouterLocal({ onPartiel: (p) => toast('… ' + p) }); }
-      catch (e) {
-        if (e && (e.name === 'NotAllowedError' || e.name === 'NotFoundError')) throw new Error(e.name === 'NotFoundError' ? 'Aucun micro trouvé.' : 'Autorise le micro pour utiliser la voix.');
-        if (e && /rien entendu|arrêtée/.test(e.message) || !voixDisponible()) throw e;
-        toast('Voix locale indisponible, j\'utilise Google.'); t = await ecouter();
-      }
-    } else t = await ecouter();
-  } catch (e) { ui.ecoute = false; rendre(); return toast(e.message); }
+  try { t = await ecouterTexte({ long: contexte === 'note' || contexte === 'champNote' }); } catch (e) { ui.ecoute = false; rendre(); relancerReveil(); return toast(e.message); }
   ui.ecoute = false; zToast.innerHTML = ''; rendre();
-  if (contexte === 'champNote') { const ta = zFen.querySelector('form[data-form=note] textarea'); if (ta) { ta.value = `${ta.value.trim() ? ta.value.trim() + ' ' : ''}${majuscule(t.trim())}`.slice(0, 2000); ta.focus(); } return; }
-  let c = comprendre(t, personnes().map((p) => p.prenom));
-  if (contexte === 'note' && c.type !== 'note') c = { type: 'note', texte: majuscule(t.trim()) };
+  try {
+    if (contexte === 'champNote') { const ta = zFen.querySelector('form[data-form=note] textarea'); if (ta) { ta.value = `${ta.value.trim() ? ta.value.trim() + ' ' : ''}${majuscule(t.trim())}`.slice(0, 2000); ta.focus(); } return; }
+    let c = comprendre(t, personnes().map((p) => p.prenom));
+    if (contexte === 'note' && c.type !== 'note') c = { type: 'note', texte: majuscule(t.trim()) };
+    await agir(c, t);
+  } finally { relancerReveil(); }
+}
+
+// Exécute une demande comprise
+async function agir(c, t) {
   if (c.type === 'course') {
     const { nouveaux, deja } = sansDoublons(c.noms);
     if (!nouveaux.length) { toast(`Déjà dans la liste : ${deja.join(', ')}`); parlerSi(`${enumerer(deja)}, c'est déjà dans la liste.`); return; }
@@ -901,6 +925,129 @@ async function parler(d) {
     const r = repondre(c); toast(`« ${t} » → ${r}`); parlerSi(r);
   } else if (c.raison === 'date') { parlerSi('Cette date n\'existe pas.'); toast(`« ${t} » : cette date n'existe pas.`);
   } else { parlerSi('Je n\'ai pas compris.'); toast(`Je n'ai pas compris : « ${t} ». Essaie « ajoute du pain » ou « note : … ».`); }
+}
+
+// ---------- « Hé tablette » : réveil à la voix et petite conversation ----------
+let enDialogue = false;
+function relancerReveil() {
+  if (!reglages.reveil || enDialogue || ui.ecoute || !state.moi || document.visibilityState !== 'visible') return;
+  demarrerReveil(() => { conversation(); }).catch(() => {});
+}
+const normer = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[?!.,;]/g, ' ').replace(/\s+/g, ' ').trim();
+// Pose une question à voix haute (et à l'écran), puis écoute la réponse
+async function demander(question, long = false) {
+  zToast.innerHTML = `<div class="toast dialogue">🗣️ ${esc(question)}</div>`;
+  if (reglages.parole && paroleDisponible()) await direEtAttendre(question); else await new Promise((ok) => setTimeout(ok, 600));
+  ui.ecoute = true; rendre();
+  try { const t = (await ecouterTexte({ long }) || '').trim(); return t || null; }
+  catch (e) { return null; }
+  finally { ui.ecoute = false; rendre(); }
+}
+const repondreA = (texte) => { toast(texte); parlerSi(texte); };
+// « Modifier, annuler ou valider ? » → 'valider' | 'modifier' | 'annuler'
+async function choixFinal(resume) {
+  for (let k = 0; k < 2; k++) {
+    const r = normer(await demander(k ? 'Dis valider, modifier ou annuler.' : `${resume}. Modifier, annuler ou valider ?`));
+    if (!r) continue;
+    if (/annul|^non\b|laisse|stop|oublie/.test(r)) return 'annuler';
+    if (/modif|change|corrig|recommenc|refai/.test(r)) return 'modifier';
+    if (/valid|^oui|ok|d'?accord|c'?est bon|parfait|vas[- ]y|confirm|enregistr|go\b/.test(r)) return 'valider';
+  }
+  return 'annuler';
+}
+async function conversation() {
+  if (enDialogue || ui.ecoute || !state.moi) return;
+  enDialogue = true; arreterReveil();
+  if (effetActif()) arreterEffet();
+  if (enVeille()) { ui.veilleForcee = false; ui.reveilJusqua = Date.now() + 5 * 60000; rendreVeille(); }
+  ui.derniere = Date.now();
+  try {
+    const t = await demander('Je t\'écoute');
+    if (!t) { toast('Je n\'ai rien entendu.'); return; }
+    await traiterDemande(t);
+  } catch (e) { toast(e.message || 'Erreur'); }
+  finally { enDialogue = false; ui.ecoute = false; ui.derniere = Date.now(); rendre(); setTimeout(relancerReveil, 800); }
+}
+async function traiterDemande(t) {
+  const n = normer(t); const prenoms = personnes().map((p) => p.prenom);
+  const seul = (re) => re.test(n.replace(/^(je veux |je voudrais |on fait |fais |faire |cree |creer |ajoute |ajouter )/, ''));
+  // Nouvelle note
+  if (seul(/^(une |la )?(nouvelle )?note$|^(prends|prendre|ecris|ecrire) (une )?note$/)) {
+    for (;;) {
+      const x = await demander('Je note quoi ?', true); if (!x) return repondreA('Je n\'ai rien entendu, j\'annule.');
+      const ch = await choixFinal(`Je note : ${x}`);
+      if (ch === 'valider') return agir({ type: 'note', texte: majuscule(x) }, x);
+      if (ch === 'annuler') return repondreA('D\'accord, j\'annule.');
+    }
+  }
+  // Courses
+  if (seul(/^(les |des )?courses?$|^(la )?liste( de courses)?$|^(un |nouvel )?article$|^(aux|a la liste de|dans les) courses$/)) {
+    for (;;) {
+      const x = await demander('Qu\'est-ce que j\'ajoute aux courses ?'); if (!x) return repondreA('Je n\'ai rien entendu, j\'annule.');
+      let c = comprendre(`ajoute ${x}`, prenoms); if (c.type !== 'course') c = { type: 'course', noms: [majuscule(x)] };
+      const ch = await choixFinal(`J'ajoute ${enumerer(c.noms)}`);
+      if (ch === 'valider') return agir(c, x);
+      if (ch === 'annuler') return repondreA('D\'accord, j\'annule.');
+    }
+  }
+  // Message
+  if (seul(/^(un |nouveau )?message$|^(envoie|envoyer|laisse|laisser) un message$/)) {
+    for (;;) {
+      const q = normer(await demander('C\'est pour qui ?')); if (!q) return repondreA('Je n\'ai rien entendu, j\'annule.');
+      const p = personnes().find((x) => q.includes(normer(x.prenom)));
+      const x = await demander('Quel est le message ?', true); if (!x) return repondreA('Je n\'ai rien entendu, j\'annule.');
+      const ch = await choixFinal(`Message pour ${p ? p.prenom : 'tout le monde'} : ${x}`);
+      if (ch === 'valider') return agir({ type: 'message', pour: p ? p.prenom : null, texte: majuscule(x) }, x);
+      if (ch === 'annuler') return repondreA('D\'accord, j\'annule.');
+    }
+  }
+  // Rendez-vous
+  if (seul(/^(un |nouveau )?(rendez[- ]vous|rdv)$/)) {
+    for (;;) {
+      const titre = await demander('C\'est quoi, le rendez-vous ?'); if (!titre) return repondreA('Je n\'ai rien entendu, j\'annule.');
+      const quand = await demander('Quel jour, et à quelle heure ?'); if (!quand) return repondreA('Je n\'ai rien entendu, j\'annule.');
+      const c = comprendre(`rendez-vous ${titre} ${quand}`, prenoms);
+      if (c.type !== 'rdv') { formRdv({ titre: majuscule(titre) }); return repondreA('Je n\'ai pas compris la date. Complète à l\'écran puis appuie sur Enregistrer.'); }
+      const qui = c.qui.map((p) => personnes().find((x) => x.prenom === p)).filter(Boolean).map((p) => p.id);
+      formRdv({ titre: c.titre, debut: c.debut, fin: c.fin || undefined, journee: c.journee, qui });
+      const ch = await choixFinal(`Rendez-vous ${c.titre}, ${jourParle(debutJour(c.debut))}${c.journee ? '' : ' à ' + heureParlee(c.debut)}`);
+      if (ch === 'valider') { const f = zFen.querySelector('form[data-form=rdv]'); if (f) f.requestSubmit(); return parlerSi('Rendez-vous enregistré.'); }
+      fermer(); if (ch === 'annuler') return repondreA('D\'accord, j\'annule.');
+    }
+  }
+  // Rappel
+  if (seul(/^(un |nouveau )?rappel$|^rappelle[- ]moi$/)) {
+    for (;;) {
+      const x = await demander('Je te rappelle quoi ?', true); if (!x) return repondreA('Je n\'ai rien entendu, j\'annule.');
+      const ch = await choixFinal(`Rappel : ${x}`);
+      if (ch === 'valider') { formRappel(null, 'rappel'); const f = zFen.querySelector('form[data-form=rappel]'); if (f) { f.querySelector('[name=titre]').value = majuscule(x).slice(0, 200); f.requestSubmit(); } return parlerSi('Rappel enregistré.'); }
+      if (ch === 'annuler') return repondreA('D\'accord, j\'annule.');
+    }
+  }
+  // Minuteur
+  if (seul(/^(un |le )?minuteur$|^(lance|mets|met) (un |le )?minuteur$/)) {
+    const x = await demander('Pour combien de temps ?'); if (!x) return repondreA('Je n\'ai rien entendu, j\'annule.');
+    const c = comprendre(`minuteur ${x}`, prenoms); return agir(c, x);
+  }
+  // Phrase complète (« ajoute du lait », « note : … », question…)
+  const c = comprendre(t, prenoms);
+  if (c.type === 'course') {
+    const ch = await choixFinal(`J'ajoute ${enumerer(c.noms)}`);
+    return ch === 'valider' ? agir(c, t) : repondreA(ch === 'modifier' ? 'D\'accord. Redis « hé tablette » pour recommencer.' : 'D\'accord, j\'annule.');
+  }
+  if (c.type === 'note' || c.type === 'message') {
+    const ch = await choixFinal(c.type === 'note' ? `Je note : ${c.texte}` : `Message pour ${c.pour || 'tout le monde'} : ${c.texte}`);
+    return ch === 'valider' ? agir(c, t) : repondreA(ch === 'modifier' ? 'D\'accord. Redis « hé tablette » pour recommencer.' : 'D\'accord, j\'annule.');
+  }
+  if (c.type === 'rdv') {
+    await agir(c, t);
+    const ch = await choixFinal('Je l\'ai mis à l\'écran');
+    if (ch === 'valider') { const f = zFen.querySelector('form[data-form=rdv]'); if (f) f.requestSubmit(); return parlerSi('Rendez-vous enregistré.'); }
+    if (ch === 'annuler') { fermer(); return repondreA('D\'accord, j\'annule.'); }
+    return repondreA('Modifie à l\'écran puis appuie sur Enregistrer.');
+  }
+  if (c.type === 'inconnu' || !c.type) return repondreA('Je n\'ai pas compris. Tu peux dire : nouvelle note, courses, rendez-vous, message, rappel, minuteur, ou poser une question.');
+  return agir(c, t);
 }
 
 // ---------- La tablette parle ----------
@@ -1201,6 +1348,7 @@ const changements = {
   veilleFin(el) { reglages.veilleFin = el.value; sauverReglages(); },
   parole(el) { reglages.parole = el.value === '1'; sauverReglages(); if (!reglages.parole) taire(); },
   annonces(el) { reglages.annonces = el.value === '1'; sauverReglages(); },
+  reveilVoix(el) { reglages.reveil = el.value === '1'; sauverReglages(); if (reglages.reveil) relancerReveil(); else arreterReveil(); },
   modeVoix(el) { reglages.voix = el.value; sauverReglages(); if (el.value === 'locale') preparerVoixLocale().catch(() => {}); rendre(); }
 };
 const formulaires = {
@@ -1333,7 +1481,7 @@ function allerPleinEcran(force) {
   if ((reglages.pleinEcran || force) && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
 }
 function reveillerSiBesoin() { garderAllume(); allerPleinEcran(false); }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { garderAllume(); if (ui.session) demarrerDonnees(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { garderAllume(); if (ui.session) demarrerDonnees(); setTimeout(relancerReveil, 1500); } else arreterReveil(); });
 
 // ---------- Démarrage ----------
 async function demarrerDonnees() {
@@ -1362,7 +1510,7 @@ async function demarrer() {
   setInterval(photoSuivante, 5 * 60000); // une photo toutes les 5 minutes la nuit
   setInterval(verifierInactivite, 10000);
   // Le verrou « écran allumé » peut être relâché par Android (économie d'énergie, appel…) : on le redemande toutes les 30 s
-  suivreBatterie();
+  suivreBatterie(); setTimeout(relancerReveil, 3000); setInterval(relancerReveil, 60000);
   garderAllume(); setInterval(() => { if (document.visibilityState === 'visible') garderAllume(); }, 30000);
   setInterval(annonces, 20000);
   setInterval(tickMinuteurs, 1000); rendreMin();
