@@ -259,7 +259,7 @@ function cartesHtml() {
   const anniv = (state.anniv || []).map((a) => ({ ...a, p: prochainAnniv(a.mois_jour, a.annee) })).filter((a) => a.p).sort((a, b) => a.p.dans - b.p.dans);
   const a0 = anniv[0]; const a1 = anniv[1];
   return `<section class="cartes">
-    <div class="carte courses clic" data-a="ouvrirPage" data-v="courses" role="button" tabindex="0" aria-label="Ouvrir les courses"><h2>Courses <small>· ${courses.length}</small></h2>${(() => { const p = repasDuJour(isoJour(new Date()))[0]; const r = p && recette(p.recette_id); if (!r) return ''; const n = ingredients(r, p.personnes).filter((x) => !x.dans).length; return `<button class="rp-soir" data-a="rpVoir" data-id="${r.id}"><span class="ic">${esc(r.icone)}</span><span class="tx"><small>CE SOIR</small><b>${esc(r.nom)}</b></span><span class="n">${n ? n + ' à acheter ›' : 'tout est là ✓'}</span></button>`; })()}
+    <div class="carte courses clic" data-a="ouvrirPage" data-v="courses" role="button" tabindex="0" aria-label="Ouvrir les courses"><h2><span>Courses <small>· ${courses.length}</small></span>${state.courses.length ? `<span class="cc-outils"><button class="cc-btn" data-a="coursesGarder" aria-label="Choisir les articles à garder" title="Garder…">📌</button><button class="cc-btn rouge" data-a="coursesVider" aria-label="Vider toute la liste" title="Vider">🗑</button></span>` : ''}</h2>${(() => { const p = repasDuJour(isoJour(new Date()))[0]; const r = p && recette(p.recette_id); if (!r) return ''; const n = ingredients(r, p.personnes).filter((x) => !x.dans).length; return `<button class="rp-soir" data-a="rpVoir" data-id="${r.id}"><span class="ic">${esc(r.icone)}</span><span class="tx"><small>CE SOIR</small><b>${esc(r.nom)}</b></span><span class="n">${n ? n + ' à acheter ›' : 'tout est là ✓'}</span></button>`; })()}
       <div class="puces">${courses.slice(0, 9).map((c) => `<span class="puce">${iconeArticle(c.nom)} ${esc(c.nom)}${c.source === 'titus' ? '<span class="etq">Titus</span>' : ''}</span>`).join('')}${courses.length > 9 ? `<span class="puce" style="color:var(--pale)">+${courses.length - 9}</span>` : ''}</div>
       ${!courses.length ? '<span class="vide">Rien à acheter</span>' : ''}</div>
     <div class="carte notes clic" data-a="ouvrirPage" data-v="notes" role="button" tabindex="0" aria-label="Ouvrir les notes"><h2>Notes</h2>
@@ -381,6 +381,14 @@ function formRdv(pre = {}, ev = null) {
       <label class="champ">Répétition<select name="repetition">${[['aucune', 'Aucune'], ['jour', 'Tous les jours'], ['semaine', 'Chaque semaine'], ['mois', 'Tous les mois'], ['annee', 'Tous les ans']].map(([v, l]) => `<option value="${v}" ${rep === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     ${ev && rep !== 'aucune' ? '<p style="margin:0;font-size:14px;color:var(--doux)">Ce rendez-vous se répète : la modification s\'applique à toutes les fois.</p>' : ''}
     <div class="rangee"><button class="gros-btn">Enregistrer</button>${ev ? `<button type="button" class="gros-btn danger" data-a="supprRdv" data-id="${ev.id}">Supprimer</button>` : ''}<button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
+}
+
+// Retire plusieurs articles d'un coup (avec « Annuler »)
+function supprimerCourses(l, gardes = 0) {
+  const copies = l.map((c) => ({ ...c }));
+  ecrire(copies.map((c) => ({ cle: 'courses', op: 'delete', ligne: { id: c.id } })))
+    .then(() => toast(`${copies.length} article${copies.length > 1 ? 's' : ''} retiré${copies.length > 1 ? 's' : ''}${gardes ? `, ${gardes} gardé${gardes > 1 ? 's' : ''}` : ''}.`, () => ecrire(copies.map((c) => ({ cle: 'courses', op: 'insert', ligne: c })))))
+    .catch(() => {});
 }
 
 function confirmer(titre, texte, libelle, action) {
@@ -1102,6 +1110,22 @@ const actions = {
   },
   modifCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) formCourse(c); },
   supprCourse(d) { const c = state.courses.find((x) => x.id === d.id); if (c) confirmer('Supprimer cet article ?', `« ${c.nom} » sera retiré de la liste.`, 'Supprimer', () => ecrire({ cle: 'courses', op: 'delete', ligne: { id: c.id } })); },
+  coursesVider() {
+    const l = [...state.courses]; if (!l.length) return;
+    confirmer('Vider toute la liste ?', `Les ${l.length} article${l.length > 1 ? 's' : ''} de la liste de courses seront retirés.`, 'Tout vider', () => supprimerCourses(l));
+  },
+  coursesGarder() {
+    const l = [...state.courses].sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' })); if (!l.length) return;
+    fenetre('Garder quels articles ?', `<p style="margin:0;font-size:16px;color:var(--doux)">Coche ce que tu veux <b>garder</b>. Tout le reste sera retiré de la liste.</p>
+      <div class="cc-liste">${l.map((c) => `<label><input type="checkbox" name="garder" value="${c.id}"><span class="ic-article" aria-hidden="true">${iconeArticle(c.nom)}</span><span class="tx">${esc(c.nom)}${c.quantite ? ` <small>${esc(c.quantite)}</small>` : ''}</span></label>`).join('')}</div>
+      <div class="rangee"><button class="gros-btn" style="background:#B3261E" data-a="coursesGarderOk">Retirer les autres</button><button class="gros-btn second" data-a="fermer">Annuler</button></div>`);
+  },
+  coursesGarderOk() {
+    const garder = new Set([...zFen.querySelectorAll('input[name=garder]:checked')].map((x) => x.value));
+    const l = state.courses.filter((c) => !garder.has(c.id)); fermer();
+    if (!l.length) return toast('Rien à retirer : tout est gardé.');
+    supprimerCourses(l, garder.size);
+  },
   viderPris() { const pris = state.courses.filter((c) => c.pris); confirmer('Vider les articles pris ?', `${pris.length} article(s) seront retirés de la liste.`, 'Vider', () => ecrire(pris.map((c) => ({ cle: 'courses', op: 'delete', ligne: { id: c.id } })))); },
   nouvelleNote() { formNote(null); },
   modifNote(d) { const n = state.notes.find((x) => x.id === d.id); if (n) formNote(n); },
