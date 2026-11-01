@@ -19,7 +19,7 @@ const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() ||
 
 const cadre = document.getElementById('cadre');
 const scene = document.getElementById('scene');
-scene.innerHTML = '<div id="vue"></div><div id="page"></div><div id="effet"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div>';
+scene.innerHTML = '<div id="vue"></div><div id="batt" role="img"></div><div id="page"></div><div id="effet"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div>';
 const vue = document.getElementById('vue');
 const zVeille = document.getElementById('veille');
 const zFen = document.getElementById('fen');
@@ -1309,6 +1309,21 @@ scene.addEventListener('submit', (e) => {
   Promise.resolve(formulaires[f.dataset.form](f, e.submitter)).catch((x) => toast(messageErreur(x)));
 });
 
+// ---------- Batterie (petit indicateur discret en haut à droite) ----------
+async function suivreBatterie() {
+  const z = document.getElementById('batt'); if (!z || !navigator.getBattery) return;
+  try {
+    const b = await navigator.getBattery();
+    const maj = () => {
+      const p = Math.round(b.level * 100); const larg = Math.max(1, Math.round(b.level * 18));
+      z.className = !b.charging && p <= 20 ? 'faible' : b.charging ? 'charge' : '';
+      z.setAttribute('aria-label', `Batterie ${p} %${b.charging ? ', en charge' : ''}`);
+      z.innerHTML = `<svg width="26" height="13" viewBox="0 0 26 13" aria-hidden="true"><rect x=".75" y=".75" width="21.5" height="11.5" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4" width="2" height="5" rx="1" fill="currentColor"/><rect x="2.5" y="2.5" width="${larg}" height="8" rx="1.5" fill="currentColor"/></svg><span>${b.charging ? '⚡' : ''}${p} %</span>`;
+    };
+    ['levelchange', 'chargingchange'].forEach((e) => b.addEventListener(e, maj)); maj();
+  } catch (e) { /* non disponible */ }
+}
+
 // ---------- Écran toujours allumé + plein écran ----------
 let verrou = null;
 async function garderAllume() {
@@ -1347,6 +1362,7 @@ async function demarrer() {
   setInterval(photoSuivante, 5 * 60000); // une photo toutes les 5 minutes la nuit
   setInterval(verifierInactivite, 10000);
   // Le verrou « écran allumé » peut être relâché par Android (économie d'énergie, appel…) : on le redemande toutes les 30 s
+  suivreBatterie();
   garderAllume(); setInterval(() => { if (document.visibilityState === 'visible') garderAllume(); }, 30000);
   setInterval(annonces, 20000);
   setInterval(tickMinuteurs, 1000); rendreMin();

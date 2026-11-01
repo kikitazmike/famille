@@ -461,3 +461,8 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 /* Légende du sucre (Repas) */
 .sucre-legende { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: 13px; color: var(--doux); background: #fff; border-radius: 12px; padding: 8px 12px; }
 .sucre-legende span { display: inline-flex; align-items: center; gap: 5px; }
+/* Batterie discrète */
+#batt { position: absolute; top: 14px; right: 24px; z-index: 5; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--pale); opacity: .75; pointer-events: none; }
+#batt:empty { display: none; }
+#batt.charge { color: #2E9E5B; }
+#batt.faible { color: #B3261E; opacity: 1; font-weight: 600; }
