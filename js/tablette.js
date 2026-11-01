@@ -345,7 +345,19 @@ function rendreVeille() {
   }
 }
 // La photo entière est affichée (« ajuster ») ; le vide autour est rempli par la même photo floutée
-function poserPhoto(el, url) { const u = `url('${String(url).replace(/'/g, '%27')}')`; el.querySelector('.fond').style.backgroundImage = u; el.querySelector('.img').style.backgroundImage = u; el.querySelector('.img').style.animation = 'none'; void el.offsetWidth; el.querySelector('.img').style.animation = ''; }
+// Cadrage : une photo en paysage remplit l'écran (léger rognage, visages plutôt en haut) ;
+// une photo en portrait ou très allongée est affichée en entier sur un fond flouté
+function cadrerPhoto(img, r) {
+  const remplir = r >= 1.25 && r <= 2.1;
+  img.style.backgroundSize = remplir ? 'cover' : 'contain';
+  img.style.backgroundPosition = remplir ? 'center 35%' : 'center';
+}
+function poserPhoto(el, url) {
+  const u = `url('${String(url).replace(/'/g, '%27')}')`; const img = el.querySelector('.img');
+  el.querySelector('.fond').style.backgroundImage = u; img.style.backgroundImage = u; img.dataset.u = url; cadrerPhoto(img, 0);
+  const test = new Image(); test.onload = () => { if (img.dataset.u === url) cadrerPhoto(img, test.naturalWidth / test.naturalHeight); }; test.src = url;
+  img.style.animation = 'none'; void el.offsetWidth; img.style.animation = '';
+}
 function photoSuivante() {
   if (!enVeille() || ui.photos.length < 2) return;
   ui.photoIdx = (ui.photoIdx + 1) % ui.photos.length;
@@ -419,7 +431,7 @@ function pageCourses() {
 }
 function pageNotes() {
   const notes = state.notes.slice().sort((a, b) => (b.epingle - a.epingle) || (a.created_at < b.created_at ? 1 : -1));
-  return { titre: `Notes <small>· ${notes.length}</small>`, outils: `<button class="btn fort" data-a="nouvelleNote">${i('ajouter', 18, 2.2)}Nouvelle note</button>`,
+  return { titre: `Notes <small>· ${notes.length}</small>`, outils: `${voixOk() ? `<button class="btn ${ui.ecoute ? 'ecoute' : ''}" data-a="parler" data-v="note">${i('micro', 18, 2)}Dicter une note</button>` : ''}<button class="btn fort" data-a="nouvelleNote">${i('ajouter', 18, 2.2)}Nouvelle note</button>`,
     corps: `<div class="grille-notes">${notes.map((n) => { const a = membre(n.auteur); const p = n.pour ? membre(n.pour) : null; return `<article class="note-p">
       <div class="haut-n"><small style="color:${a ? a.couleur : 'var(--pale)'}">${esc(a ? a.prenom : '')} · ${esc(depuis(n.created_at))}</small>
         <button class="btn rond ${n.epingle ? 'actif' : ''}" data-a="epingler" data-id="${n.id}" aria-pressed="${n.epingle}" aria-label="${n.epingle ? 'Désépingler' : 'Épingler'}">${i('epingle', 18, n.epingle ? 2.4 : 1.8)}</button></div>
@@ -587,7 +599,7 @@ function formCourse(c) {
 }
 function formNote(n) {
   fenetre(n ? 'Modifier la note' : 'Nouvelle note', `<form data-form="note" data-id="${n ? n.id : ''}" style="display:flex;flex-direction:column;gap:14px">
-    <label class="champ">Note<textarea name="texte" required maxlength="2000" rows="4" style="padding:12px 16px;border-radius:14px;border:1px solid #DCD2C3;font-size:18px">${esc(n ? n.texte : '')}</textarea></label>
+    <label class="champ">Note<textarea name="texte" required maxlength="2000" rows="4" style="padding:12px 16px;border-radius:14px;border:1px solid #DCD2C3;font-size:18px">${esc(n ? n.texte : '')}</textarea></label>${voixOk() ? `<button type="button" class="gros-btn second" data-a="parler" data-v="champNote" style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px">${i('micro', 20, 2)} Dicter le texte</button>` : ''}
     <div class="rangee"><label class="champ">Pour<select name="pour"><option value="">Tous</option>${personnes().map((p) => `<option value="${p.id}" ${n && n.pour === p.id ? 'selected' : ''}>${esc(p.prenom)}</option>`).join('')}</select></label>
       <div class="champ">&nbsp;<div class="choix"><label><input type="checkbox" name="epingle" ${n && n.epingle ? 'checked' : ''}>Épingler</label></div></div></div>
     <div class="rangee"><button class="gros-btn">Enregistrer</button><button type="button" class="gros-btn second" data-a="fermer">Annuler</button></div></form>`);
@@ -771,6 +783,11 @@ document.addEventListener('pointerup', () => { if (avalerClic) setTimeout(() => 
 document.addEventListener('click', (e) => { if (avalerClic) { e.preventDefault(); e.stopPropagation(); avalerClic = false; } }, { capture: true });
 function verifierInactivite() {
   if (!state.moi || enVeille()) return;
+  // Réveil silencieux au début de chaque heure, de 7 h à 21 h : retour à l'accueil normal
+  const maint = new Date(); const cle = `${isoDate(maint)}-${maint.getHours()}`;
+  if (effetActif() && maint.getMinutes() === 0 && maint.getHours() >= 7 && maint.getHours() <= 21 && ui.reveilHeure !== cle) {
+    ui.reveilHeure = cle; arreterEffet(); ui.derniere = Date.now(); return;
+  }
   const calme = Date.now() - ui.derniere;
   if (!effetActif() && !ui.alerte && !horsAccueil() && reglages.effet !== 'aucun' && calme > 10 * 60000) { lancerEffet(); return; }
   if (ui.alerte) { if (Date.now() - ui.alerte > 60000) retourAccueil(); return; }
@@ -802,7 +819,8 @@ function fenReglages() {
 }
 
 // ---------- Voix ----------
-async function parler() {
+async function parler(d) {
+  const contexte = d && d.v;
   if (ui.ecoute) { [ecouterLocal.arreter, ecouter.arreter].forEach((a) => a && a()); return; }
   ui.ecoute = true; rendre();
   let t;
@@ -818,7 +836,9 @@ async function parler() {
     } else t = await ecouter();
   } catch (e) { ui.ecoute = false; rendre(); return toast(e.message); }
   ui.ecoute = false; zToast.innerHTML = ''; rendre();
-  const c = comprendre(t, personnes().map((p) => p.prenom));
+  if (contexte === 'champNote') { const ta = zFen.querySelector('form[data-form=note] textarea'); if (ta) { ta.value = `${ta.value.trim() ? ta.value.trim() + ' ' : ''}${majuscule(t.trim())}`.slice(0, 2000); ta.focus(); } return; }
+  let c = comprendre(t, personnes().map((p) => p.prenom));
+  if (contexte === 'note' && c.type !== 'note') c = { type: 'note', texte: majuscule(t.trim()) };
   if (c.type === 'course') {
     const { nouveaux, deja } = sansDoublons(c.noms);
     if (!nouveaux.length) { toast(`Déjà dans la liste : ${deja.join(', ')}`); parlerSi(`${enumerer(deja)}, c'est déjà dans la liste.`); return; }

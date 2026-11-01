@@ -368,7 +368,7 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .veille .photo { background: none !important; }
 .veille .photo .fond { position: absolute; inset: -60px; background-size: cover; background-position: center; filter: blur(40px) brightness(.55); }
 .veille .photo .img { position: absolute; inset: 0; background-size: contain; background-repeat: no-repeat; background-position: center; animation: veilleZoom 300s ease-in-out both; }
-@keyframes veilleZoom { from { transform: scale(1); } to { transform: scale(1.06); } }
+@keyframes veilleZoom { from { transform: scale(1); } to { transform: scale(1.03); } }
 
 /* Effets n° 5 à 10 (l'accueil animé) */
 .eff-copie { position: absolute; width: 1280px; height: 800px; overflow: hidden; }
