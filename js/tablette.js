@@ -201,6 +201,11 @@ function vueJour(jour, estAujourdhui) {
   return `${jt}<div class="axe">${labels.join('')}${soleil}${maint}</div><div class="couloirs">${couloirs}${ligneMaint}</div>`;
 }
 
+// Anniversaires d'un jour donné (avec l'âge fêté)
+function annivsDu(j) {
+  const k = `${String(j.getMonth() + 1).padStart(2, '0')}-${String(j.getDate()).padStart(2, '0')}`;
+  return (state.anniv || []).filter((a) => a.mois_jour === k).map((a) => ({ nom: a.nom, age: a.annee ? j.getFullYear() - a.annee : null }));
+}
 function vueSemaine() {
   const lundi = debutSemaine(ui.ref); const auj = debutJour(new Date());
   return `<div class="vue-semaine">${Array.from({ length: 7 }, (_, k) => {
@@ -208,7 +213,7 @@ function vueSemaine() {
     const occs = occsJour(j).sort((a, b) => a.debut - b.debut);
     const trav = personnes().map((p) => ({ p, t: typeDuJour(p.id, isoDate(j)) })).filter((x) => x.t);
     const blocTrav = trav.length ? `<div class="pl-sem">${trav.map(({ p, t }) => `<div><i style="background:${p.couleur}"></i><span>${esc(p.prenom.slice(0, 7))}</span>${etiq(t)}<small>${esc(t.repos ? '' : horaires(t).replace(/ h /g, 'h').replace(/ h/g, 'h'))}</small></div>`).join('')}</div>` : '';
-    return `<div class="j ${memeJour(j, auj) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(j)}" role="button" tabindex="0" aria-label="Voir le ${JOURS[k]} ${j.getDate()}"><h3>${JOURS_COURTS[k]} ${j.getDate()}</h3>${blocTrav}
+    return `<div class="j ${memeJour(j, auj) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(j)}" role="button" tabindex="0" aria-label="Voir le ${JOURS[k]} ${j.getDate()}"><h3>${JOURS_COURTS[k]} ${j.getDate()}</h3>${annivsDu(j).map((a) => `<div class="an-sem">🎂 <b>${esc(a.nom)}</b>${a.age ? ` · ${a.age} ans` : ''}</div>`).join('')}${blocTrav}
       ${occs.slice(0, 7).map((o) => { const ids = liensDe(o.ev.id); return `<div class="e"><i style="background:${tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i><span>${o.ev.journee_entiere ? '' : `<b style="font-weight:600">${hhmm(o.debut)}</b> `}${esc(o.ev.titre)}</span></div>`; }).join('')}
       ${occs.length > 7 ? `<span class="vide" style="font-size:12px">+${occs.length - 7} autres</span>` : ''}${!occs.length ? '<span class="vide" style="font-size:13px">Libre</span>' : ''}</div>`;
   }).join('')}</div>`;
@@ -222,7 +227,7 @@ function vueMois() {
   const visibles = fin > 0 ? cases.slice(0, fin) : cases;
   return `<div class="vue-mois">${JOURS_COURTS.map((j) => `<div class="t">${j}</div>`).join('')}${visibles.map((d) => {
     const occs = occsJour(d);
-    return `<div class="c ${d.getMonth() !== r.getMonth() ? 'hors' : ''} ${memeJour(d, n) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(d)}" role="button" tabindex="0" aria-label="Voir le ${d.getDate()} ${MOIS[d.getMonth()]}"><span>${d.getDate()}</span>${(() => { const tr = personnes().map((p) => ({ p, t: typeDuJour(p.id, isoDate(d)) })).filter((x) => x.t); return tr.length ? `<span class="pl-mo">${tr.map(({ p, t }) => `<span style="background:${fondType(t)};color:${texteType(t)};box-shadow:inset 0 -3px 0 ${p.couleur}" title="${esc(p.prenom)} : ${esc(t.nom)}">${esc(t.code)}</span>`).join('')}</span>` : ''; })()}<span class="pts">${occs.slice(0, 6).map((o) => { const ids = liensDe(o.ev.id); return `<i style="background:${memeJour(d, n) ? '#fff' : tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i>`; }).join('')}</span></div>`;
+    return `<div class="c ${d.getMonth() !== r.getMonth() ? 'hors' : ''} ${memeJour(d, n) ? 'auj' : ''}" data-a="allerJour" data-v="${isoDate(d)}" role="button" tabindex="0" aria-label="Voir le ${d.getDate()} ${MOIS[d.getMonth()]}"><span>${d.getDate()}${(() => { const a = annivsDu(d); return a.length ? ` <em class="an-mo" title="${esc(a.map((x) => x.nom).join(', '))}">🎂</em>` : ''; })()}</span>${(() => { const tr = personnes().map((p) => ({ p, t: typeDuJour(p.id, isoDate(d)) })).filter((x) => x.t); return tr.length ? `<span class="pl-mo">${tr.map(({ p, t }) => `<span style="background:${fondType(t)};color:${texteType(t)};box-shadow:inset 0 -3px 0 ${p.couleur}" title="${esc(p.prenom)} : ${esc(t.nom)}">${esc(t.code)}</span>`).join('')}</span>` : ''; })()}<span class="pts">${occs.slice(0, 6).map((o) => { const ids = liensDe(o.ev.id); return `<i style="background:${memeJour(d, n) ? '#fff' : tous(ids) ? 'var(--accent)' : couleurDe(ids) || 'var(--accent)'}"></i>`; }).join('')}</span></div>`;
   }).join('')}</div>`;
 }
 
@@ -490,6 +495,7 @@ function pageRepas() {
   if (f === 'mes') l = l.filter((r) => r.cree_par); else if (f !== 'tous') l = l.filter((r) => (r.tags || []).includes(f));
   const af = repasAFaire();
   const gauche = `<div class="rp-gauche"><input class="rp-cherche" data-rp-cherche placeholder="🔎 Écrire le nom d'une recette…" aria-label="Chercher une recette" autocomplete="off">
+    <div class="sucre-legende" role="note"><b>Sucre par portion :</b><span>${pastilleSucre('vert')} peu sucré</span><span>${pastilleSucre('orange')} avec modération</span><span>${pastilleSucre('rouge')} à éviter</span></div>
     <div class="rp-filtres">${[['tous', 'Tous'], ['mes', '★ Mes recettes'], ...TAGS].map(([v, t]) => `<button class="${f === v ? 'on' : ''}" data-a="rpFiltre" data-v="${v}">${esc(t)}</button>`).join('')}</div>
     <div class="rp-liste">${l.map((r) => `<button class="rp-item ${ui.rp.id === r.id ? 'on' : ''}" data-a="rpVoir" data-id="${r.id}" data-nom="${esc(cleNom(r.nom))}"><span class="ic">${esc(r.icone)}</span><span class="tx"><b>${esc(r.nom)} ${pastilleSucre(sucreRecette(r).niveau)}</b><small>${(r.ingredients || []).length} ingrédients${r.duree ? ' · ' + esc(r.duree) : ''}</small></span></button>`).join('')}
       <p class="vide rp-aucun" hidden>Aucune recette : touche « + Nouvelle recette » pour la créer.</p></div>

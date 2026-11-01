@@ -454,3 +454,10 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .cc-liste input { width: 26px; height: 26px; accent-color: #2E9E5B; flex-shrink: 0; }
 .cc-liste .tx small { color: var(--pale); font-size: 14px; }
 .cc-liste label:has(input:checked) { background: #E8F7EE; box-shadow: inset 0 0 0 2px #2E9E5B; }
+/* Anniversaires dans le calendrier */
+.an-sem { background: #FDE7C9; color: #8A4B08; border-radius: 10px; padding: 4px 8px; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
+.an-sem b { font-weight: 600; }
+.an-mo { font-style: normal; font-size: 13px; }
+/* Légende du sucre (Repas) */
+.sucre-legende { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: 13px; color: var(--doux); background: #fff; border-radius: 12px; padding: 8px 12px; }
+.sucre-legende span { display: inline-flex; align-items: center; gap: 5px; }
