@@ -251,7 +251,18 @@ export function comprendre(texte, prenoms = []) {
   }
   // Musique : « mets NRJ », « mets la radio France Inter », « joue Indochine », « mets les tubes des années 80 », « pause », « plus fort »…
   {
-    const q = n.replace(/[?!.]/g, '').replace(/\s+/g, ' ').trim();
+    let q = n.replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim()
+      .replace(/^(s'il te plait|s'il vous plait|stp|svp) /, '').replace(/ (s'il te plait|s'il vous plait|stp|svp)$/, '')
+      .replace(/^(?:mets|met|mettre)[- ]moi /, 'mets ').replace(/^(?:est-ce que )?(?:tu peux|peux-tu|pourrais-tu|tu pourrais) (?:me |nous )?(?:mettre|remettre) /, 'mets ')
+      .replace(/^(?:tu peux|peux-tu|pourrais-tu|tu pourrais) (?:me |nous )?(?:jouer|lancer|passer) /, 'joue ')
+      .replace(/^(?:je voudrais|j'aimerais|je veux|on voudrait|on veut|j'ai envie d'|envie d'|on a envie d') ?(?:bien )?(?:ecouter|entendre) /, 'ecoute ')
+      .replace(/^(?:me |nous )(?:mettre|remettre) /, 'mets ').replace(/^(?:me |nous )(?:jouer|lancer|passer) /, 'joue ');
+    // « musique », « de la musique », « musique années 80 », « je veux de la musique », « radio »
+    const seule = q.replace(/^(?:je veux|je voudrais|j'aimerais|on veut|un peu de|mets|met|mettre|lance|joue|ecoute|ecouter) /, '').match(/^(?:de la |la |un peu de |de |des )?(musique|musiques|radio)(?: (.+))?$/);
+    if (seule && !/^(?:ajoute|note)/.test(q)) {
+      if (seule[1] === 'radio') return { type: 'musique', action: 'jouer', radio: true, q: seule[2] || '', texte: t };
+      return { type: 'musique', action: 'jouer', radio: false, q: seule[2] ? `musique ${seule[2]}` : 'hits musique 2026', texte: t };
+    }
     const RADIOS = /^(france inter|inter|franceinfo|france info|rtl ?2|rtl deux|rtl|nrj|nostalgie|cherie fm|cherie|rfm|europe 1|europe un|fun radio|fun|skyrock|nti|n t i|hit ?west|hit ouest)$/;
     if (/^(pause|mets? (sur )?pause|met en pause|pause (la )?(musique|radio|video))$/.test(q)) return { type: 'musique', action: 'pause', texte: t };
     if (/^(reprends|reprend|continue|relance|play|remets? (la )?(musique|radio))$/.test(q)) return { type: 'musique', action: 'reprendre', texte: t };

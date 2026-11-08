@@ -55,6 +55,7 @@ function essayer(url) {
   });
 }
 export async function jouerRadio(nom) {
+  if (!nom) { try { nom = localStorage.getItem('famille-derniere-radio') || 'NRJ'; } catch (e) { nom = 'NRJ'; } }
   const connue = radioConnue(nom); const cherche = connue ? connue.cherche : nom;
   arreterMusique(false);
   const essais = [...((connue && connue.urls) || [])];
@@ -67,6 +68,7 @@ export async function jouerRadio(nom) {
       if (etat.mode !== 'radio') { audio.pause(); audio = null; return ''; }
       audio.addEventListener('error', () => { if (etat.mode === 'radio') { etat.erreur = 'La radio a coupé.'; prevenir(); } });
       etat.sous = 'Radio en direct'; prevenir();
+      try { localStorage.setItem('famille-derniere-radio', connue ? connue.nom : nom); } catch (e) { /* ignore */ }
       return etat.titre;
     } catch (e) { if (e && e.name === 'NotAllowedError') { arreterMusique(); throw e; } }
   }
