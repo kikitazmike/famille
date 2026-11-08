@@ -10,8 +10,8 @@ export const RADIOS = [
   { nom: 'NRJ', cherche: 'NRJ', ic: '⚡' }, { nom: 'Nostalgie', cherche: 'Nostalgie', ic: '🕺' }, { nom: 'Chérie FM', cherche: 'Cherie FM', ic: '💖' },
   { nom: 'RFM', cherche: 'RFM', ic: '🎶' }, { nom: 'Europe 1', cherche: 'Europe 1', ic: '🗞️' }, { nom: 'Fun Radio', cherche: 'Fun Radio', ic: '🎉' },
   { nom: 'Skyrock', cherche: 'Skyrock', ic: '🎤' },
-  { nom: 'NTI', cherche: 'NTI', ic: '🎧', urls: ['https://streaming.radionti.com/nti-128.mp3'] },
-  { nom: 'Hit West', cherche: 'hitwest', ic: '🌊', urls: ['https://stream.rcs.revma.com/nvsuedfwcy3vv'] },
+  { nom: 'NTI', cherche: 'NTI', ic: '🎧', exact: true, urls: ['https://manager11.streamradio.fr:3635/stream', 'https://proxy.webradio.tools/51.15.166.151:80/nti-128.mp3'] }, // flux officiel de radionti.com (Nantes 93.4)
+  { nom: 'Hit West', cherche: 'hitwest', ic: '🌊', exact: true, urls: ['https://stream.rcs.revma.com/nvsuedfwcy3vv'] },
 ];
 const sansAccent = (x) => (x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 export function radioConnue(texte) {
@@ -59,7 +59,8 @@ export async function jouerRadio(nom) {
   const connue = radioConnue(nom); const cherche = connue ? connue.cherche : nom;
   arreterMusique(false);
   const essais = [...((connue && connue.urls) || [])];
-  const trouvee = await chercherStation(cherche); if (trouvee && !essais.includes(trouvee.url)) essais.push(trouvee.url);
+  // Radio à adresse officielle connue : pas de recherche dans l'annuaire (évite de tomber sur une radio du même nom)
+  const trouvee = connue && connue.exact ? null : await chercherStation(cherche); if (trouvee && !essais.includes(trouvee.url)) essais.push(trouvee.url);
   if (!essais.length) throw new Error(`Je ne trouve pas la radio ${nom}.`);
   etat = { ...etat, mode: 'radio', titre: connue ? connue.nom : (trouvee ? trouvee.nom : nom), sous: 'Connexion…', ic: connue ? connue.ic : '📻', pause: false, erreur: '' }; prevenir();
   for (const url of essais) {
