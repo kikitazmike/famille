@@ -518,7 +518,7 @@ async function lancerMusique(q, radio) {
     return (e && e.message) || 'Je n\'arrive pas à lancer la musique.';
   }
 }
-const IDEES_YT = ['Tubes des années 80', 'Tubes des années 90', 'Tubes des années 2000', 'Jean-Jacques Goldman', 'Indochine', 'Johnny Hallyday', 'Céline Dion', 'Musique relaxante', 'Rock classique', 'Hits du moment'];
+const IDEES_YT = ['Tubes des années 80', 'Tubes des années 90', 'Tubes des années 2000', 'Rap 90s', 'Dorothée', 'Claude François', 'Rock 80s', 'Disco', 'Funk', 'Variété française des années 80 à aujourd\'hui', 'Musique relaxante', 'Rock classique', 'Hits du moment'];
 function pageMusique() {
   const e = etatMusique();
   return {
