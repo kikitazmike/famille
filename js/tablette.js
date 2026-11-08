@@ -12,7 +12,7 @@ import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { lireAliments, ajouterAliments, categoriesTuiles, tuilesAliments, basculerAliment, cleAliment, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
 import { dire, direEtAttendre, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 import { demarrerReveil, arreterReveil } from './reveil.js';
-import { RADIOS, jouerRadio, jouerYoutube, pauseMusique, reprendreMusique, suivant as musiqueSuivante, precedent as musiquePrecedente, volumeMusique, baisserMusique, tailleVideo, arreterMusique, etatMusique, quandMusiqueChange } from './musique.js';
+import { RADIOS, jouerRadio, jouerYoutube, pauseMusique, reprendreMusique, suivant as musiqueSuivante, precedent as musiquePrecedente, volumeMusique, baisserMusique, tailleVideo, arreterMusique, etatMusique, quandMusiqueChange, jouerListe, videoEnCours } from './musique.js';
 const VERSION_APPLI = VERSION;
 import { EFFETS, effetDuJour, demarrerEffet, arreterEffet, effetActif } from './effets.js';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
@@ -502,6 +502,7 @@ function majLecteur() {
     <button class="lc-b" data-a="${e.pause ? 'musReprendre' : 'musPause'}" aria-label="${e.pause ? 'Reprendre' : 'Pause'}">${e.pause ? '▶' : '⏸'}</button>
     ${e.mode === 'yt' ? `<button class="lc-b" data-a="musSuiv" aria-label="Suivant">⏭</button>` : ''}
     <button class="lc-b" data-a="musVol" data-v="-15" aria-label="Moins fort">🔉</button><button class="lc-b" data-a="musVol" data-v="15" aria-label="Plus fort">🔊</button>
+    ${e.mode === 'yt' ? `<button class="lc-b coeur" data-a="musCoeur" aria-label="Enregistrer dans les favoris">♥</button>` : ''}
     ${e.mode === 'yt' ? `<button class="lc-b" data-a="musTaille" aria-label="${e.taille === 'grand' ? 'Réduire la vidéo' : 'Agrandir la vidéo'}">${e.taille === 'grand' ? '↘' : '⤢'}</button>` : ''}
     <button class="lc-b stop" data-a="musStop" aria-label="Arrêter la musique">✕</button>`;
 }
@@ -518,6 +519,29 @@ async function lancerMusique(q, radio) {
     return (e && e.message) || 'Je n\'arrive pas à lancer la musique.';
   }
 }
+// Favoris musique par personne
+const favorisDe = (id) => state.favoris.filter((f) => f.membre === id).sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+async function enregistrerFavori(p) {
+  const v = videoEnCours();
+  if (!v) return etatMusique().mode === 'radio' ? 'Je ne peux enregistrer que les musiques YouTube, pas la radio.' : 'Aucune musique YouTube en cours.';
+  if (state.favoris.some((f) => f.membre === p.id && f.video_id === v.id)) return `Elle est déjà dans les favoris de ${p.prenom}.`;
+  await ecrire([{ cle: 'favoris', op: 'insert', ligne: { id: crypto.randomUUID(), membre: p.id, video_id: v.id, titre: v.titre.slice(0, 200), chaine: (v.chaine || '').slice(0, 120) || null } }]);
+  return `C'est enregistré dans les favoris de ${p.prenom}.`;
+}
+async function retirerFavori(p) {
+  const v = videoEnCours(); if (!v) return 'Aucune musique YouTube en cours.';
+  const f = state.favoris.find((x) => x.membre === p.id && x.video_id === v.id);
+  if (!f) return `Elle n'est pas dans les favoris de ${p.prenom}.`;
+  await ecrire([{ cle: 'favoris', op: 'delete', ligne: { id: f.id } }]);
+  return `Retirée des favoris de ${p.prenom}.`;
+}
+function jouerFavoris(p, depart = 0) {
+  const l = favorisDe(p.id).map((f) => ({ id: f.video_id, titre: f.titre, chaine: f.chaine || '' }));
+  if (!l.length) return `${p.prenom} n'a pas encore de musique préférée. Pendant une musique, dis : enregistre-la sous ${p.prenom}.`;
+  jouerListe(l, zLecteur.querySelector('.video'), `Favoris de ${p.prenom}`, depart);
+  return `Je mets la musique préférée de ${p.prenom}.`;
+}
+const personneParPrenom = (x) => personnes().find((p) => p.prenom === x) || null;
 const IDEES_YT = ['Tubes des années 80', 'Tubes des années 90', 'Tubes des années 2000', 'Rap 90s', 'Dorothée', 'Claude François', 'Rock 80s', 'Disco', 'Funk', 'Variété française des années 80 à aujourd\'hui', 'Musique relaxante', 'Rock classique', 'Hits du moment'];
 function pageMusique() {
   const e = etatMusique();
@@ -527,9 +551,10 @@ function pageMusique() {
     corps: `<div class="mu-grille">
       <section><h3 class="fr-titre">📻 Radios</h3><div class="mu-radios">${RADIOS.map((r) => `<button class="mu-radio ${e.mode === 'radio' && e.titre === r.nom ? 'on' : ''}" data-a="musRadio" data-v="${esc(r.nom)}"><i>${r.ic}</i><span>${esc(r.nom)}</span></button>`).join('')}</div></section>
       <section><h3 class="fr-titre">▶️ YouTube</h3>
+        <div class="mu-onglets" role="tablist">${[['raccourcis', '⭐ Raccourcis', '']].concat(personnes().map((p) => [p.id, `♥ ${p.prenom}`, p.couleur])).map(([id, nom, coul]) => `<button role="tab" aria-selected="${(ui.muOnglet || 'raccourcis') === id}" class="${(ui.muOnglet || 'raccourcis') === id ? 'on' : ''}" data-a="muOnglet" data-v="${esc(id)}" ${coul ? `style="--c:${esc(coul)}"` : ''}>${esc(nom)}${id !== 'raccourcis' ? ` <small>${favorisDe(id).length}</small>` : ''}</button>`).join('')}</div>
         <form class="ajout-p" data-form="musique" autocomplete="off"><input name="q" maxlength="100" placeholder="Chanteur, groupe, chanson, année…" aria-label="Rechercher sur YouTube"><button class="gros-btn" aria-label="Chercher" style="font-size:22px">🔍</button></form>
-        <div class="mu-idees">${IDEES_YT.map((x) => `<button class="puce" data-a="musYt" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>
-        <p class="fr-aide">À la voix : « Hé tablette, mets NRJ », « joue Indochine », « mets les tubes des années 80 », puis « suivant », « pause », « plus fort », « stop la musique ».<br>YouTube peut afficher des publicités, et la vidéo doit rester visible (en grand ou dans le coin).</p>
+        ${(ui.muOnglet || 'raccourcis') === 'raccourcis' ? `<div class="mu-idees">${IDEES_YT.map((x) => `<button class="puce" data-a="musYt" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : (() => { const p = personnes().find((x) => x.id === ui.muOnglet); if (!p) return ''; const l = favorisDe(p.id); return l.length ? `<button class="gros-btn" data-a="musFavTout" data-v="${p.id}">▶ Tout écouter (${l.length})</button><div class="mu-favs">${l.map((f, k) => `<div class="mu-fav"><button class="tx" data-a="musFavJouer" data-v="${p.id}" data-k="${k}"><b>${esc(f.titre)}</b><small>${esc(f.chaine || '')}</small></button><button class="x" data-a="musFavSuppr" data-id="${f.id}" aria-label="Retirer ${esc(f.titre)}">✕</button></div>`).join('')}</div>` : `<p class="vide">Pas encore de musique préférée pour ${esc(p.prenom)}.<br>Pendant une musique YouTube, touche ♥ ou dis « Hé tablette, enregistre-la sous ${esc(p.prenom)} ».</p>`; })()}
+        <p class="fr-aide">À la voix : « Hé tablette, mets NRJ », « joue Indochine », « mets les tubes des années 80 », puis « suivant », « pause », « plus fort », « stop la musique ».<br>Favoris : « enregistre-la sous Michael », « mets la musique de Lucas ».<br>YouTube peut afficher des publicités, et la vidéo doit rester visible (en grand ou dans le coin).</p>
       </section></div>`,
   };
 }
@@ -910,6 +935,13 @@ async function parler(d) {
 async function agir(c, t) {
   if (c.type === 'musique') {
     const e = etatMusique();
+    if (c.action === 'favori' || c.action === 'defavori' || c.action === 'jouerFavoris') {
+      let p = c.prenom ? personneParPrenom(c.prenom) : null;
+      if (!p && enDialogue) { const r = normer(await demander('Sous quel prénom ?')); p = personnes().find((x) => r.includes(normer(x.prenom))) || null; }
+      if (!p) { repondreA('Dis le prénom, par exemple : enregistre-la sous Michael.'); return; }
+      const r = c.action === 'favori' ? await enregistrerFavori(p) : c.action === 'defavori' ? await retirerFavori(p) : jouerFavoris(p);
+      repondreA(r); return;
+    }
     if (c.action === 'jouer') { const r = await lancerMusique(c.q, c.radio); toast(`« ${t} » → ${r}`); if (!etatMusique().mode || etatMusique().mode === 'radio') parlerSi(r); return; }
     if (!e.mode) { toast('Aucune musique en cours.'); return; }
     if (c.action === 'pause') pauseMusique(); else if (c.action === 'reprendre') reprendreMusique(); else if (c.action === 'stop') arreterMusique();
@@ -1320,6 +1352,12 @@ const actions = {
   musVol(d) { const v = volumeMusique(Number(d.v)); toast(`Volume ${v} %`); },
   musTaille() { tailleVideo(); },
   musStop() { arreterMusique(); },
+  muOnglet(d) { ui.muOnglet = d.v; rendre(); },
+  musFavTout(d) { const p = personnes().find((x) => x.id === d.v); if (p) toast(jouerFavoris(p)); },
+  musFavJouer(d) { const p = personnes().find((x) => x.id === d.v); if (p) toast(jouerFavoris(p, Number(d.k))); },
+  musFavSuppr(d) { const f = state.favoris.find((x) => x.id === d.id); if (!f) return; ecrire([{ cle: 'favoris', op: 'delete', ligne: { id: f.id } }]).then(() => toast('Retirée des favoris.', () => ecrire([{ cle: 'favoris', op: 'insert', ligne: { ...f } }]))).catch(() => {}); },
+  musCoeur() { const v = videoEnCours(); if (!v) return; fenetre('Enregistrer dans les favoris', `<p style="margin:0;font-size:17px">${esc(v.titre)}</p><div class="rangee">${personnes().map((p) => `<button class="gros-btn" style="background:${esc(p.couleur || '#6D5BD0')}" data-a="musCoeurPour" data-v="${p.id}">♥ ${esc(p.prenom)}</button>`).join('')}</div><button class="gros-btn second" data-a="fermer">Annuler</button>`); },
+  async musCoeurPour(d) { const p = personnes().find((x) => x.id === d.v); fermer(); if (p) toast(await enregistrerFavori(p)); },
   frigoRetirer(d) { ui.frigo.splice(Number(d.k), 1); garderChoix(ui.frigo); rendre(); },
   frigoVider() { ui.frigo = []; garderChoix(ui.frigo); rendre(); },
   frigoCat(d) { ui.frigoCat = d.v; rendre(); },

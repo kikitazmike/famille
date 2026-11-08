@@ -9,11 +9,11 @@ const TABLES = {
   courses: 'courses', notes: 'notes', rappels: 'rappels',
   habituels: 'courses_habituels', messages: 'famille_messages',
   ptypes: 'planning_types', pjours: 'planning_jours',
-  recettes: 'recettes', repas: 'repas_prevus'
+  recettes: 'recettes', repas: 'repas_prevus', favoris: 'musique_favoris'
 };
 
 export const state = {
-  membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [], ptypes: [], pjours: [], recettes: [], repas: [],
+  membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [], ptypes: [], pjours: [], recettes: [], repas: [], favoris: [],
   config: null, anniv: [], moi: null, userId: null, enLigne: navigator.onLine, enAttente: 0
 };
 
@@ -59,7 +59,7 @@ export function chargerCache() {
 }
 export function viderCache() {
   try { localStorage.removeItem(CACHE); localStorage.removeItem(OUTBOX); } catch (e) { /* ignore */ }
-  Object.assign(state, { membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [], ptypes: [], pjours: [], recettes: [], repas: [], config: null, anniv: [], moi: null });
+  Object.assign(state, { membres: [], evenements: [], liens: [], courses: [], notes: [], rappels: [], habituels: [], messages: [], ptypes: [], pjours: [], recettes: [], repas: [], favoris: [], config: null, anniv: [], moi: null });
 }
 
 function majMoi() {

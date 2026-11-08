@@ -258,6 +258,16 @@ export function comprendre(texte, prenoms = []) {
       .replace(/^(?:tu peux|peux-tu|pourrais-tu|tu pourrais) (?:me |nous )?(?:jouer|lancer|passer) /, 'joue ')
       .replace(/^(?:je voudrais|j'aimerais|je veux|on voudrait|on veut|j'ai envie d'|envie d'|on a envie d') ?(?:bien )?(?:ecouter|entendre) /, 'ecoute ')
       .replace(/^(?:me |nous )(?:mettre|remettre) /, 'mets ').replace(/^(?:me |nous )(?:jouer|lancer|passer) /, 'joue ');
+    // Favoris : « enregistre-la sous Michael », « ajoute-la aux favoris de Lucas », « mets la musique de Morgane », « enlève-la des favoris de Michael »
+    {
+      const p = prenoms.find((x) => new RegExp(`\\b${sansAccent(x)}\\b`).test(q));
+      if (/\b(enregistre|enregistrer|sauvegarde|sauvegarder|garde)[- ]?(la|le|ca|cette|ce)?\b|\bfavori|\bprefere/.test(q) && !/\bnote\b/.test(q)) {
+        if (/\b(enleve|enlever|retire|retirer|supprime|supprimer|efface|effacer)\b/.test(q)) return { type: 'musique', action: 'defavori', prenom: p || null, texte: t };
+        if (/^(mets|met|joue|lance|ecoute|passe)\b/.test(q) && !/\b(enregistre|ajoute|garde|sauvegarde)/.test(q)) return { type: 'musique', action: 'jouerFavoris', prenom: p || null, texte: t };
+        return { type: 'musique', action: 'favori', prenom: p || null, texte: t };
+      }
+      if (p && /^(mets|met|joue|lance|ecoute|passe)\b/.test(q) && /\b(musique|musiques|chansons?|playlist|titres?)\b/.test(q)) return { type: 'musique', action: 'jouerFavoris', prenom: p, texte: t };
+    }
     // « musique », « de la musique », « musique années 80 », « je veux de la musique », « radio »
     const seule = q.replace(/^(?:je veux|je voudrais|j'aimerais|on veut|un peu de|mets|met|mettre|lance|joue|ecoute|ecouter) /, '').match(/^(?:de la |la |un peu de |de |des )?(musique|musiques|radio)(?: (.+))?$/);
     if (seule && !/^(?:ajoute|note)/.test(q)) {

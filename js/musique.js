@@ -103,6 +103,13 @@ window.addEventListener('message', (e) => {
 export async function jouerYoutube(q, conteneur) {
   const l = await chercherYoutube(q);
   if (!l.length) throw new Error(`Rien trouvé sur YouTube pour « ${q} ».`);
+  return jouerListe(l, conteneur, q);
+}
+// Joue une liste de vidéos déjà connues ({ id, titre, chaine }), à partir de « depart »
+export function jouerListe(l0, conteneur, nomListe = '', depart = 0) {
+  const l = [...l0.slice(depart), ...l0.slice(0, depart)];
+  if (!l.length) throw new Error('Liste vide.');
+  const q = nomListe;
   arreterMusique(false);
   const ids = l.map((v) => v.id);
   cadreYt = document.createElement('iframe');
@@ -116,6 +123,8 @@ export async function jouerYoutube(q, conteneur) {
   prevenir();
   return l[0].titre;
 }
+// Vidéo en cours ({ id, titre, chaine }) ou null
+export const videoEnCours = () => (etat.mode === 'yt' ? etat.liste[etat.index] || null : null);
 
 // ---------- Commandes ----------
 export function pauseMusique() { if (etat.mode === 'radio' && audio) audio.pause(); if (etat.mode === 'yt') envoyerYt('pauseVideo'); etat.pause = true; prevenir(); }
