@@ -12,7 +12,7 @@ import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { lireAliments, ajouterAliments, categoriesTuiles, tuilesAliments, basculerAliment, cleAliment, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
 import { dire, direEtAttendre, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 import { demarrerReveil, arreterReveil } from './reveil.js';
-import { RADIOS, jouerRadio, jouerYoutube, pauseMusique, reprendreMusique, suivant as musiqueSuivante, precedent as musiquePrecedente, volumeMusique, baisserMusique, tailleVideo, arreterMusique, etatMusique, quandMusiqueChange, jouerListe, videoEnCours } from './musique.js';
+import { RADIOS, jouerRadio, jouerYoutube, pauseMusique, reprendreMusique, suivant as musiqueSuivante, precedent as musiquePrecedente, volumeMusique, baisserMusique, tailleVideo, arreterMusique, etatMusique, quandMusiqueChange, jouerListe, videoEnCours, radioConnue } from './musique.js';
 const VERSION_APPLI = VERSION;
 import { EFFETS, effetDuJour, demarrerEffet, arreterEffet, effetActif } from './effets.js';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
@@ -927,8 +927,16 @@ async function parler(d) {
     if (contexte === 'champNote') { const ta = zFen.querySelector('form[data-form=note] textarea'); if (ta) { ta.value = `${ta.value.trim() ? ta.value.trim() + ' ' : ''}${majuscule(t.trim())}`.slice(0, 2000); ta.focus(); } return; }
     let c = comprendre(t, personnes().map((p) => p.prenom));
     if (contexte === 'note' && c.type !== 'note') c = { type: 'note', texte: majuscule(t.trim()) };
+    journaliser(contexte === 'note' ? 'bouton-note' : 'parler', t, c);
     await agir(c, t);
   } finally { baisserMusique(false); relancerReveil(); }
+}
+
+// Journal de ce que la tablette entend (14 jours, pour corriger la compréhension)
+function journaliser(source, texte, compris) {
+  if (!texte || !state.moi) return;
+  const resume = typeof compris === 'string' ? compris : compris ? [compris.type, compris.action, compris.sujet, compris.q, compris.noms && compris.noms.join(','), compris.texte && compris.type === 'note' ? compris.texte : '', compris.devine ? 'devine' : ''].filter(Boolean).join(' | ') : '';
+  sb.from('voix_journal').insert({ source, texte: String(texte).slice(0, 500), compris: resume.slice(0, 300) || null }).then(() => {}, () => {});
 }
 
 // Exécute une demande comprise
@@ -941,6 +949,18 @@ async function agir(c, t) {
       if (!p) { repondreA('Dis le prénom, par exemple : enregistre-la sous Michael.'); return; }
       const r = c.action === 'favori' ? await enregistrerFavori(p) : c.action === 'defavori' ? await retirerFavori(p) : jouerFavoris(p);
       repondreA(r); return;
+    }
+    if (c.action === 'jouer' && !c.q) {
+      // « écoute la radio », « mets de la musique » sans préciser : on ouvre la page Musique et on demande
+      ui.page = 'musique'; ui.muOnglet = 'raccourcis'; rendre();
+      if (!enDialogue) { repondreA(c.radio ? 'Quelle radio ? Touche une tuile, ou dis par exemple : mets NRJ.' : 'Qu\'est-ce que tu veux écouter ? Touche un raccourci, ou dis par exemple : joue Claude François.'); return; }
+      const x = await demander(c.radio ? 'Quelle radio ?' : 'Qu\'est-ce que tu veux écouter ?');
+      if (!x) { toast('Je n\'ai rien entendu.'); return; }
+      const c2 = comprendre(x, personnes().map((p) => p.prenom));
+      if (c2.type === 'musique' && c2.action === 'jouer' && c2.q) { const r = await lancerMusique(c2.q, c2.radio); repondreA(r); return; }
+      if (c2.type === 'musique' && c2.action === 'jouerFavoris') { await agir(c2, x); return; }
+      const nom = x.replace(/^(la |radio )+/i, '').trim();
+      const r = await lancerMusique(nom, c.radio || !!radioConnue(nom)); repondreA(r); return;
     }
     if (c.action === 'jouer') { const r = await lancerMusique(c.q, c.radio); toast(`« ${t} » → ${r}`); if (!etatMusique().mode || etatMusique().mode === 'radio') parlerSi(r); return; }
     if (!e.mode) { toast('Aucune musique en cours.'); return; }
@@ -1017,7 +1037,7 @@ async function agir(c, t) {
 let enDialogue = false;
 function relancerReveil() {
   if (!reglages.reveil || enDialogue || ui.ecoute || !state.moi || document.visibilityState !== 'visible') return;
-  demarrerReveil((reste) => { conversation(reste); }).catch(() => {});
+  demarrerReveil((reste, brut) => { journaliser('mot-reveil', brut || 'tablette', ''); conversation(reste); }).catch(() => {});
 }
 const normer = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[?!.,;]/g, ' ').replace(/\s+/g, ' ').trim();
 // Pose une question à voix haute (et à l'écran), puis écoute la réponse
@@ -1025,7 +1045,7 @@ async function demander(question, long = false) {
   zToast.innerHTML = `<div class="toast dialogue">🗣️ ${esc(question)}</div>`;
   if (reglages.parole && paroleDisponible()) await direEtAttendre(question); else await new Promise((ok) => setTimeout(ok, 600));
   ui.ecoute = true; rendre();
-  try { const t = (await ecouterTexte({ long }) || '').trim(); return t || null; }
+  try { const t = (await ecouterTexte({ long }) || '').trim(); if (t && question !== 'Je t\'écoute') journaliser('reponse', t, question.slice(0, 60)); return t || null; }
   catch (e) { return null; }
   finally { ui.ecoute = false; rendre(); }
 }
@@ -1050,6 +1070,7 @@ async function conversation(reste = '') {
   try {
     const t = reste && reste.split(' ').length >= 1 && reste.length > 2 ? reste : await demander('Je t\'écoute');
     if (!t) { toast('Je n\'ai rien entendu.'); return; }
+    journaliser(reste ? 'reveil-direct' : 'reveil', t, comprendre(t, personnes().map((p) => p.prenom)));
     await traiterDemande(t);
   } catch (e) { toast(e.message || 'Erreur'); }
   finally { enDialogue = false; ui.ecoute = false; ui.derniere = Date.now(); baisserMusique(false); rendre(); setTimeout(relancerReveil, 800); }

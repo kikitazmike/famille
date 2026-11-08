@@ -272,7 +272,7 @@ export function comprendre(texte, prenoms = []) {
     const seule = q.replace(/^(?:je veux|je voudrais|j'aimerais|on veut|un peu de|mets|met|mettre|lance|joue|ecoute|ecouter) /, '').match(/^(?:de la |la |un peu de |de |des )?(musique|musiques|radio)(?: (.+))?$/);
     if (seule && !/^(?:ajoute|note)/.test(q)) {
       if (seule[1] === 'radio') return { type: 'musique', action: 'jouer', radio: true, q: seule[2] || '', texte: t };
-      return { type: 'musique', action: 'jouer', radio: false, q: seule[2] ? `musique ${seule[2]}` : 'hits musique 2026', texte: t };
+      return { type: 'musique', action: 'jouer', radio: false, q: seule[2] ? `musique ${seule[2]}` : '', texte: t };
     }
     const RADIOS = /^(france inter|inter|franceinfo|france info|rtl ?2|rtl deux|rtl|nrj|nostalgie|cherie fm|cherie|rfm|europe 1|europe un|fun radio|fun|skyrock|nti|n t i|hit ?west|hit ouest)$/;
     if (RADIOS.test(q.replace(/^(la |radio )+/, ''))) return { type: 'musique', action: 'jouer', radio: true, q: q.replace(/^(la |radio )+/, ''), texte: t };
@@ -293,7 +293,7 @@ export function comprendre(texte, prenoms = []) {
       // « mets du lait » reste une course : après « mets » + article, il faut un mot musical (« mets du rock », « mets de la musique… »)
       const articleSansMusique = /^(mets|met|mettre)\b/.test(q) && !musical && /^(?:mets|met|mettre)\s+(?:du |de la |des |de l'|un |une )/.test(q);
       if (!articleSansMusique) {
-        if (/^(de la |la |un peu de )?musique$/.test(m[1])) x = 'hits musique 2026';
+        if (/^(de la |la |un peu de )?musique$/.test(m[1])) x = '';
         return { type: 'musique', action: 'jouer', radio: false, q: x.slice(0, 100), texte: t };
       }
     }

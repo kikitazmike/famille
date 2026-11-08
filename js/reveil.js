@@ -40,7 +40,7 @@ export async function demarrerReveil(onMot) {
     reco.on('result', (m) => {
       if (fini) return;
       const r = m.result || {}; const a = analyserReveil(r.text, r.result);
-      if (a) { stop(); actif = null; onMot(a.reste); }
+      if (a) { stop(); actif = null; onMot(a.reste, r.text); }
     });
     noeud.onaudioprocess = (e) => { if (!fini) { try { reco.acceptWaveform(e.inputBuffer); } catch (x) { /* ignore */ } } };
     source.connect(noeud); noeud.connect(ctx.destination);
