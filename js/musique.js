@@ -19,7 +19,7 @@ export function radioConnue(texte) {
   return RADIOS.find((r) => sansAccent(r.nom) === t || sansAccent(r.cherche) === t || t === sansAccent(r.nom).replace(/ /g, '')) || null;
 }
 
-let etat = { mode: null, titre: '', sous: '', pause: false, taille: 'petit', liste: [], index: 0, volume: 80 };
+let etat = { mode: null, titre: '', sous: '', pause: false, taille: 'petit', liste: [], index: 0, volume: 100 };
 let audio = null; let cadreYt = null; let surChange = () => {}; let baisse = false;
 export const etatMusique = () => etat;
 export function quandMusiqueChange(f) { surChange = f; }
@@ -50,7 +50,7 @@ function essayer(url) {
     const t = setTimeout(() => fin(false), 8000);
     a.addEventListener('playing', () => fin(true), { once: true });
     a.addEventListener('error', () => fin(false), { once: true });
-    a.src = url; a.volume = (baisse ? 0.15 : 1) * etat.volume / 100;
+    a.src = url; a.volume = (baisse ? 0.35 : 1) * etat.volume / 100;
     a.play().catch((e) => { if (e && e.name === 'NotAllowedError') { fini = true; clearTimeout(t); ko(e); } });
   });
 }
@@ -117,7 +117,7 @@ export function jouerListe(l0, conteneur, nomListe = '', depart = 0) {
   cadreYt.title = 'Lecteur YouTube';
   cadreYt.referrerPolicy = 'strict-origin-when-cross-origin'; // YouTube exige l'adresse du site (sinon erreur 153)
   cadreYt.src = `https://www.youtube-nocookie.com/embed/${ids[0]}?autoplay=1&enablejsapi=1&rel=0&playsinline=1&playlist=${ids.slice(1).join(',')}&origin=${encodeURIComponent(location.origin)}`;
-  cadreYt.addEventListener('load', () => { cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*'); setTimeout(() => envoyerYt('setVolume', [baisse ? 15 : etat.volume]), 800); });
+  cadreYt.addEventListener('load', () => { cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*'); setTimeout(() => envoyerYt('setVolume', [baisse ? Math.round(etat.volume * 0.35) : etat.volume]), 800); });
   conteneur.innerHTML = ''; conteneur.appendChild(cadreYt);
   etat = { ...etat, mode: 'yt', liste: l, index: 0, titre: l[0].titre, sous: l[0].chaine, ic: '▶️', pause: false, taille: 'grand', recherche: q, erreur: '' };
   prevenir();
@@ -140,8 +140,8 @@ export function volumeMusique(delta) {
 // Baisse le son pendant qu'on parle à la tablette, puis le remet
 export function baisserMusique(oui) {
   baisse = oui;
-  if (audio) audio.volume = (oui ? 0.15 : 1) * etat.volume / 100;
-  envoyerYt('setVolume', [oui ? Math.round(etat.volume * 0.15) : etat.volume]);
+  if (audio) audio.volume = (oui ? 0.35 : 1) * etat.volume / 100;
+  envoyerYt('setVolume', [oui ? Math.round(etat.volume * 0.35) : etat.volume]);
 }
 export function tailleVideo(t) { etat.taille = t || (etat.taille === 'grand' ? 'petit' : 'grand'); prevenir(); }
 export function arreterMusique(prev = true) {

@@ -1046,6 +1046,8 @@ async function agir(c, t) {
 let enDialogue = false;
 function relancerReveil() {
   if (!reglages.reveil || enDialogue || ui.ecoute || !state.moi || document.visibilityState !== 'visible') return;
+  // On attend que la tablette ait fini de parler (ouvrir le micro coupe la voix sur Android)
+  if (window.speechSynthesis && speechSynthesis.speaking) { setTimeout(relancerReveil, 400); return; }
   demarrerReveil((reste, brut) => { journaliser('mot-reveil', brut || 'tablette', ''); conversation(reste); }, { souple: () => !!etatMusique().mode && !etatMusique().pause }).catch(() => {});
 }
 const normer = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[?!.,;]/g, ' ').replace(/\s+/g, ' ').trim();

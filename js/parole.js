@@ -29,8 +29,11 @@ export function dire(texte, { onErreur, onDebut, onFin } = {}) {
 // Parle puis attend la fin de la phrase (avec une sécurité si Android ne prévient pas)
 export function direEtAttendre(texte) {
   return new Promise((ok) => {
-    let fait = false; const fin = () => { if (!fait) { fait = true; setTimeout(ok, 250); } };
-    setTimeout(fin, 1500 + (texte || '').length * 90);
+    let fait = false; const debut = Date.now();
+    const fin = () => { if (!fait) { fait = true; setTimeout(ok, 300); } };
+    // Sécurité : si Android ne prévient pas de la fin, on attend que la voix se taise vraiment (15 s maximum)
+    const verifier = () => { if (fait) return; if (window.speechSynthesis && speechSynthesis.speaking && Date.now() - debut < 15000) setTimeout(verifier, 200); else fin(); };
+    setTimeout(verifier, 900 + (texte || '').length * 60);
     dire(texte, { onFin: fin });
   });
 }
