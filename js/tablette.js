@@ -327,8 +327,11 @@ function rendre() {
 
 // ---------- Mode veille photo ----------
 const hm = (s) => { const [h, m] = (s || '0:0').split(':').map(Number); return h * 60 + m; };
+// Tant que la musique joue (radio ou YouTube), pas de veille ni d'effet de repos
+const musiqueActive = () => { const e = etatMusique(); return !!e.mode && !e.pause; };
 function enVeille() {
   if (ui.veilleForcee) return true;
+  if (musiqueActive()) return false;
   if (Date.now() < ui.reveilJusqua) return false;
   const n = new Date(); const t = n.getHours() * 60 + n.getMinutes();
   const a = hm(reglages.veilleDebut), b = hm(reglages.veilleFin);
@@ -509,7 +512,7 @@ function majLecteur() {
     ${voixOk() ? `<button class="lc-b micro" data-a="parler" aria-label="Parler à la tablette">🎤</button>` : ''}
     <button class="lc-b stop" data-a="musStop" aria-label="Arrêter la musique">✕</button>`;
 }
-quandMusiqueChange(() => { majLecteur(); if (ui.page === 'musique') rendre(); });
+quandMusiqueChange(() => { majLecteur(); if (ui.page === 'musique') rendre(); rendreVeille(); });
 // Lance une radio ou une recherche YouTube ; renvoie la phrase à dire
 async function lancerMusique(q, radio) {
   try {
@@ -866,6 +869,7 @@ document.addEventListener('pointerup', () => { if (avalerClic) setTimeout(() => 
 document.addEventListener('click', (e) => { if (avalerClic) { e.preventDefault(); e.stopPropagation(); avalerClic = false; } }, { capture: true });
 function verifierInactivite() {
   if (!state.moi || enVeille()) return;
+  if (musiqueActive()) { ui.derniere = Date.now(); return; }
   // Réveil silencieux au début de chaque heure, de 7 h à 21 h : retour à l'accueil normal
   const maint = new Date(); const cle = `${isoDate(maint)}-${maint.getHours()}`;
   if (effetActif() && maint.getMinutes() === 0 && maint.getHours() >= 7 && maint.getHours() <= 21 && ui.reveilHeure !== cle) {
