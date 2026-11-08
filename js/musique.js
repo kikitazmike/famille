@@ -5,14 +5,17 @@ const SERVEURS_RADIO = ['https://de1.api.radio-browser.info', 'https://fi1.api.r
 // Radios proposées (le nom sert à la recherche dans l'annuaire)
 export const RADIOS = [
   { nom: 'France Inter', cherche: 'France Inter', ic: '🎙️' }, { nom: 'franceinfo', cherche: 'franceinfo', ic: '📰' },
-  { nom: 'FIP', cherche: 'FIP', ic: '🎷' }, { nom: 'RTL', cherche: 'RTL', ic: '📻' }, { nom: 'RTL2', cherche: 'RTL2', ic: '🎸' },
+  { nom: 'RTL', cherche: 'RTL', ic: '📻' },
+  { nom: 'RTL2', cherche: 'RTL2', ic: '🎸', urls: ['https://streamer-02.rtl.fr/rtl2-1-44-128', 'https://icecast.rtl2.fr/rtl2-1-44-128?listen=webCwsBCggNCQgLDQUGBAcGBg', 'https://streaming.radio.rtl2.fr/rtl2-1-44-128'] },
   { nom: 'NRJ', cherche: 'NRJ', ic: '⚡' }, { nom: 'Nostalgie', cherche: 'Nostalgie', ic: '🕺' }, { nom: 'Chérie FM', cherche: 'Cherie FM', ic: '💖' },
   { nom: 'RFM', cherche: 'RFM', ic: '🎶' }, { nom: 'Europe 1', cherche: 'Europe 1', ic: '🗞️' }, { nom: 'Fun Radio', cherche: 'Fun Radio', ic: '🎉' },
-  { nom: 'Skyrock', cherche: 'Skyrock', ic: '🎤' }, { nom: 'Radio Nova', cherche: 'Radio Nova', ic: '🌍' }, { nom: 'ici Loire Océan', cherche: 'Loire Ocean', ic: '🌊' },
+  { nom: 'Skyrock', cherche: 'Skyrock', ic: '🎤' },
+  { nom: 'NTI', cherche: 'NTI', ic: '🎧', urls: ['https://streaming.radionti.com/nti-128.mp3'] },
+  { nom: 'Hit West', cherche: 'hitwest', ic: '🌊', urls: ['https://stream.rcs.revma.com/nvsuedfwcy3vv'] },
 ];
 const sansAccent = (x) => (x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 export function radioConnue(texte) {
-  const t = sansAccent(texte).replace(/^(la |radio )+/, '');
+  const t = sansAccent(texte).replace(/^(la |radio )+/, '').replace(/\bouest\b/, 'west').replace(/^n t i$/, 'nti');
   return RADIOS.find((r) => sansAccent(r.nom) === t || sansAccent(r.cherche) === t || t === sansAccent(r.nom).replace(/ /g, '')) || null;
 }
 
@@ -30,7 +33,7 @@ async function chercherStation(nom) {
     try {
       const u = `${base}/json/stations/search?name=${encodeURIComponent(nom)}&countrycode=FR&hidebroken=true&order=clickcount&reverse=true&limit=10`;
       const r = await fetch(u, { signal: AbortSignal.timeout(6000) }); if (!r.ok) continue;
-      const l = (await r.json()).filter((s) => /^https:/.test(s.url_resolved || ''));
+      const l = (await r.json()).filter((s) => /^https?:/.test(s.url_resolved || '')).map((s) => ({ ...s, url_resolved: s.url_resolved.replace(/^http:/, 'https:') }));
       if (!l.length) continue;
       const s = { nom: l[0].name.trim(), url: l[0].url_resolved };
       cache[nom] = s; try { localStorage.setItem('famille-radios', JSON.stringify(cache)); } catch (e) { /* ignore */ }
@@ -39,17 +42,37 @@ async function chercherStation(nom) {
   }
   return null;
 }
+// Essaie une adresse : réussi si le son démarre dans les 8 secondes
+function essayer(url) {
+  return new Promise((ok, ko) => {
+    const a = new Audio(); let fini = false;
+    const fin = (r) => { if (fini) return; fini = true; clearTimeout(t); r ? ok(a) : (a.pause(), a.removeAttribute('src'), a.load(), ko(new Error('muette'))); };
+    const t = setTimeout(() => fin(false), 8000);
+    a.addEventListener('playing', () => fin(true), { once: true });
+    a.addEventListener('error', () => fin(false), { once: true });
+    a.src = url; a.volume = (baisse ? 0.15 : 1) * etat.volume / 100;
+    a.play().catch((e) => { if (e && e.name === 'NotAllowedError') { fini = true; clearTimeout(t); ko(e); } });
+  });
+}
 export async function jouerRadio(nom) {
   const connue = radioConnue(nom); const cherche = connue ? connue.cherche : nom;
-  const s = await chercherStation(cherche);
-  if (!s) throw new Error(`Je ne trouve pas la radio ${nom}.`);
   arreterMusique(false);
-  audio = new Audio(s.url); audio.volume = (baisse ? 0.15 : 1) * etat.volume / 100;
-  audio.addEventListener('error', () => { const nomCache = cherche; try { const c = JSON.parse(localStorage.getItem('famille-radios') || '{}'); delete c[nomCache]; localStorage.setItem('famille-radios', JSON.stringify(c)); } catch (e) { /* ignore */ } if (etat.mode === 'radio') { etat.erreur = 'La radio ne répond pas.'; prevenir(); } });
-  await audio.play();
-  etat = { ...etat, mode: 'radio', titre: connue ? connue.nom : s.nom, sous: 'Radio en direct', ic: connue ? connue.ic : '📻', pause: false, erreur: '' };
-  prevenir();
-  return etat.titre;
+  const essais = [...((connue && connue.urls) || [])];
+  const trouvee = await chercherStation(cherche); if (trouvee && !essais.includes(trouvee.url)) essais.push(trouvee.url);
+  if (!essais.length) throw new Error(`Je ne trouve pas la radio ${nom}.`);
+  etat = { ...etat, mode: 'radio', titre: connue ? connue.nom : (trouvee ? trouvee.nom : nom), sous: 'Connexion…', ic: connue ? connue.ic : '📻', pause: false, erreur: '' }; prevenir();
+  for (const url of essais) {
+    try {
+      audio = await essayer(url);
+      if (etat.mode !== 'radio') { audio.pause(); audio = null; return ''; }
+      audio.addEventListener('error', () => { if (etat.mode === 'radio') { etat.erreur = 'La radio a coupé.'; prevenir(); } });
+      etat.sous = 'Radio en direct'; prevenir();
+      return etat.titre;
+    } catch (e) { if (e && e.name === 'NotAllowedError') { arreterMusique(); throw e; } }
+  }
+  try { const c = JSON.parse(localStorage.getItem('famille-radios') || '{}'); delete c[cherche]; localStorage.setItem('famille-radios', JSON.stringify(c)); } catch (e) { /* ignore */ }
+  arreterMusique();
+  throw new Error(`${connue ? connue.nom : nom} ne répond pas pour le moment.`);
 }
 
 // ---------- YouTube ----------
@@ -82,6 +105,7 @@ export async function jouerYoutube(q, conteneur) {
   cadreYt = document.createElement('iframe');
   cadreYt.allow = 'autoplay; encrypted-media; picture-in-picture';
   cadreYt.title = 'Lecteur YouTube';
+  cadreYt.referrerPolicy = 'strict-origin-when-cross-origin'; // YouTube exige l'adresse du site (sinon erreur 153)
   cadreYt.src = `https://www.youtube-nocookie.com/embed/${ids[0]}?autoplay=1&enablejsapi=1&rel=0&playsinline=1&playlist=${ids.slice(1).join(',')}&origin=${encodeURIComponent(location.origin)}`;
   cadreYt.addEventListener('load', () => { cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*'); setTimeout(() => envoyerYt('setVolume', [baisse ? 15 : etat.volume]), 800); });
   conteneur.innerHTML = ''; conteneur.appendChild(cadreYt);

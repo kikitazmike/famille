@@ -252,7 +252,7 @@ export function comprendre(texte, prenoms = []) {
   // Musique : « mets NRJ », « mets la radio France Inter », « joue Indochine », « mets les tubes des années 80 », « pause », « plus fort »…
   {
     const q = n.replace(/[?!.]/g, '').replace(/\s+/g, ' ').trim();
-    const RADIOS = /^(france inter|inter|franceinfo|france info|fip|rtl ?2|rtl deux|rtl|nrj|nostalgie|cherie fm|cherie|rfm|europe 1|europe un|fun radio|fun|skyrock|radio nova|nova|ici loire ocean|loire ocean|france bleu)$/;
+    const RADIOS = /^(france inter|inter|franceinfo|france info|rtl ?2|rtl deux|rtl|nrj|nostalgie|cherie fm|cherie|rfm|europe 1|europe un|fun radio|fun|skyrock|nti|n t i|hit ?west|hit ouest)$/;
     if (/^(pause|mets? (sur )?pause|met en pause|pause (la )?(musique|radio|video))$/.test(q)) return { type: 'musique', action: 'pause', texte: t };
     if (/^(reprends|reprend|continue|relance|play|remets? (la )?(musique|radio))$/.test(q)) return { type: 'musique', action: 'reprendre', texte: t };
     if (/^((stop|arrete|arreter|coupe|couper|eteins|eteindre|ferme) (la |le )?(musique|radio|video|son|youtube)|stop musique|silence)$/.test(q)) return { type: 'musique', action: 'stop', texte: t };
