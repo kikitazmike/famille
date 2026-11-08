@@ -213,6 +213,14 @@ export function comprendre(texte, prenoms = []) {
     return { type: 'minuteur', action: 'sansduree', texte: brut };
   }
 
+  // Fenêtre et écran : « ferme la fenêtre », « c'est bon merci », « retour à l'accueil », « lis-le »
+  {
+    const q = nb0.replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/^(ferme|fermer|fermes|fermez|referme|enleve|enlever|cache|cacher|masque)( (la|cette|ta) (fenetre|fiche|page|definition))?( (s'il te plait|stp|svp|merci))?$|^(c'?est bon|ok merci|merci|merci beaucoup|c'?est parfait|ca ira|ca suffit|tu peux fermer|fermeture)( merci)?$/.test(q)) return { type: 'ecran', action: 'fermer', texte: brut };
+    if (/^(retour|reviens|revenir|retourne|va|aller)( a| sur)? (l'?accueil|la page d'accueil|l'ecran d'accueil|au debut)$|^(accueil|page d'accueil)$/.test(q)) return { type: 'ecran', action: 'accueil', texte: brut };
+    if (/^(lis|lire|relis|relire|lis[- ]le|lis[- ]la|lis[- ]moi (ca|la fiche|la definition)|lis la fiche|lis la definition|repete|redis)( (le|la|ca|tout))?$/.test(q)) return { type: 'ecran', action: 'lire', texte: brut };
+  }
+
   // Restes : « qu'est-ce que je peux faire avec des œufs, du jambon et du fromage ? », « j'ai des courgettes et des œufs, qu'est-ce qu'on peut cuisiner ? »
   {
     const q = nb0.replace(/[?!.]/g, '').replace(/\s+/g, ' ').trim();

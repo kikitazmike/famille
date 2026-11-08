@@ -987,6 +987,11 @@ function journaliser(source, texte, compris) {
 // Exécute une demande comprise
 async function agir(c, t) {
   if (c.type === 'savoir') { await afficherSavoir(c.mode, c.q); return; }
+  if (c.type === 'ecran') {
+    if (c.action === 'fermer') { if (zFen.innerHTML) fermer(); else if (ui.page) retourAccueil(); return; }
+    if (c.action === 'accueil') { if (zFen.innerHTML) fermer(); retourAccueil(); return; }
+    if (c.action === 'lire') { if (ui.savoirTexte && zFen.innerHTML) dire(ui.savoirTexte); else toast('Rien à lire.'); return; }
+  }
   if (c.type === 'musique') {
     const e = etatMusique();
     if (c.action === 'favori' || c.action === 'defavori' || c.action === 'jouerFavoris') {
