@@ -90,12 +90,21 @@ export async function chercherYoutube(q) {
 function envoyerYt(func, args = []) {
   if (cadreYt && cadreYt.contentWindow) cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
 }
+let ecouteYt = null; let recuYt = false;
 window.addEventListener('message', (e) => {
   if (!cadreYt || e.source !== cadreYt.contentWindow) return;
   let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (x) { return; }
   if (!d || !d.info) return;
+  recuYt = true;
   const i = d.info; let change = false;
-  if (typeof i.playlistIndex === 'number' && i.playlistIndex !== etat.index && etat.liste[i.playlistIndex]) { etat.index = i.playlistIndex; etat.titre = etat.liste[i.playlistIndex].titre; etat.sous = etat.liste[i.playlistIndex].chaine; change = true; }
+  // Titre affiché : celui de la vidéo réellement jouée (YouTube peut sauter une vidéo indisponible)
+  const vd = i.videoData;
+  if (vd && vd.video_id) {
+    const k = etat.liste.findIndex((v) => v.id === vd.video_id);
+    const titre = (vd.title || (k >= 0 ? etat.liste[k].titre : '')).trim(); const sous = (k >= 0 ? etat.liste[k].chaine : vd.author || '') || '';
+    if (k >= 0 && k !== etat.index) { etat.index = k; change = true; }
+    if (titre && titre !== etat.titre) { etat.titre = titre; etat.sous = sous; change = true; }
+  } else if (typeof i.playlistIndex === 'number' && i.playlistIndex !== etat.index && etat.liste[i.playlistIndex]) { etat.index = i.playlistIndex; etat.titre = etat.liste[i.playlistIndex].titre; etat.sous = etat.liste[i.playlistIndex].chaine; change = true; }
   if (typeof i.playerState === 'number') { const p = i.playerState === 2; if (p !== etat.pause) { etat.pause = p; change = true; } }
   if (change) prevenir();
 });
@@ -117,7 +126,13 @@ export function jouerListe(l0, conteneur, nomListe = '', depart = 0) {
   cadreYt.title = 'Lecteur YouTube';
   cadreYt.referrerPolicy = 'strict-origin-when-cross-origin'; // YouTube exige l'adresse du site (sinon erreur 153)
   cadreYt.src = `https://www.youtube-nocookie.com/embed/${ids[0]}?autoplay=1&enablejsapi=1&rel=0&playsinline=1&playlist=${ids.slice(1).join(',')}&origin=${encodeURIComponent(location.origin)}`;
-  cadreYt.addEventListener('load', () => { cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*'); setTimeout(() => envoyerYt('setVolume', [baisse ? Math.round(etat.volume * 0.35) : etat.volume]), 800); });
+  cadreYt.addEventListener('load', () => {
+    // On demande à YouTube de nous tenir au courant (titre en cours…), en insistant tant qu'il n'a pas répondu
+    recuYt = false; clearInterval(ecouteYt); let n = 0;
+    const demander = () => { if (!cadreYt || recuYt || ++n > 15) { clearInterval(ecouteYt); return; } cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*'); };
+    demander(); ecouteYt = setInterval(demander, 1000);
+    setTimeout(() => envoyerYt('setVolume', [baisse ? Math.round(etat.volume * 0.35) : etat.volume]), 800);
+  });
   conteneur.innerHTML = ''; conteneur.appendChild(cadreYt);
   etat = { ...etat, mode: 'yt', liste: l, index: 0, titre: l[0].titre, sous: l[0].chaine, ic: '▶️', pause: false, taille: 'grand', recherche: q, erreur: '' };
   prevenir();
