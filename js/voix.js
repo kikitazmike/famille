@@ -147,6 +147,30 @@ export function duree(texte) {
   return ok && s > 0 ? Math.min(s, 24 * 3600) : null;
 }
 
+
+// La voix locale (Vosk, en français) transcrit mal les noms étrangers et les nombres : on corrige les plus courants
+const CORRECTIONS_MUSIQUE = [
+  [/\b(?:a|à|ah) ?(?:c|ce|ces|se|ses|cé) ?(?:de|des|d|dé|dè) ?(?:c|ce|ces|se|ses|cé|cès)\b|\b(?:a|à) (?:ces|ce|se|ses) (?:décès|deces|déc[eè]s)\b|\b(?:a|à) ce dc\b|\bacdc\b|\bac dc\b|\bac\/dc\b/, 'AC/DC'],
+  [/\b(?:michel|mikael|mickael|michael) jack?son\b/, 'Michael Jackson'], [/\b(?:couine|quine|kwine|queen)\b/, 'Queen'],
+  [/\bguns? (?:and|n|en|an|aine) roses?\b|\bgonzo roses\b/, "Guns N' Roses"], [/\bmetal+ ?(?:ica|ika|lika|lica)\b/, 'Metallica'],
+  [/\b(?:u deux|you two|you tou|youtou)\b/, 'U2'], [/\b(?:e|é|et) ?mine ?(?:aime|em|ème)\b|\beminem\b/, 'Eminem'],
+  [/\bdaft? ?(?:punk|punch|panque)\b|\bdaphne punk\b/, 'Daft Punk'], [/\bpink (?:floyd|flood|flo[iy]d)\b/, 'Pink Floyd'],
+  [/\b(?:les |the )?(?:beatles|bitels|bitles|bit les)\b/, 'The Beatles'], [/\brolling stones?\b/, 'The Rolling Stones'],
+  [/\b(?:bee gees|bi gis|bigis|bee gis|bigies)\b/, 'Bee Gees'], [/\bbon jo ?vi(?:e)?\b/, 'Bon Jovi'], [/\b(?:iron|ail ronne|aïe ronne) (?:maiden|maïden|maidène|maïdène)\b/, 'Iron Maiden'],
+  [/\bred hot(?: chili)?(?: peppers?)?\b/, 'Red Hot Chili Peppers'], [/\bbob marl(?:ey|é|et)\b/, 'Bob Marley'], [/\bcol(?:d|de) ?(?:play|plaie|plait)\b/, 'Coldplay'],
+  [/\b(?:ed|et|aide) (?:sheeran|shiran|chirant|chiran)\b/, 'Ed Sheeran'], [/\bimagine dragons?\b/, 'Imagine Dragons'], [/\bcool (?:and|en|an) (?:the|de|ze) gang\b/, 'Kool & The Gang'],
+  [/\b(?:linking|lincoln|linkin) park\b/, 'Linkin Park'], [/\bdire (?:straits?|strette|stretch)\b/, 'Dire Straits'], [/\b(?:two|tou|tu) ?pac\b|\btupac\b/, '2Pac'],
+  [/\bsnoop dog+\b/, 'Snoop Dogg'], [/\b(?:docteur|doc|dr) (?:dre|drai|dré)\b/, 'Dr. Dre'], [/\b(?:fifty|cinquante) cent\b/, '50 Cent'],
+  [/\bm c solaar\b|\baime ?ci solaar\b/, 'MC Solaar'], [/\bn t m\b/, 'NTM'], [/\b(?:i a m|i am)\b/, 'IAM'], [/\bdepeche? mode\b/, 'Depeche Mode'],
+  [/\babba\b|\baba\b/, 'ABBA'], [/\bearth wind (?:and|en|an) fire\b/, 'Earth, Wind & Fire'], [/\bnirvana\b/, 'Nirvana'],
+  [/\bquatre[- ]vingt[- ]dix\b/, '90'], [/\bquatre[- ]vingts?\b/, '80'], [/\bsoixante[- ]dix\b/, '70'], [/\bsoixante\b/, '60'], [/\bcinquante\b/, '50'], [/\bdeux mille dix\b/, '2010'], [/\bdeux mille\b/, '2000'],
+];
+export function corrigerMusique(q) {
+  let x = ' ' + sansAccent(q || '').replace(/\s+/g, ' ').trim() + ' ';
+  for (const [re, bon] of CORRECTIONS_MUSIQUE) x = x.replace(new RegExp(re.source, 'g'), bon);
+  return x.trim().replace(/\s+/g, ' ');
+}
+
 // Renvoie { type: 'course'|'note'|'rdv'|'question'|'minuteur'|'message'|'inconnu', ... }
 export function comprendre(texte, prenoms = []) {
   const brut = nettoyer(texte);
@@ -272,7 +296,7 @@ export function comprendre(texte, prenoms = []) {
     const seule = q.replace(/^(?:je veux|je voudrais|j'aimerais|on veut|un peu de|mets|met|mettre|lance|joue|ecoute|ecouter) /, '').match(/^(?:de la |la |un peu de |de |des )?(musique|musiques|radio)(?: (.+))?$/);
     if (seule && !/^(?:ajoute|note)/.test(q)) {
       if (seule[1] === 'radio') return { type: 'musique', action: 'jouer', radio: true, q: seule[2] || '', texte: t };
-      return { type: 'musique', action: 'jouer', radio: false, q: seule[2] ? `musique ${seule[2]}` : '', texte: t };
+      return { type: 'musique', action: 'jouer', radio: false, q: seule[2] ? corrigerMusique(`musique ${seule[2]}`) : '', texte: t };
     }
     const RADIOS = /^(france inter|inter|franceinfo|france info|rtl ?2|rtl deux|rtl|nrj|nostalgie|cherie fm|cherie|rfm|europe 1|europe un|fun radio|fun|skyrock|nti|n t i|hit ?west|hit ouest)$/;
     if (RADIOS.test(q.replace(/^(la |radio )+/, ''))) return { type: 'musique', action: 'jouer', radio: true, q: q.replace(/^(la |radio )+/, ''), texte: t };
@@ -294,7 +318,7 @@ export function comprendre(texte, prenoms = []) {
       const articleSansMusique = /^(mets|met|mettre)\b/.test(q) && !musical && /^(?:mets|met|mettre)\s+(?:du |de la |des |de l'|un |une )/.test(q);
       if (!articleSansMusique) {
         if (/^(de la |la |un peu de )?musique$/.test(m[1])) x = '';
-        return { type: 'musique', action: 'jouer', radio: false, q: x.slice(0, 100), texte: t };
+        return { type: 'musique', action: 'jouer', radio: false, q: corrigerMusique(x).slice(0, 100), texte: t };
       }
     }
   }

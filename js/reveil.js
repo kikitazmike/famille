@@ -38,8 +38,18 @@ export async function demarrerReveil(onMot, { souple = () => false } = {}) {
       try { reco.remove(); } catch (e) { /* ignore */ }
     };
     actif.stop = stop;
+    // Plus rapide : si « tablette » est entendu en début de phrase et que la phrase ne bouge plus pendant 0,6 s, on réagit sans attendre la fin
+    let attente = null; let dernier = '';
+    reco.on('partialresult', (m) => {
+      if (fini) return;
+      const p = (m.result && m.result.partial || '').trim(); if (!p || p === dernier) return; dernier = p;
+      clearTimeout(attente);
+      const a = analyserReveil(p, null, souple());
+      if (a && !a.reste) attente = setTimeout(() => { if (!fini && dernier === p) { stop(); actif = null; onMot('', p); } }, 600);
+    });
     reco.on('result', (m) => {
       if (fini) return;
+      clearTimeout(attente); dernier = '';
       const r = m.result || {}; const a = analyserReveil(r.text, r.result, souple());
       if (a) { stop(); actif = null; onMot(a.reste, r.text); }
     });

@@ -3,7 +3,7 @@ import { sb, messageErreur } from './supa.js';
 import { state, surChangement, chargerCache, viderCache, toutCharger, temps_reel, arreterTempsReel, ecrire as ecrireBase, nouvelId, membre, personnes, liensDe, urlImage, chargerAnniv } from './store.js';
 import { JOURS, JOURS_COURTS, MOIS, debutJour, ajouterJours, memeJour, jourIso, debutSemaine, hhmm, isoDate, majuscule, depuis, occurrences, prochainAnniv, prochaineTache, deux, changementHeure } from './dates.js';
 import { i, esc } from './icones.js';
-import { ecouter, comprendre, voixDisponible } from './voix.js';
+import { ecouter, comprendre, voixDisponible, corrigerMusique } from './voix.js';
 import { VERSION } from './config.js';
 import { TAGS, ICONES_RECETTE, recettesTriees, recette, repasAFaire, repasDuJour, ingredients, opsCourses, prevoir, ingredientsAFaire, lireIngredients, isoJour, cleNom, chercherRecette, sansDoublons, dejaDansListe } from './repas.js';
 import { avisSucre, infoSucre, sucreRecette, pastilleSucre, EMOJI, COULEUR, LIMITE_JOUR } from './sucre.js';
@@ -905,7 +905,7 @@ function fenReglages() {
 async function ecouterTexte({ long = false } = {}) {
   if (reglages.voix !== 'google' && micro()) {
     if (etatVoixLocale() !== 'pret') toast('Préparation de la voix… (la 1re fois, environ 40 Mo)');
-    try { return await ecouterLocal({ onPartiel: (p) => toast('… ' + p), dureeMax: long ? 40000 : 12000, pause: long ? 3000 : 1300 }); }
+    try { return await ecouterLocal({ onPartiel: (p) => toast('… ' + p), dureeMax: long ? 40000 : 12000, pause: long ? 3000 : 900 }); }
     catch (e) {
       if (e && (e.name === 'NotAllowedError' || e.name === 'NotFoundError')) throw new Error(e.name === 'NotFoundError' ? 'Aucun micro trouvé.' : 'Autorise le micro pour utiliser la voix.');
       if (e && /rien entendu|arrêtée/.test(e.message) || !voixDisponible()) throw e;
@@ -960,8 +960,8 @@ async function agir(c, t) {
       const c2 = comprendre(x, personnes().map((p) => p.prenom));
       if (c2.type === 'musique' && c2.action === 'jouer' && c2.q) { const r = await lancerMusique(c2.q, c2.radio); repondreA(r); return; }
       if (c2.type === 'musique' && c2.action === 'jouerFavoris') { await agir(c2, x); return; }
-      const nom = x.replace(/^(la |radio )+/i, '').trim();
-      const r = await lancerMusique(nom, c.radio || !!radioConnue(nom)); repondreA(r); return;
+      const nom = x.replace(/^(la |radio )+/i, '').trim(); const estRadio = c.radio || !!radioConnue(nom);
+      const r = await lancerMusique(estRadio ? nom : corrigerMusique(nom), estRadio); repondreA(r); return;
     }
     if (c.action === 'jouer') { const r = await lancerMusique(c.q, c.radio); toast(`« ${t} » → ${r}`); if (!etatMusique().mode || etatMusique().mode === 'radio') parlerSi(r); return; }
     if (!e.mode) { toast('Aucune musique en cours.'); return; }
