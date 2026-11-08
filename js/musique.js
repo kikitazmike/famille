@@ -79,14 +79,16 @@ export async function jouerRadio(nom) {
 }
 
 // ---------- YouTube ----------
-export async function chercherYoutube(q) {
-  const { data, error } = await sb.functions.invoke('youtube', { body: { q } });
+export async function chercherYoutube(q, page = '') {
+  const { data, error } = await sb.functions.invoke('youtube', { body: page ? { q, page } : { q } });
   if (error) {
     let code = ''; try { code = (await error.context.json()).erreur; } catch (e) { /* ignore */ }
     throw new Error(code === 'quota_ou_cle' ? 'YouTube refuse la recherche (clé ou quota du jour).' : code === 'cle_absente' ? 'La clé YouTube n\'est pas encore rangée dans Supabase.' : 'Recherche YouTube impossible pour le moment.');
   }
+  suiteYt = (data && data.suite) || null;
   return (data && data.videos) || [];
 }
+let suiteYt = null; let conteneurYt = null; let joues = new Set(); let suiteEnCours = false;
 function envoyerYt(func, args = []) {
   if (cadreYt && cadreYt.contentWindow) cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
 }
@@ -105,14 +107,36 @@ window.addEventListener('message', (e) => {
     if (k >= 0 && k !== etat.index) { etat.index = k; change = true; }
     if (titre && titre !== etat.titre) { etat.titre = titre; etat.sous = sous; change = true; }
   } else if (typeof i.playlistIndex === 'number' && i.playlistIndex !== etat.index && etat.liste[i.playlistIndex]) { etat.index = i.playlistIndex; etat.titre = etat.liste[i.playlistIndex].titre; etat.sous = etat.liste[i.playlistIndex].chaine; change = true; }
-  if (typeof i.playerState === 'number') { const p = i.playerState === 2; if (p !== etat.pause) { etat.pause = p; change = true; } }
+  if (typeof i.playerState === 'number') {
+    const p = i.playerState === 2; if (p !== etat.pause) { etat.pause = p; change = true; }
+    // 0 = terminé : si c'était la dernière de la liste, on enchaîne sur d'autres chansons
+    if (i.playerState === 0 && etat.index >= etat.liste.length - 1) setTimeout(continuerYoutube, 500);
+  }
   if (change) prevenir();
 });
 // conteneur : élément où placer la vidéo
 export async function jouerYoutube(q, conteneur) {
   const l = await chercherYoutube(q);
   if (!l.length) throw new Error(`Rien trouvé sur YouTube pour « ${q} ».`);
-  return jouerListe(l, conteneur, q);
+  joues = new Set();
+  const suite = suiteYt; const r = jouerListe(l, conteneur, q); etat.suite = suite; etat.recherche = q;
+  return r;
+}
+// Fin de la liste : on va chercher d'autres chansons (page suivante), sans reprendre celles déjà passées
+async function continuerYoutube() {
+  if (suiteEnCours || etat.mode !== 'yt' || !conteneurYt) return;
+  suiteEnCours = true;
+  try {
+    etat.liste.forEach((v) => joues.add(v.id));
+    if (etat.recherche && etat.suite) {
+      let page = etat.suite; let nouv = [];
+      for (let k = 0; k < 3 && page && !nouv.length; k++) { const l = await chercherYoutube(etat.recherche, page); page = suiteYt; nouv = l.filter((v) => !joues.has(v.id)); }
+      if (nouv.length) { const q = etat.recherche; const taille = etat.taille; jouerListe(nouv, conteneurYt, q); etat.suite = page; etat.recherche = q; etat.taille = taille; prevenir(); return; }
+    }
+    // Plus rien de nouveau (ou liste de favoris) : on repart du début, dans un autre ordre
+    const l = [...etat.liste].sort(() => Math.random() - 0.5); const q = etat.recherche; const taille = etat.taille; const suite = etat.suite;
+    jouerListe(l, conteneurYt, q); etat.suite = suite; etat.recherche = q; etat.taille = taille; prevenir();
+  } catch (e) { /* on laisse la dernière chanson */ } finally { suiteEnCours = false; }
 }
 // Joue une liste de vidéos déjà connues ({ id, titre, chaine }), à partir de « depart »
 export function jouerListe(l0, conteneur, nomListe = '', depart = 0) {
@@ -133,8 +157,8 @@ export function jouerListe(l0, conteneur, nomListe = '', depart = 0) {
     demander(); ecouteYt = setInterval(demander, 1000);
     setTimeout(() => envoyerYt('setVolume', [baisse ? Math.round(etat.volume * 0.35) : etat.volume]), 800);
   });
-  conteneur.innerHTML = ''; conteneur.appendChild(cadreYt);
-  etat = { ...etat, mode: 'yt', liste: l, index: 0, titre: l[0].titre, sous: l[0].chaine, ic: '▶️', pause: false, taille: 'grand', recherche: q, erreur: '' };
+  conteneur.innerHTML = ''; conteneur.appendChild(cadreYt); conteneurYt = conteneur;
+  etat = { ...etat, mode: 'yt', liste: l, index: 0, suite: null, titre: l[0].titre, sous: l[0].chaine, ic: '▶️', pause: false, taille: 'grand', recherche: q, erreur: '' };
   prevenir();
   return l[0].titre;
 }
