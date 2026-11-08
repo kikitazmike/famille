@@ -1,0 +1,117 @@
+// Musique de la tablette : radios en direct (annuaire libre radio-browser) et YouTube (recherche via Supabase)
+import { sb } from './supa.js';
+
+const SERVEURS_RADIO = ['https://de1.api.radio-browser.info', 'https://fi1.api.radio-browser.info', 'https://de2.api.radio-browser.info'];
+// Radios proposées (le nom sert à la recherche dans l'annuaire)
+export const RADIOS = [
+  { nom: 'France Inter', cherche: 'France Inter', ic: '🎙️' }, { nom: 'franceinfo', cherche: 'franceinfo', ic: '📰' },
+  { nom: 'FIP', cherche: 'FIP', ic: '🎷' }, { nom: 'RTL', cherche: 'RTL', ic: '📻' }, { nom: 'RTL2', cherche: 'RTL2', ic: '🎸' },
+  { nom: 'NRJ', cherche: 'NRJ', ic: '⚡' }, { nom: 'Nostalgie', cherche: 'Nostalgie', ic: '🕺' }, { nom: 'Chérie FM', cherche: 'Cherie FM', ic: '💖' },
+  { nom: 'RFM', cherche: 'RFM', ic: '🎶' }, { nom: 'Europe 1', cherche: 'Europe 1', ic: '🗞️' }, { nom: 'Fun Radio', cherche: 'Fun Radio', ic: '🎉' },
+  { nom: 'Skyrock', cherche: 'Skyrock', ic: '🎤' }, { nom: 'Radio Nova', cherche: 'Radio Nova', ic: '🌍' }, { nom: 'ici Loire Océan', cherche: 'Loire Ocean', ic: '🌊' },
+];
+const sansAccent = (x) => (x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export function radioConnue(texte) {
+  const t = sansAccent(texte).replace(/^(la |radio )+/, '');
+  return RADIOS.find((r) => sansAccent(r.nom) === t || sansAccent(r.cherche) === t || t === sansAccent(r.nom).replace(/ /g, '')) || null;
+}
+
+let etat = { mode: null, titre: '', sous: '', pause: false, taille: 'petit', liste: [], index: 0, volume: 80 };
+let audio = null; let cadreYt = null; let surChange = () => {}; let baisse = false;
+export const etatMusique = () => etat;
+export function quandMusiqueChange(f) { surChange = f; }
+const prevenir = () => { try { surChange(etat); } catch (e) { /* ignore */ } };
+
+// ---------- Radio ----------
+async function chercherStation(nom) {
+  const cache = (() => { try { return JSON.parse(localStorage.getItem('famille-radios') || '{}'); } catch (e) { return {}; } })();
+  if (cache[nom]) return cache[nom];
+  for (const base of SERVEURS_RADIO) {
+    try {
+      const u = `${base}/json/stations/search?name=${encodeURIComponent(nom)}&countrycode=FR&hidebroken=true&order=clickcount&reverse=true&limit=10`;
+      const r = await fetch(u, { signal: AbortSignal.timeout(6000) }); if (!r.ok) continue;
+      const l = (await r.json()).filter((s) => /^https:/.test(s.url_resolved || ''));
+      if (!l.length) continue;
+      const s = { nom: l[0].name.trim(), url: l[0].url_resolved };
+      cache[nom] = s; try { localStorage.setItem('famille-radios', JSON.stringify(cache)); } catch (e) { /* ignore */ }
+      return s;
+    } catch (e) { /* serveur suivant */ }
+  }
+  return null;
+}
+export async function jouerRadio(nom) {
+  const connue = radioConnue(nom); const cherche = connue ? connue.cherche : nom;
+  const s = await chercherStation(cherche);
+  if (!s) throw new Error(`Je ne trouve pas la radio ${nom}.`);
+  arreterMusique(false);
+  audio = new Audio(s.url); audio.volume = (baisse ? 0.15 : 1) * etat.volume / 100;
+  audio.addEventListener('error', () => { const nomCache = cherche; try { const c = JSON.parse(localStorage.getItem('famille-radios') || '{}'); delete c[nomCache]; localStorage.setItem('famille-radios', JSON.stringify(c)); } catch (e) { /* ignore */ } if (etat.mode === 'radio') { etat.erreur = 'La radio ne répond pas.'; prevenir(); } });
+  await audio.play();
+  etat = { ...etat, mode: 'radio', titre: connue ? connue.nom : s.nom, sous: 'Radio en direct', ic: connue ? connue.ic : '📻', pause: false, erreur: '' };
+  prevenir();
+  return etat.titre;
+}
+
+// ---------- YouTube ----------
+export async function chercherYoutube(q) {
+  const { data, error } = await sb.functions.invoke('youtube', { body: { q } });
+  if (error) {
+    let code = ''; try { code = (await error.context.json()).erreur; } catch (e) { /* ignore */ }
+    throw new Error(code === 'quota_ou_cle' ? 'YouTube refuse la recherche (clé ou quota du jour).' : code === 'cle_absente' ? 'La clé YouTube n\'est pas encore rangée dans Supabase.' : 'Recherche YouTube impossible pour le moment.');
+  }
+  return (data && data.videos) || [];
+}
+function envoyerYt(func, args = []) {
+  if (cadreYt && cadreYt.contentWindow) cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
+}
+window.addEventListener('message', (e) => {
+  if (!cadreYt || e.source !== cadreYt.contentWindow) return;
+  let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (x) { return; }
+  if (!d || !d.info) return;
+  const i = d.info; let change = false;
+  if (typeof i.playlistIndex === 'number' && i.playlistIndex !== etat.index && etat.liste[i.playlistIndex]) { etat.index = i.playlistIndex; etat.titre = etat.liste[i.playlistIndex].titre; etat.sous = etat.liste[i.playlistIndex].chaine; change = true; }
+  if (typeof i.playerState === 'number') { const p = i.playerState === 2; if (p !== etat.pause) { etat.pause = p; change = true; } }
+  if (change) prevenir();
+});
+// conteneur : élément où placer la vidéo
+export async function jouerYoutube(q, conteneur) {
+  const l = await chercherYoutube(q);
+  if (!l.length) throw new Error(`Rien trouvé sur YouTube pour « ${q} ».`);
+  arreterMusique(false);
+  const ids = l.map((v) => v.id);
+  cadreYt = document.createElement('iframe');
+  cadreYt.allow = 'autoplay; encrypted-media; picture-in-picture';
+  cadreYt.title = 'Lecteur YouTube';
+  cadreYt.src = `https://www.youtube-nocookie.com/embed/${ids[0]}?autoplay=1&enablejsapi=1&rel=0&playsinline=1&playlist=${ids.slice(1).join(',')}&origin=${encodeURIComponent(location.origin)}`;
+  cadreYt.addEventListener('load', () => { cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*'); setTimeout(() => envoyerYt('setVolume', [baisse ? 15 : etat.volume]), 800); });
+  conteneur.innerHTML = ''; conteneur.appendChild(cadreYt);
+  etat = { ...etat, mode: 'yt', liste: l, index: 0, titre: l[0].titre, sous: l[0].chaine, ic: '▶️', pause: false, taille: 'grand', recherche: q, erreur: '' };
+  prevenir();
+  return l[0].titre;
+}
+
+// ---------- Commandes ----------
+export function pauseMusique() { if (etat.mode === 'radio' && audio) audio.pause(); if (etat.mode === 'yt') envoyerYt('pauseVideo'); etat.pause = true; prevenir(); }
+export function reprendreMusique() { if (etat.mode === 'radio' && audio) audio.play().catch(() => {}); if (etat.mode === 'yt') envoyerYt('playVideo'); etat.pause = false; prevenir(); }
+export function suivant() { if (etat.mode === 'yt') envoyerYt('nextVideo'); }
+export function precedent() { if (etat.mode === 'yt') envoyerYt('previousVideo'); }
+export function volumeMusique(delta) {
+  etat.volume = Math.max(10, Math.min(100, etat.volume + delta));
+  if (audio) audio.volume = etat.volume / 100;
+  envoyerYt('setVolume', [etat.volume]); prevenir();
+  return etat.volume;
+}
+// Baisse le son pendant qu'on parle à la tablette, puis le remet
+export function baisserMusique(oui) {
+  baisse = oui;
+  if (audio) audio.volume = (oui ? 0.15 : 1) * etat.volume / 100;
+  envoyerYt('setVolume', [oui ? Math.round(etat.volume * 0.15) : etat.volume]);
+}
+export function tailleVideo(t) { etat.taille = t || (etat.taille === 'grand' ? 'petit' : 'grand'); prevenir(); }
+export function arreterMusique(prev = true) {
+  if (audio) { audio.pause(); audio.src = ''; audio = null; }
+  if (cadreYt) { cadreYt.remove(); cadreYt = null; }
+  etat = { ...etat, mode: null, titre: '', sous: '', pause: false, liste: [], index: 0, erreur: '' };
+  if (prev) prevenir();
+}
+export const musiqueEnCours = () => !!etat.mode && !etat.pause;

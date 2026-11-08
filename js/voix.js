@@ -249,6 +249,33 @@ export function comprendre(texte, prenoms = []) {
     const d = trouverDate(t);
     return { type: 'question', sujet: 'meteo', date: d ? d.date : null, semaine: /\bsemaine\b/.test(n), montrer, texte: t };
   }
+  // Musique : « mets NRJ », « mets la radio France Inter », « joue Indochine », « mets les tubes des années 80 », « pause », « plus fort »…
+  {
+    const q = n.replace(/[?!.]/g, '').replace(/\s+/g, ' ').trim();
+    const RADIOS = /^(france inter|inter|franceinfo|france info|fip|rtl ?2|rtl deux|rtl|nrj|nostalgie|cherie fm|cherie|rfm|europe 1|europe un|fun radio|fun|skyrock|radio nova|nova|ici loire ocean|loire ocean|france bleu)$/;
+    if (/^(pause|mets? (sur )?pause|met en pause|pause (la )?(musique|radio|video))$/.test(q)) return { type: 'musique', action: 'pause', texte: t };
+    if (/^(reprends|reprend|continue|relance|play|remets? (la )?(musique|radio))$/.test(q)) return { type: 'musique', action: 'reprendre', texte: t };
+    if (/^((stop|arrete|arreter|coupe|couper|eteins|eteindre|ferme) (la |le )?(musique|radio|video|son|youtube)|stop musique|silence)$/.test(q)) return { type: 'musique', action: 'stop', texte: t };
+    if (/^((chanson|musique|video|titre|morceau) (suivante?|d'apres)|suivante?|passe|next|la suivante|une autre)$/.test(q)) return { type: 'musique', action: 'suivant', texte: t };
+    if (/^((chanson|musique|video|titre|morceau) precedente?|precedente?|reviens)$/.test(q)) return { type: 'musique', action: 'precedent', texte: t };
+    if (/^(plus fort|monte (le son|le volume)|augmente (le son|le volume)|monte|volume plus)$/.test(q)) return { type: 'musique', action: 'plus', texte: t };
+    if (/^(moins fort|baisse (le son|le volume)|diminue (le son|le volume)|baisse|volume moins)$/.test(q)) return { type: 'musique', action: 'moins', texte: t };
+    const m = q.match(/^(?:mets|met|mettre|lance|lancer|joue|jouer|passe|passer|ecoute|ecouter|je veux ecouter|on ecoute|fais ecouter|fais-moi ecouter|j'ai envie d'ecouter|tu peux mettre)\s+(.+)$/);
+    const mr = q.match(/^(?:(?:mets|met|lance|joue|passe|ecoute|ecouter|je veux ecouter|on ecoute)\s+)?(?:la |une )?radio\s+(.+)$/);
+    if (mr) return { type: 'musique', action: 'jouer', radio: true, q: mr[1], texte: t };
+    if (m && !/minuteur|minuterie|chrono|alarme|reveil|lave|machine|four|table|courses?\b|liste/.test(m[1])) {
+      let x = m[1].replace(/^(du |de la |des |de l'|le |la |les |l'|un peu de |une chanson de |des chansons de |la musique de |de la musique de |un album de |l'album de |le dernier album de |un titre de |les chansons de |les tubes de |les titres de )/, '');
+      if (RADIOS.test(x)) return { type: 'musique', action: 'jouer', radio: true, q: x, texte: t };
+      const musical = /musique|chanson|album|tube|titre|playlist|annees|clip|morceau|rock|rap|jazz|classique|disco|variete|zouk|reggae|pop|chanteur|chanteuse|groupe|\b(19|20)\d\d\b|\b[6-9]0\b/.test(m[1]);
+      // « mets du lait » reste une course : après « mets » + article, il faut un mot musical (« mets du rock », « mets de la musique… »)
+      const articleSansMusique = /^(mets|met|mettre)\b/.test(q) && !musical && /^(?:mets|met|mettre)\s+(?:du |de la |des |de l'|un |une )/.test(q);
+      if (!articleSansMusique) {
+        if (/^(de la |la |un peu de )?musique$/.test(m[1])) x = 'hits musique 2026';
+        return { type: 'musique', action: 'jouer', radio: false, q: x.slice(0, 100), texte: t };
+      }
+    }
+  }
+
   // Sujet dit tout seul : « notes », « météo demain », « anniversaires », « agenda de la semaine prochaine »…
   {
     const q = n.replace(/[?!.]/g, '').replace(/\s+/g, ' ').trim()

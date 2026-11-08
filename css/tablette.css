@@ -476,3 +476,38 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 .reveil-btn.on { background: #E3F6EB; color: #1F8F57; }
 .reveil-btn.on::after { content: ''; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #2E9E5B; }
 .reveil-btn s { position: absolute; width: 26px; height: 2px; background: #B3261E; transform: rotate(-45deg); border-radius: 2px; }
+/* Lecteur de musique (radio / YouTube) */
+#lecteur { position: absolute; z-index: 60; display: none; }
+#lecteur.on { display: block; }
+#lecteur .barre { display: flex; align-items: center; gap: 6px; padding: 8px 10px 8px 14px; border-radius: 22px; background: rgba(28, 26, 36, .92); color: #fff; box-shadow: 0 8px 28px rgba(0, 0, 0, .3); }
+#lecteur .lc-ic { font-size: 26px; }
+#lecteur .lc-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#lecteur .lc-tx b { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#lecteur .lc-tx small { font-size: 12px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#lecteur .lc-b { width: 44px; height: 44px; border: none; border-radius: 12px; background: rgba(255, 255, 255, .12); color: #fff; font-size: 18px; flex-shrink: 0; }
+#lecteur .lc-b.stop { background: rgba(179, 38, 30, .85); }
+#lecteur .video { display: none; border-radius: 16px; overflow: hidden; background: #000; }
+#lecteur .video iframe { width: 100%; height: 100%; border: 0; display: block; }
+/* Radio : barre en bas au centre */
+#lecteur.radio { left: 50%; bottom: 18px; transform: translateX(-50%); width: 560px; }
+/* YouTube en grand : au centre */
+#lecteur.yt.grand { left: 50%; top: 50%; transform: translate(-50%, -50%); width: 820px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 26px; background: rgba(28, 26, 36, .96); box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }
+#lecteur.yt.grand .video { display: block; width: 800px; height: 450px; }
+#lecteur.yt.grand .barre { box-shadow: none; background: transparent; padding: 0 4px; }
+/* YouTube en petit : vignette dans le coin */
+#lecteur.yt.petit { right: 16px; bottom: 16px; width: 330px; display: flex; flex-direction: column; gap: 6px; }
+#lecteur.yt.petit .video { display: block; width: 330px; height: 186px; box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
+#lecteur.yt.petit .barre { flex-wrap: wrap; padding: 6px 8px; gap: 4px; }
+#lecteur.yt.petit .lc-tx { flex-basis: 100%; }
+#lecteur.yt.petit .lc-ic { display: none; }
+#lecteur.yt.petit .lc-b { width: 40px; height: 40px; font-size: 16px; }
+/* Page Musique */
+.musique-btn { font-size: 20px; background: #EEE8FF; }
+.mu-grille { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; height: 100%; min-height: 0; }
+.mu-grille section { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; }
+.mu-radios { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.mu-radio { height: 92px; border: 3px solid transparent; border-radius: 18px; background: #fff; font: inherit; font-size: 14px; color: var(--encre); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.mu-radio i { font-style: normal; font-size: 32px; }
+.mu-radio.on { border-color: #6D5BD0; background: #EEE8FF; }
+.mu-idees { display: flex; flex-wrap: wrap; gap: 8px; }
+.mu-idees .puce { border: none; font: inherit; font-size: 15px; min-height: 44px; background: #fff; box-shadow: 0 0 0 1px var(--trait); }

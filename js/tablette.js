@@ -12,6 +12,7 @@ import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { lireAliments, ajouterAliments, categoriesTuiles, tuilesAliments, basculerAliment, cleAliment, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
 import { dire, direEtAttendre, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 import { demarrerReveil, arreterReveil } from './reveil.js';
+import { RADIOS, jouerRadio, jouerYoutube, pauseMusique, reprendreMusique, suivant as musiqueSuivante, precedent as musiquePrecedente, volumeMusique, baisserMusique, tailleVideo, arreterMusique, etatMusique, quandMusiqueChange } from './musique.js';
 const VERSION_APPLI = VERSION;
 import { EFFETS, effetDuJour, demarrerEffet, arreterEffet, effetActif } from './effets.js';
 import { ecouterLocal, preparerVoixLocale, etatVoixLocale } from './voix-locale.js';
@@ -20,7 +21,7 @@ const voixOk = () => (reglages.voix === 'google' ? voixDisponible() : micro() ||
 
 const cadre = document.getElementById('cadre');
 const scene = document.getElementById('scene');
-scene.innerHTML = '<div id="vue"></div><div id="batt" role="img"></div><div id="page"></div><div id="effet"></div><div id="veille"></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div><div id="voyant" role="status" aria-live="polite"></div>';
+scene.innerHTML = '<div id="vue"></div><div id="batt" role="img"></div><div id="page"></div><div id="effet"></div><div id="veille"></div><div id="lecteur" aria-live="polite"><div class="video"></div><div class="barre"></div></div><div id="fen"></div><div id="alerte"></div><div id="minut" aria-live="polite"></div><div id="tst" aria-live="polite"></div><div id="voyant" role="status" aria-live="polite"></div>';
 const vue = document.getElementById('vue');
 const zVeille = document.getElementById('veille');
 const zFen = document.getElementById('fen');
@@ -251,7 +252,7 @@ function agendaHtml() {
       <div class="outils">${titre}
         <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button><button class="btn rond aide" data-a="ouvrirPage" data-v="aide" aria-label="Ce que je comprends à la voix">?</button><button class="btn rond reveil-btn ${reglages.reveil ? 'on' : ''}" data-a="basculeReveil" aria-pressed="${!!reglages.reveil}" aria-label="${reglages.reveil ? 'Couper' : 'Activer'} le réveil « Hé tablette »" title="« Hé tablette » ${reglages.reveil ? 'activé' : 'coupé'}">${i('micro', 18, 2)}${reglages.reveil ? '' : '<s></s>'}</button>` : ''}
-        <button class="btn repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes"><span>🍽️</span>Repas</button>
+        <button class="btn rond musique-btn" data-a="ouvrirPage" data-v="musique" aria-label="Musique et radios">🎵</button><button class="btn repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes"><span>🍽️</span>Repas</button>
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
     ${corps}</section>`;
@@ -489,6 +490,50 @@ function pageAide() {
 // ---------- Repas et recettes ----------
 ui.rp = { id: null, pers: null, coches: new Set(), filtre: 'tous' };
 const libJourT = (iso) => { if (!iso) return 'sans jour'; const d = new Date(iso + 'T12:00:00'); const a = debutJour(new Date()); return memeJour(d, a) ? 'ce soir' : memeJour(d, ajouterJours(a, 1)) ? 'demain' : `${JOURS[jourIso(d) - 1]} ${d.getDate()}`; };
+// ---------------- Musique : radios et YouTube ----------------
+const zLecteur = document.getElementById('lecteur');
+function majLecteur() {
+  const e = etatMusique();
+  zLecteur.className = e.mode ? `on ${e.mode} ${e.mode === 'yt' ? e.taille : ''}` : '';
+  if (!e.mode) { zLecteur.querySelector('.barre').innerHTML = ''; return; }
+  zLecteur.querySelector('.barre').innerHTML = `<span class="lc-ic" aria-hidden="true">${e.ic || '♪'}</span>
+    <span class="lc-tx"><b>${esc(e.titre)}</b><small>${esc(e.erreur || e.sous || '')}</small></span>
+    ${e.mode === 'yt' ? `<button class="lc-b" data-a="musPrec" aria-label="Précédent">⏮</button>` : ''}
+    <button class="lc-b" data-a="${e.pause ? 'musReprendre' : 'musPause'}" aria-label="${e.pause ? 'Reprendre' : 'Pause'}">${e.pause ? '▶' : '⏸'}</button>
+    ${e.mode === 'yt' ? `<button class="lc-b" data-a="musSuiv" aria-label="Suivant">⏭</button>` : ''}
+    <button class="lc-b" data-a="musVol" data-v="-15" aria-label="Moins fort">🔉</button><button class="lc-b" data-a="musVol" data-v="15" aria-label="Plus fort">🔊</button>
+    ${e.mode === 'yt' ? `<button class="lc-b" data-a="musTaille" aria-label="${e.taille === 'grand' ? 'Réduire la vidéo' : 'Agrandir la vidéo'}">${e.taille === 'grand' ? '↘' : '⤢'}</button>` : ''}
+    <button class="lc-b stop" data-a="musStop" aria-label="Arrêter la musique">✕</button>`;
+}
+quandMusiqueChange(() => { majLecteur(); if (ui.page === 'musique') rendre(); });
+// Lance une radio ou une recherche YouTube ; renvoie la phrase à dire
+async function lancerMusique(q, radio) {
+  try {
+    if (radio) { const nom = await jouerRadio(q); return `Je mets ${nom}.`; }
+    toast(`Je cherche « ${q} » sur YouTube…`);
+    const titre = await jouerYoutube(q, zLecteur.querySelector('.video'));
+    return `Je mets ${titre.replace(/\(.*?\)|\[.*?\]/g, '').trim()}.`;
+  } catch (e) {
+    if (e && e.name === 'NotAllowedError') return 'Touche l\'écran une fois, puis redemande : la tablette bloque le son tant que personne ne l\'a touchée.';
+    return (e && e.message) || 'Je n\'arrive pas à lancer la musique.';
+  }
+}
+const IDEES_YT = ['Tubes des années 80', 'Tubes des années 90', 'Tubes des années 2000', 'Jean-Jacques Goldman', 'Indochine', 'Johnny Hallyday', 'Céline Dion', 'Musique relaxante', 'Rock classique', 'Hits du moment'];
+function pageMusique() {
+  const e = etatMusique();
+  return {
+    titre: 'Musique <small>· radios en direct et YouTube</small>',
+    outils: `${voixOk() ? `<button class="btn fort" data-a="parler">${i('micro', 18, 2)}Parler</button>` : ''}`,
+    corps: `<div class="mu-grille">
+      <section><h3 class="fr-titre">📻 Radios</h3><div class="mu-radios">${RADIOS.map((r) => `<button class="mu-radio ${e.mode === 'radio' && e.titre === r.nom ? 'on' : ''}" data-a="musRadio" data-v="${esc(r.nom)}"><i>${r.ic}</i><span>${esc(r.nom)}</span></button>`).join('')}</div></section>
+      <section><h3 class="fr-titre">▶️ YouTube</h3>
+        <form class="ajout-p" data-form="musique" autocomplete="off"><input name="q" maxlength="100" placeholder="Chanteur, groupe, chanson, année…" aria-label="Rechercher sur YouTube"><button class="gros-btn" aria-label="Chercher" style="font-size:22px">🔍</button></form>
+        <div class="mu-idees">${IDEES_YT.map((x) => `<button class="puce" data-a="musYt" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+        <p class="fr-aide">À la voix : « Hé tablette, mets NRJ », « joue Indochine », « mets les tubes des années 80 », puis « suivant », « pause », « plus fort », « stop la musique ».<br>YouTube peut afficher des publicités, et la vidéo doit rester visible (en grand ou dans le coin).</p>
+      </section></div>`,
+  };
+}
+
 // ---------------- Qu'est-ce que je peux faire ? ----------------
 ui.frigo = lireChoix();
 function pageFrigo() {
@@ -595,7 +640,7 @@ function rendrePage() {
   if (!ui.page) { zPage.innerHTML = ''; return; }
   const act = document.activeElement;
   if (act && zPage.contains(act) && act.tagName === 'INPUT' && act.type === 'text' && act.value) return; // on ne coupe pas une saisie
-  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : ui.page === 'messages' ? pageMessages() : ui.page === 'repas' ? pageRepas() : ui.page === 'frigo' ? pageFrigo() : pageRappels();
+  const p = ui.page === 'courses' ? pageCourses() : ui.page === 'notes' ? pageNotes() : ui.page === 'meteo' ? pageMeteo() : ui.page === 'aide' ? pageAide() : ui.page === 'messages' ? pageMessages() : ui.page === 'repas' ? pageRepas() : ui.page === 'frigo' ? pageFrigo() : ui.page === 'musique' ? pageMusique() : pageRappels();
   const garder = zPage.querySelector('.page-corps'); const defil = garder ? garder.scrollTop : 0;
   zPage.innerHTML = `<div class="page" role="dialog" aria-modal="true" aria-label="${ui.page}"><header><h1>${p.titre}</h1><div class="outils">${p.outils}<button class="btn rond grand" data-a="fermerPage" aria-label="Fermer et revenir à l'accueil">${i('fermer', 26, 2.2)}</button></div></header><div class="page-corps">${p.corps}</div></div>`;
   const c = zPage.querySelector('.page-corps'); if (c) c.scrollTop = defil;
@@ -784,7 +829,7 @@ function fetesDuJour() { return (state.anniv || []).filter((a) => { const p = pr
 function lancerEffet(n) {
   const noms = fetesDuJour();
   const choix = n || (noms.length ? 'confettis' : reglages.effet === 'auto' || !reglages.effet ? effetDuJour() : Number(reglages.effet));
-  zFen.innerHTML = ''; demarrerEffet(zEffet, choix, { infos: infosHud, noms, page: vue });
+  zFen.innerHTML = ''; if (etatMusique().mode === 'yt') tailleVideo('petit'); demarrerEffet(zEffet, choix, { infos: infosHud, noms, page: vue });
 }
 // Un toucher arrête l'effet sans déclencher le bouton qui est dessous
 let avalerClic = false;
@@ -848,21 +893,30 @@ async function parler(d) {
   const contexte = d && d.v;
   if (enDialogue) return;
   if (ui.ecoute) { [ecouterLocal.arreter, ecouter.arreter].forEach((a) => a && a()); return; }
-  arreterReveil();
+  arreterReveil(); baisserMusique(true);
   ui.ecoute = true; rendre();
   let t;
-  try { t = await ecouterTexte({ long: contexte === 'note' || contexte === 'champNote' }); } catch (e) { ui.ecoute = false; rendre(); relancerReveil(); return toast(e.message); }
+  try { t = await ecouterTexte({ long: contexte === 'note' || contexte === 'champNote' }); } catch (e) { ui.ecoute = false; baisserMusique(false); rendre(); relancerReveil(); return toast(e.message); }
   ui.ecoute = false; zToast.innerHTML = ''; rendre();
   try {
     if (contexte === 'champNote') { const ta = zFen.querySelector('form[data-form=note] textarea'); if (ta) { ta.value = `${ta.value.trim() ? ta.value.trim() + ' ' : ''}${majuscule(t.trim())}`.slice(0, 2000); ta.focus(); } return; }
     let c = comprendre(t, personnes().map((p) => p.prenom));
     if (contexte === 'note' && c.type !== 'note') c = { type: 'note', texte: majuscule(t.trim()) };
     await agir(c, t);
-  } finally { relancerReveil(); }
+  } finally { baisserMusique(false); relancerReveil(); }
 }
 
 // Exécute une demande comprise
 async function agir(c, t) {
+  if (c.type === 'musique') {
+    const e = etatMusique();
+    if (c.action === 'jouer') { const r = await lancerMusique(c.q, c.radio); toast(`« ${t} » → ${r}`); if (!etatMusique().mode || etatMusique().mode === 'radio') parlerSi(r); return; }
+    if (!e.mode) { toast('Aucune musique en cours.'); return; }
+    if (c.action === 'pause') pauseMusique(); else if (c.action === 'reprendre') reprendreMusique(); else if (c.action === 'stop') arreterMusique();
+    else if (c.action === 'suivant') musiqueSuivante(); else if (c.action === 'precedent') musiquePrecedente();
+    else if (c.action === 'plus' || c.action === 'moins') toast(`Volume ${volumeMusique(c.action === 'plus' ? 20 : -20)} %`);
+    return;
+  }
   if (c.type === 'course') {
     const { nouveaux, deja } = sansDoublons(c.noms);
     if (!nouveaux.length) { toast(`Déjà dans la liste : ${deja.join(', ')}`); parlerSi(`${enumerer(deja)}, c'est déjà dans la liste.`); return; }
@@ -957,7 +1011,7 @@ async function choixFinal(resume) {
 }
 async function conversation(reste = '') {
   if (enDialogue || ui.ecoute || !state.moi) return;
-  enDialogue = true; arreterReveil();
+  enDialogue = true; arreterReveil(); baisserMusique(true);
   if (effetActif()) arreterEffet();
   if (enVeille()) { ui.veilleForcee = false; ui.reveilJusqua = Date.now() + 5 * 60000; rendreVeille(); }
   ui.derniere = Date.now();
@@ -966,7 +1020,7 @@ async function conversation(reste = '') {
     if (!t) { toast('Je n\'ai rien entendu.'); return; }
     await traiterDemande(t);
   } catch (e) { toast(e.message || 'Erreur'); }
-  finally { enDialogue = false; ui.ecoute = false; ui.derniere = Date.now(); rendre(); setTimeout(relancerReveil, 800); }
+  finally { enDialogue = false; ui.ecoute = false; ui.derniere = Date.now(); baisserMusique(false); rendre(); setTimeout(relancerReveil, 800); }
 }
 async function traiterDemande(t) {
   const n = normer(t); const prenoms = personnes().map((p) => p.prenom);
@@ -1255,6 +1309,15 @@ const actions = {
   ouvrirPage(d) { ui.page = d.v; if (d.v === 'meteo') { ui.meteoVue = '2j'; if (!ui.meteo || Date.now() - (ui.meteo.le || 0) > 20 * 60000) chargerMeteo(); } rendre(); },
   meteoVue(d) { ui.meteoVue = d.v; rendre(); },
   rpVoir(d) { if (ui.rp.id !== d.id) { ui.rp.coches = new Set(); ui.rp.pers = null; } ui.rp.id = d.id; ui.rp.retour = d.retour || null; ui.page = 'repas'; rendre(); },
+  async musRadio(d) { toast(`Je lance ${d.v}…`); const r = await lancerMusique(d.v, true); toast(r); },
+  async musYt(d) { const r = await lancerMusique(d.v, false); toast(r); },
+  musPause() { pauseMusique(); },
+  musReprendre() { reprendreMusique(); },
+  musSuiv() { musiqueSuivante(); },
+  musPrec() { musiquePrecedente(); },
+  musVol(d) { const v = volumeMusique(Number(d.v)); toast(`Volume ${v} %`); },
+  musTaille() { tailleVideo(); },
+  musStop() { arreterMusique(); },
   frigoRetirer(d) { ui.frigo.splice(Number(d.k), 1); garderChoix(ui.frigo); rendre(); },
   frigoVider() { ui.frigo = []; garderChoix(ui.frigo); rendre(); },
   frigoCat(d) { ui.frigoCat = d.v; rendre(); },
@@ -1369,6 +1432,7 @@ const changements = {
   modeVoix(el) { reglages.voix = el.value; sauverReglages(); if (el.value === 'locale') preparerVoixLocale().catch(() => {}); rendre(); }
 };
 const formulaires = {
+  async musique(form) { const q = String(new FormData(form).get('q') || '').trim(); if (!q) return; form.reset(); const r = await lancerMusique(q, false); toast(r); },
   frigo(form) { const l = lireAliments(new FormData(form).get('t')); if (!l.length) return; ui.frigo = ajouterAliments(ui.frigo, l); garderChoix(ui.frigo); form.reset(); rendre(); },
   async connexion(form, sub) {
     const fd = new FormData(form); const email = (fd.get('email') || '').trim(); const mdp = fd.get('mdp') || '';
