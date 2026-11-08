@@ -92,10 +92,12 @@ let suiteYt = null; let conteneurYt = null; let joues = new Set(); let suiteEnCo
 function envoyerYt(func, args = []) {
   if (cadreYt && cadreYt.contentWindow) cadreYt.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args }), '*');
 }
-let ecouteYt = null; let recuYt = false;
+let ecouteYt = null; let recuYt = false; let etatYt = -1; let gardeYt = null;
 window.addEventListener('message', (e) => {
   if (!cadreYt || e.source !== cadreYt.contentWindow) return;
   let d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (x) { return; }
+  // Vidéo impossible à lire (supprimée, interdite hors YouTube…) : on passe à la suivante
+  if (d && d.event === 'onError') { if (etat.index >= etat.liste.length - 1) setTimeout(continuerYoutube, 300); else envoyerYt('nextVideo'); return; }
   if (!d || !d.info) return;
   recuYt = true;
   const i = d.info; let change = false;
@@ -111,6 +113,9 @@ window.addEventListener('message', (e) => {
     const p = i.playerState === 2; if (p !== etat.pause) { etat.pause = p; change = true; }
     // 0 = terminé : si c'était la dernière de la liste, on enchaîne sur d'autres chansons
     if (i.playerState === 0 && etat.index >= etat.liste.length - 1) setTimeout(continuerYoutube, 500);
+    // Sécurité : si le lecteur reste « terminé » plus de 5 s sans enchaîner, on relance nous-mêmes
+    etatYt = i.playerState; clearTimeout(gardeYt);
+    if (i.playerState === 0) gardeYt = setTimeout(() => { if (etatYt === 0 && etat.mode === 'yt') { if (etat.index >= etat.liste.length - 1) continuerYoutube(); else envoyerYt('nextVideo'); } }, 5000);
   }
   if (change) prevenir();
 });

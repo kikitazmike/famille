@@ -1674,14 +1674,16 @@ async function demarrer() {
   setInterval(annonces, 20000);
   setInterval(tickMinuteurs, 1000); rendreMin();
   // recharge complète chaque nuit pour récupérer les mises à jour de l'appli
-  setInterval(() => { const n = new Date(); if (n.getHours() === 4 && n.getMinutes() === 0) location.reload(); }, 60000);
+  setInterval(() => { const n = new Date(); if (n.getHours() === 4 && n.getMinutes() === 0 && !musiqueActive()) location.reload(); }, 60000);
 }
 
 // Mises à jour automatiques : on vérifie toutes les 15 min et on recharge dès qu'une nouvelle version est prête
 if ('serviceWorker' in navigator) {
   const avaitVersion = !!navigator.serviceWorker.controller;
   let recharge = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (avaitVersion && !recharge) { recharge = true; location.reload(); } });
+  // Jamais pendant la musique, une conversation ou une fenêtre ouverte : on attend que ce soit calme
+  const rechargerQuandCalme = () => { if (musiqueActive() || enDialogue || ui.ecoute || zFen.innerHTML) { setTimeout(rechargerQuandCalme, 30000); return; } location.reload(); };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (avaitVersion && !recharge) { recharge = true; rechargerQuandCalme(); } });
   navigator.serviceWorker.register('sw.js').then((reg) => { setInterval(() => reg.update().catch(() => {}), 15 * 60000); }).catch(() => {});
 }
 demarrer();
