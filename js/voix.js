@@ -357,6 +357,25 @@ export function comprendre(texte, prenoms = []) {
       return { type: 'question', sujet, date, semaine: /\bsemaine\b|week[- ]?end/.test(q), montrer: false, texte: t };
     }
   }
+  // Savoir : « c'est qui Claude François ? », « c'est quoi un ornithorynque ? », « définition de procrastiner » (Wikipédia, Wiktionnaire)
+  {
+    const q = n.replace(/[?!.]/g, '').replace(/\s+/g, ' ').trim().replace(/ (s'il te plait|stp|svp)$/, '');
+    const MAISON = /\b(programme|prevu|aujourd|demain|ce soir|ce midi|cette semaine|semaine prochaine|planning|horaire|meteo|temps|repas|menu|on mange|courses?|liste|notes?|messages?|taches?|corvee|vaisselle|menage|poubelles?|anniv|heure|date|minuteur|rappels?|rdv|rendez|reglages?|batterie|radio|musique|chanson)\b/;
+    const enlever = (x) => x.replace(/^(?:la |le |les |l'|un |une |des |du |de la |de l'|d')/, '').trim();
+    // Remet les accents et majuscules d'origine (« claude francois » → « Claude François »)
+    const origine = (x) => { const mots = t.replace(/[?!.,;]/g, ' ').split(/\s+/).filter(Boolean); const cles = mots.map((w) => sansAccent(w).toLowerCase()); const c = x.split(' ');
+      for (let i = 0; i + c.length <= cles.length; i++) if (c.every((w, j) => cles[i + j] === w)) return mots.slice(i, i + c.length).join(' ');
+      return x; };
+    let m = q.match(/^(?:c'?est quoi |quelle est |donne[- ]moi |dis[- ]moi |cherche |lis[- ]moi )?(?:la |une )?definition (?:de |du |des |d'|de la |de l')?(.+)$/)
+      || q.match(/^(?:qu'?est[- ]ce que |que |ca |qu'?est[- ]ce qu')?(?:veut dire|signifie)(?: le mot)? (.+)$/)
+      || q.match(/^(?:le mot )?(.+?) (?:ca|ce mot) veut dire quoi$/) || q.match(/^(?:le mot )?(.+?) (?:ca )?signifie quoi$/);
+    if (m && m[1] && !MAISON.test(m[1]) && m[1].split(' ').length <= 4) return { type: 'savoir', mode: 'def', q: origine(enlever(m[1].replace(/^le mot /, ''))), texte: t };
+    m = q.match(/^(?:c'?est qui|qui est|qui etait|qui c'?est|c'?etait qui|qui sont|qui etaient|tu connais) (.+)$/)
+      || q.match(/^(?:c'?est quoi|qu'?est[- ]ce que c'?est que?|qu'?est[- ]ce que c'?est|qu'?est[- ]ce qu'?|c'?etait quoi) ((?:un|une|le|la|les|l'|des) ?.+)$/)
+      || q.match(/^(?:parle[- ]moi|dis[- ]moi tout|raconte[- ]moi|renseigne[- ]moi|informations?|infos?|cherche sur internet|recherche sur internet|cherche sur wikipedia|recherche sur wikipedia|recherche|cherche|wikipedia)(?: sur| de| du| des| d'| a propos de)? (.+)$/);
+    if (m && m[1] && !MAISON.test(m[1]) && !/^(la|las?|ici|dehors|libre|la-bas|absent|present)$/.test(m[1])) return { type: 'savoir', mode: 'wiki', q: origine(m[1].startsWith("l'") ? m[1].slice(2) : enlever(m[1])), texte: t };
+  }
+
   // Questions : « qu'est-ce qu'on a demain ? », « c'est quand l'anniversaire de Lucas ? »…
   const nq = n.replace(/\?/g, '').trim();
   const DEBUT_Q = /^(qu'?\s*est[- ]?ce|qu'?y a[- ]t[- ]il|qu'avons|quoi|quand|c'?est quand|c'?est quoi|quel|quelle|quels|quelles|est[- ]?ce qu(?:e|')|on a quoi|j'ai quoi|ai[- ]je|avons[- ]nous|y a[- ]t[- ]il|il y a quoi|y a quoi|dis[- ]?moi|donne[- ]?moi|lis|lire|relis|montre|affiche|afficher|ouvre|ouvrir|fais voir|combien|on fait quoi|on mange|qui|quelle heure|il est quelle heure|il va|il fait|va[- ]t[- ]il|fait[- ]il|(le\s+)?programme\s+(de|d'|pour|du)|quoi de (prevu|neuf))\b/;

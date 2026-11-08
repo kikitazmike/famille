@@ -12,6 +12,7 @@ import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { lireAliments, ajouterAliments, categoriesTuiles, tuilesAliments, basculerAliment, cleAliment, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
 import { dire, direEtAttendre, enTrainDeParler, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 import { demarrerReveil, arreterReveil } from './reveil.js';
+import { ficheWikipedia, definition, debutTexte } from './savoir.js';
 import { RADIOS, jouerRadio, jouerYoutube, pauseMusique, reprendreMusique, suivant as musiqueSuivante, precedent as musiquePrecedente, volumeMusique, baisserMusique, tailleVideo, arreterMusique, etatMusique, quandMusiqueChange, jouerListe, videoEnCours, radioConnue } from './musique.js';
 const VERSION_APPLI = VERSION;
 import { EFFETS, effetDuJour, demarrerEffet, arreterEffet, effetActif } from './effets.js';
@@ -254,7 +255,7 @@ function agendaHtml() {
       <div class="outils">${titre}
         <span class="fleches"><button class="btn rond" data-a="decaler" data-v="-1" aria-label="${nom === 'semaine' ? 'Semaine précédente' : nom === 'mois' ? 'Mois précédent' : 'Jour précédent'}">${i('gauche', 22, 2)}</button><button class="btn rond" data-a="decaler" data-v="1" aria-label="${nom === 'semaine' ? 'Semaine suivante' : nom === 'mois' ? 'Mois suivant' : 'Jour suivant'}">${i('droite', 22, 2)}</button></span>
         ${voixOk() ? `<button class="btn fort ${ui.ecoute ? 'ecoute' : ''}" data-a="parler">${i('micro', 18, 2)}${ui.ecoute ? 'J\'écoute…' : 'Parler'}</button><button class="btn rond aide" data-a="ouvrirPage" data-v="aide" aria-label="Ce que je comprends à la voix">?</button><button class="btn rond reveil-btn ${reglages.reveil ? 'on' : ''}" data-a="basculeReveil" aria-pressed="${!!reglages.reveil}" aria-label="${reglages.reveil ? 'Couper' : 'Activer'} le réveil « Hé tablette »" title="« Hé tablette » ${reglages.reveil ? 'activé' : 'coupé'}">${i('micro', 18, 2)}${reglages.reveil ? '' : '<s></s>'}</button>` : ''}
-        <button class="btn rond musique-btn" data-a="ouvrirPage" data-v="musique" aria-label="Musique et radios">🎵</button><button class="btn repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes"><span>🍽️</span>Repas</button>
+        <button class="btn rond savoir-btn" data-a="ouvrirRecherche" aria-label="Rechercher (Wikipédia, définitions)">🔎</button><button class="btn rond musique-btn" data-a="ouvrirPage" data-v="musique" aria-label="Musique et radios">🎵</button><button class="btn repas" data-a="ouvrirPage" data-v="repas" aria-label="Repas et recettes"><span>🍽️</span>Repas</button>
         <button class="btn" data-a="ajouterRdv">${i('ajouter', 18, 2.2)}Ajouter</button>
         <button class="btn rond" data-a="reglages" aria-label="Réglages de la tablette">${i('reglages', 20)}</button></div></div>
     ${corps}</section>`;
@@ -480,6 +481,7 @@ function pageAide() {
     ${bloc('agenda', '#6D5BD0', 'Rendez-vous', 'rendez-vous, rdv, prends rendez-vous, réunion, rappelle-moi, j\'ai… — ou un jour + une heure', ['Rendez-vous chez le dentiste demain à 14 heures 30', 'Foot de Lucas samedi à 10 heures', 'Piscine demain de 14 h à 16 h', 'Réunion jeudi à 9 h pendant 2 heures', 'Dentiste à 9 h 30 (aujourd\'hui)'], 'Jours : aujourd\'hui, ce soir, demain, après-demain, lundi… dimanche, le 12 novembre.<br>Heures : 14 h, quatorze heures trente, et quart, et demie, moins le quart, midi.<br>Un prénom de la famille est coché tout seul. Sans heure : journée entière.')}
     ${bloc('cloche', '#C8446F', 'Minuteur', 'minuteur, minuterie, chrono, sonne dans, préviens-moi dans', ['Minuteur 10 minutes', 'Mets un minuteur de 5 minutes pour les pâtes', 'Minuteur une heure et demie', 'Combien de temps reste le minuteur ?', 'Arrête le minuteur'], 'Aussi : un quart d\'heure, une demi-heure, 45 secondes. Il sonne sur la tablette ; « +1 » ajoute une minute, la croix l\'arrête.')}
     ${bloc('micro', '#6D5BD0', 'Hé tablette', 'hé tablette, puis la demande', ['Hé tablette… → « Je t\'écoute » → Nouvelle note → « Je note quoi ? »', 'Hé tablette… → Courses → « Qu\'est-ce que j\'ajoute ? »', 'Hé tablette… → Rendez-vous → « C\'est quoi ? » puis « Quel jour, à quelle heure ? »', 'Hé tablette… → Message, Rappel, Minuteur, ou une question'], 'Sans toucher l\'écran. À la fin, la tablette demande « Modifier, annuler ou valider ? ». L\'écoute reste sur la tablette (rien n\'est envoyé sur Internet). Se règle dans Réglages.')}
+    ${bloc('chercher', '#2F80ED', 'Savoir', 'c\'est qui, c\'est quoi, définition de', ['C\'est qui Claude François ?', 'C\'est quoi un ornithorynque ?', 'Définition de procrastiner', 'Parle-moi de la Bretagne'], 'Une fenêtre s\'ouvre avec la fiche Wikipédia (photo + résumé) ou la définition du dictionnaire, lue à voix haute. Aussi avec le bouton 🔎 de l\'accueil.')}
     ${bloc('notes', '#2F80ED', 'Messages', 'dis à, préviens, rappelle à, message pour', ['Dis à Lucas de sortir le chien', 'Préviens tout le monde que le repas est prêt', 'Message pour Morgane : appelle mamie', 'Est-ce que j\'ai des messages ?'], 'Le message s\'affiche sur la tablette (pastille en haut) et sur le téléphone de la personne.')}
     ${bloc('courses', '#C2410C', 'Repas', 'ajoute les ingrédients de, on mange quoi, montre les recettes', ['Ajoute les ingrédients des lasagnes', 'Qu\'est-ce qu\'on mange ce soir ?', 'On mange quoi demain ?', 'Montre les recettes'], 'Bouton 🍽️ à côté de « Ajouter » : choisis une recette, coche ce qu\'il faut acheter, puis « Ajouter aux courses ». « Prévoir » met le repas dans « À cuisiner », avec ou sans jour. Le repas du soir s\'affiche en haut et dans la carte Courses.')}
     ${bloc('courses', '#0E9F6E', 'Avec ce qu\'il reste', 'qu\'est-ce que je peux faire avec, recettes avec, j\'ai … qu\'est-ce qu\'on peut faire', ['Qu\'est-ce que je peux faire avec des œufs, du jambon et du fromage ?', 'Que faire avec du riz et du poulet ?', 'J\'ai des pâtes et du thon, qu\'est-ce qu\'on peut cuisiner ?'], 'Page Repas, bouton 🧊 : choisis les aliments dans la liste ou écris-les. Tu vois ✅ ce qu\'on peut faire tout de suite, 🟡 ce qu\'il manque à 1 ou 2 ingrédients près (bouton pour les ajouter aux courses), 🔸 le reste. Sel, poivre, huile, beurre, épices, herbes et bouillon sont supposés être là. Les moins sucrées d\'abord.')}
@@ -495,6 +497,36 @@ function pageAide() {
 // ---------- Repas et recettes ----------
 ui.rp = { id: null, pers: null, coches: new Set(), filtre: 'tous' };
 const libJourT = (iso) => { if (!iso) return 'sans jour'; const d = new Date(iso + 'T12:00:00'); const a = debutJour(new Date()); return memeJour(d, a) ? 'ce soir' : memeJour(d, ajouterJours(a, 1)) ? 'demain' : `${JOURS[jourIso(d) - 1]} ${d.getDate()}`; };
+// ---------------- Savoir : Wikipédia et définitions ----------------
+function fenRecherche(q = '') {
+  fenetre('Rechercher', `<form class="sv-form" data-form="savoir" autocomplete="off">
+      <input name="q" maxlength="100" value="${esc(q)}" placeholder="Une personne, un lieu, un animal, un mot…" aria-label="Que chercher ?">
+      <div class="rangee"><button class="gros-btn" name="mode" value="wiki">📖 Wikipédia</button><button class="gros-btn second" name="mode" value="def">🔤 Définition</button></div>
+    </form>
+    <p class="fr-aide" style="margin:0">À la voix : « Hé tablette, c'est qui Claude François ? », « c'est quoi un ornithorynque ? », « définition de procrastiner ».</p>`);
+  setTimeout(() => { const i = zFen.querySelector('.sv-form input'); if (i) i.focus(); }, 50);
+}
+async function afficherSavoir(mode, q, lire = true) {
+  if (!q) return fenRecherche();
+  fenetre(mode === 'def' ? 'Définition' : 'Wikipédia', `<p class="vide" style="margin:0">Je cherche « ${esc(q)} »…</p>`);
+  let r = null;
+  try { r = mode === 'def' ? await definition(q) : await ficheWikipedia(q); } catch (e) { r = null; }
+  if (!r && mode === 'def') { try { const f = await ficheWikipedia(q); if (f) { mode = 'wiki'; r = f; } } catch (e) { /* rien */ } }
+  if (!r) { fenetre('Rien trouvé', `<p style="margin:0;font-size:18px">Je n'ai rien trouvé pour « ${esc(q)} ».</p><div class="rangee"><button class="gros-btn" data-a="ouvrirRecherche" data-v="${esc(q)}">Chercher autre chose</button><button class="gros-btn second" data-a="fermer">Fermer</button></div>`); if (lire) parlerSi(`Je n'ai rien trouvé pour ${q}.`); return; }
+  if (mode === 'def') {
+    ui.savoirTexte = `${r.mot}. ` + r.sens.map((x) => `${x.nature} : ${x.definitions[0]}`).join(' ');
+    fenetre(`🔤 ${esc(r.mot)}`, `<div class="sv-def">${r.sens.map((x) => `<h3>${esc(x.nature)}</h3><ol>${x.definitions.map((d) => `<li>${esc(d)}</li>`).join('')}</ol>`).join('')}</div>
+      <p class="sv-source">Source : Wiktionnaire</p>
+      <div class="rangee"><button class="gros-btn" data-a="savoirLire">🔊 Lire</button><button class="gros-btn second" data-a="ouvrirRecherche">🔎 Autre recherche</button><button class="gros-btn second" data-a="fermer">Fermer</button></div>`);
+  } else {
+    ui.savoirTexte = `${r.titre}. ${debutTexte(r.texte, 3)}`;
+    fenetre(`📖 ${esc(r.titre)}`, `<div class="sv-fiche">${r.image ? `<img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer">` : ''}<div>${r.sousTitre ? `<p class="sv-sous">${esc(r.sousTitre)}</p>` : ''}<p class="sv-texte">${esc(r.texte)}</p></div></div>
+      <p class="sv-source">Source : Wikipédia</p>
+      <div class="rangee"><button class="gros-btn" data-a="savoirLire">🔊 Lire</button><button class="gros-btn second" data-a="ouvrirRecherche">🔎 Autre recherche</button><button class="gros-btn second" data-a="fermer">Fermer</button></div>`);
+  }
+  if (lire) parlerSi(mode === 'def' ? ui.savoirTexte : `${r.titre}. ${debutTexte(r.texte, 2)}`);
+}
+
 // ---------------- Musique : radios et YouTube ----------------
 const zLecteur = document.getElementById('lecteur');
 function majLecteur() {
@@ -954,6 +986,7 @@ function journaliser(source, texte, compris) {
 
 // Exécute une demande comprise
 async function agir(c, t) {
+  if (c.type === 'savoir') { await afficherSavoir(c.mode, c.q); return; }
   if (c.type === 'musique') {
     const e = etatMusique();
     if (c.action === 'favori' || c.action === 'defavori' || c.action === 'jouerFavoris') {
@@ -1390,6 +1423,8 @@ const actions = {
   musVol(d) { const v = volumeMusique(Number(d.v)); toast(`Volume ${v} %`); },
   musTaille() { tailleVideo(); },
   musStop() { arreterMusique(); },
+  ouvrirRecherche(d) { fenRecherche(d && d.v ? d.v : ''); },
+  savoirLire() { if (ui.savoirTexte) dire(ui.savoirTexte); },
   muOnglet(d) { ui.muOnglet = d.v; rendre(); },
   musFavTout(d) { const p = personnes().find((x) => x.id === d.v); if (p) toast(jouerFavoris(p)); },
   musFavJouer(d) { const p = personnes().find((x) => x.id === d.v); if (p) toast(jouerFavoris(p, Number(d.k))); },
@@ -1510,6 +1545,7 @@ const changements = {
   modeVoix(el) { reglages.voix = el.value; sauverReglages(); if (el.value === 'locale') preparerVoixLocale().catch(() => {}); rendre(); }
 };
 const formulaires = {
+  savoir(form, bouton) { const q = String(new FormData(form).get('q') || '').trim(); if (!q) return; return afficherSavoir(bouton && bouton.value === 'def' ? 'def' : 'wiki', q, false); },
   async musique(form) { const q = String(new FormData(form).get('q') || '').trim(); if (!q) return; form.reset(); const r = await lancerMusique(q, false); toast(r); },
   frigo(form) { const l = lireAliments(new FormData(form).get('t')); if (!l.length) return; ui.frigo = ajouterAliments(ui.frigo, l); garderChoix(ui.frigo); form.reset(); rendre(); },
   async connexion(form, sub) {
