@@ -504,6 +504,7 @@ function majLecteur() {
     <button class="lc-b" data-a="musVol" data-v="-15" aria-label="Moins fort">🔉</button><button class="lc-b" data-a="musVol" data-v="15" aria-label="Plus fort">🔊</button>
     ${e.mode === 'yt' ? `<button class="lc-b coeur" data-a="musCoeur" aria-label="Enregistrer dans les favoris">♥</button>` : ''}
     ${e.mode === 'yt' ? `<button class="lc-b" data-a="musTaille" aria-label="${e.taille === 'grand' ? 'Réduire la vidéo' : 'Agrandir la vidéo'}">${e.taille === 'grand' ? '↘' : '⤢'}</button>` : ''}
+    ${voixOk() ? `<button class="lc-b micro" data-a="parler" aria-label="Parler à la tablette">🎤</button>` : ''}
     <button class="lc-b stop" data-a="musStop" aria-label="Arrêter la musique">✕</button>`;
 }
 quandMusiqueChange(() => { majLecteur(); if (ui.page === 'musique') rendre(); });
@@ -1037,7 +1038,7 @@ async function agir(c, t) {
 let enDialogue = false;
 function relancerReveil() {
   if (!reglages.reveil || enDialogue || ui.ecoute || !state.moi || document.visibilityState !== 'visible') return;
-  demarrerReveil((reste, brut) => { journaliser('mot-reveil', brut || 'tablette', ''); conversation(reste); }).catch(() => {});
+  demarrerReveil((reste, brut) => { journaliser('mot-reveil', brut || 'tablette', ''); conversation(reste); }, { souple: () => !!etatMusique().mode && !etatMusique().pause }).catch(() => {});
 }
 const normer = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[?!.,;]/g, ' ').replace(/\s+/g, ' ').trim();
 // Pose une question à voix haute (et à l'écran), puis écoute la réponse
@@ -1068,7 +1069,9 @@ async function conversation(reste = '') {
   if (enVeille()) { ui.veilleForcee = false; ui.reveilJusqua = Date.now() + 5 * 60000; rendreVeille(); }
   ui.derniere = Date.now();
   try {
-    const t = reste && reste.split(' ').length >= 1 && reste.length > 2 ? reste : await demander('Je t\'écoute');
+    // La suite de la phrase n'est gardée que si elle veut dire quelque chose (sinon c'est souvent la musique ou un bruit)
+    const cr = reste && reste.length > 2 ? comprendre(reste, personnes().map((p) => p.prenom)) : null;
+    const t = cr && cr.type !== 'inconnu' && !cr.devine ? reste : await demander('Je t\'écoute');
     if (!t) { toast('Je n\'ai rien entendu.'); return; }
     journaliser(reste ? 'reveil-direct' : 'reveil', t, comprendre(t, personnes().map((p) => p.prenom)));
     await traiterDemande(t);

@@ -7,16 +7,17 @@ let actif = null;
 export const reveilActif = () => !!actif;
 
 // Analyse une phrase reconnue : renvoie null, ou { reste } (la demande dite juste après « tablette »)
-export function analyserReveil(texte, mots) {
+export function analyserReveil(texte, mots, souple = false) {
   const l = (texte || '').toLowerCase().split(/\s+/).filter(Boolean);
   const k = l.findIndex((w) => /^tablettes?$/.test(w));
-  if (k < 0 || k > 2) return null; // « tablette » doit être au début (« hé tablette », « ok tablette »)
-  if (Array.isArray(mots)) { const m = mots.find((x) => /^tablettes?$/.test(x.word || '')); if (m && typeof m.conf === 'number' && m.conf < 0.6) return null; }
+  // Avec de la musique, le micro entend aussi les paroles : on accepte « tablette » un peu plus loin dans la phrase
+  if (k < 0 || k > (souple ? 5 : 2)) return null; // « tablette » doit être au début (« hé tablette », « ok tablette »)
+  if (Array.isArray(mots)) { const m = mots.find((x) => /^tablettes?$/.test(x.word || '')); if (m && typeof m.conf === 'number' && m.conf < (souple ? 0.45 : 0.6)) return null; }
   return { reste: l.slice(k + 1).join(' ') };
 }
 
 // onMot(reste) est appelé au réveil ; l'écoute s'arrête alors (on la relance après)
-export async function demarrerReveil(onMot) {
+export async function demarrerReveil(onMot, { souple = () => false } = {}) {
   if (actif) return;
   actif = { stop: () => {} };
   try {
@@ -39,7 +40,7 @@ export async function demarrerReveil(onMot) {
     actif.stop = stop;
     reco.on('result', (m) => {
       if (fini) return;
-      const r = m.result || {}; const a = analyserReveil(r.text, r.result);
+      const r = m.result || {}; const a = analyserReveil(r.text, r.result, souple());
       if (a) { stop(); actif = null; onMot(a.reste, r.text); }
     });
     noeud.onaudioprocess = (e) => { if (!fini) { try { reco.acceptWaveform(e.inputBuffer); } catch (x) { /* ignore */ } } };

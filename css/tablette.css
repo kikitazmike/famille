@@ -526,3 +526,4 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 /* Une fenêtre ouverte passe devant la vidéo */
 #scene:has(#fen .voile) #lecteur { z-index: 25; }
 #tst .toast { z-index: 65; }
+#lecteur .lc-b.micro { background: #6D5BD0; }
