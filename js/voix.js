@@ -3,25 +3,40 @@ import { ajouterJours, debutJour, jourIso, MOIS } from './dates.js';
 
 export const voixDisponible = () => !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-export function ecouter({ continu = false } = {}) {
+// long : dictée (notes, messages) — on met bout à bout les morceaux et on s'arrête après 3 s de silence
+export function ecouter({ continu = false, long = false, onPartiel } = {}) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return Promise.reject(new Error('La dictée vocale n\'est pas disponible sur cet appareil (utilise Chrome).'));
   return new Promise((resolve, reject) => {
     const r = new SR();
     r.lang = 'fr-FR';
-    r.interimResults = false;
+    r.interimResults = long || !!onPartiel;
     r.maxAlternatives = 1;
-    r.continuous = continu;
-    let fini = false;
-    r.onresult = (e) => { fini = true; resolve(e.results[0][0].transcript); };
-    r.onerror = (e) => {
-      fini = true;
-      const m = { 'no-speech': 'Je n\'ai rien entendu.', 'not-allowed': 'Autorise le micro pour utiliser la voix.', 'network': 'La dictée a besoin d\'Internet.', 'audio-capture': 'Aucun micro trouvé.' }[e.error];
-      reject(new Error(m || 'Dictée interrompue.'));
+    r.continuous = continu || long;
+    let fini = false; const morceaux = []; let encours = ''; let silence = null; let maxi = null;
+    const texte = () => [...morceaux, encours].filter(Boolean).join(' ').trim();
+    const terminer = () => { if (fini) return; fini = true; clearTimeout(silence); clearTimeout(maxi); try { r.stop(); } catch (e) { /* ignore */ } const t = texte(); t ? resolve(t) : reject(new Error('Je n\'ai rien entendu.')); };
+    r.onresult = (e) => {
+      if (!long) {
+        const res = e.results[e.resultIndex || 0] || e.results[0];
+        if (res && res.isFinal === false) { if (onPartiel) onPartiel(res[0].transcript); return; }
+        fini = true; resolve((res || e.results[0])[0].transcript); return;
+      }
+      encours = '';
+      for (let k = e.resultIndex || 0; k < e.results.length; k++) { const res = e.results[k]; if (res.isFinal === false) encours += res[0].transcript; else morceaux.push(res[0].transcript.trim()); }
+      if (onPartiel) onPartiel(texte());
+      clearTimeout(silence); silence = setTimeout(terminer, 3000);
     };
-    r.onend = () => { if (!fini) reject(new Error('Je n\'ai rien entendu.')); };
+    r.onerror = (e) => {
+      if (long && texte() && e.error === 'no-speech') return terminer();
+      if (fini) return; fini = true;
+      const m = { 'no-speech': 'Je n\'ai rien entendu.', 'not-allowed': 'Autorise le micro pour utiliser la voix.', 'network': 'La dictée a besoin d\'Internet.', 'audio-capture': 'Aucun micro trouvé.' }[e.error];
+      const err = new Error(m || 'Dictée interrompue.'); err.code = e.error; reject(err);
+    };
+    r.onend = () => { if (long) return terminer(); if (!fini) { fini = true; reject(new Error('Je n\'ai rien entendu.')); } };
+    if (long) maxi = setTimeout(terminer, 40000);
     r.start();
-    ecouter.arreter = () => { try { r.stop(); } catch (e) { /* ignore */ } };
+    ecouter.arreter = () => { if (long) terminer(); else { try { r.stop(); } catch (e) { /* ignore */ } } };
   });
 }
 

@@ -35,9 +35,11 @@ const zEffet = document.getElementById('effet');
 const ecrire = (ops) => ecrireBase(ops).catch((x) => { toast(messageErreur(x)); throw x; });
 window.addEventListener('unhandledrejection', (e) => { if (e.reason && e.reason.status) e.preventDefault(); });
 const REG = 'famille-tablette';
-const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', voix: 'locale', parole: true, annonces: true, reveil: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', v2: true, voix: 'locale', parole: true, annonces: true }; } })();
+const reglages = (() => { try { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', voix: 'google', parole: true, annonces: true, reveil: true, ...JSON.parse(localStorage.getItem(REG) || '{}') }; } catch (e) { return { pleinEcran: true, veilleDebut: '22:00', veilleFin: '07:00', effet: 'auto', v2: true, voix: 'locale', parole: true, annonces: true }; } })();
 const sauverReglages = () => { try { localStorage.setItem(REG, JSON.stringify(reglages)); } catch (e) { /* ignore */ } };
 if (!reglages.v2) { reglages.veilleDebut = '22:00'; reglages.veilleFin = '07:00'; reglages.effet = 'auto'; reglages.v2 = true; sauverReglages(); }
+// Passage à la reconnaissance Google pour les demandes (plus rapide, connaît les noms étrangers) ; « Hé tablette » reste local
+if (!reglages.v3) { reglages.voix = 'google'; reglages.v3 = true; sauverReglages(); }
 
 const ui = { session: null, pret: false, vue: 'jour', ref: debutJour(new Date()), page: null, derniere: Date.now(), alerte: null, ecoute: false, meteo: null, photos: [], photoIdx: 0, reveilJusqua: 0, veilleForcee: false, auth: { erreur: null, info: null }, rejoindre: { erreur: null } };
 
@@ -912,7 +914,13 @@ async function ecouterTexte({ long = false } = {}) {
       toast('Voix locale indisponible, j\'utilise Google.'); return await ecouter();
     }
   }
-  return ecouter();
+  // Google ; sans Internet (ou si Google échoue), on repasse sur la voix de la tablette
+  if (!navigator.onLine && micro()) return ecouterLocal({ dureeMax: long ? 40000 : 12000, pause: long ? 3000 : 900 });
+  try { return await ecouter({ long, onPartiel: (p) => toast('… ' + p) }); }
+  catch (e) {
+    if (e && e.code === 'network' && micro()) { toast('Pas d\'Internet : j\'utilise la voix de la tablette.'); return ecouterLocal({ dureeMax: long ? 40000 : 12000, pause: long ? 3000 : 900 }); }
+    throw e;
+  }
 }
 
 async function parler(d) {
