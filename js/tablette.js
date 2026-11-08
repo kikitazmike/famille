@@ -10,7 +10,7 @@ import { avisSucre, infoSucre, sucreRecette, pastilleSucre, EMOJI, COULEUR, LIMI
 import { propositionsArticles, nbPropositions, optionsMenu, iconeArticle, optionsCategories, filtrerGroupes } from './catalogue.js';
 import { fondType, texteType, horaires, typeDuJour } from './planning.js';
 import { lireAliments, ajouterAliments, categoriesTuiles, tuilesAliments, basculerAliment, cleAliment, queFaire, phraseQueFaire, lireChoix, garderChoix, TEXTE_BASES } from './frigo.js';
-import { dire, direEtAttendre, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
+import { dire, direEtAttendre, enTrainDeParler, taire, heureParlee, enumerer, paroleDisponible, nbVoixFr } from './parole.js';
 import { demarrerReveil, arreterReveil } from './reveil.js';
 import { RADIOS, jouerRadio, jouerYoutube, pauseMusique, reprendreMusique, suivant as musiqueSuivante, precedent as musiquePrecedente, volumeMusique, baisserMusique, tailleVideo, arreterMusique, etatMusique, quandMusiqueChange, jouerListe, videoEnCours, radioConnue } from './musique.js';
 const VERSION_APPLI = VERSION;
@@ -1051,8 +1051,8 @@ let enDialogue = false;
 function relancerReveil() {
   if (!reglages.reveil || enDialogue || ui.ecoute || !state.moi || document.visibilityState !== 'visible') return;
   // On attend que la tablette ait fini de parler (ouvrir le micro coupe la voix sur Android)
-  if (window.speechSynthesis && speechSynthesis.speaking) { setTimeout(relancerReveil, 400); return; }
-  demarrerReveil((reste, brut) => { journaliser('mot-reveil', brut || 'tablette', ''); conversation(reste); }, { souple: () => !!etatMusique().mode && !etatMusique().pause }).catch(() => {});
+  if (enTrainDeParler()) { setTimeout(relancerReveil, 400); return; }
+  demarrerReveil((reste, brut) => { journaliser('mot-reveil', brut || 'tablette', ''); conversation(reste); }, { souple: () => !!etatMusique().mode && !etatMusique().pause }).catch((e) => { if (!ui.erreurReveilDite) { ui.erreurReveilDite = true; journaliser('erreur-reveil', String((e && (e.name + ' ' + e.message)) || e).slice(0, 200), ''); } });
 }
 const normer = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[?!.,;]/g, ' ').replace(/\s+/g, ' ').trim();
 // Pose une question à voix haute (et à l'écran), puis écoute la réponse

@@ -22,7 +22,7 @@ export async function demarrerReveil(onMot, { souple = () => false } = {}) {
   actif = { stop: () => {} };
   try {
     const modele = await preparerVoixLocale();
-    const flux = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 } }) // sans « annulation d'écho » : sinon Android passe en mode appel et le son de la musique devient faible et mauvais;
+    const flux = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true, channelCount: 1 } }) // sans « annulation d'écho » : sinon Android passe en mode appel et le son de la musique devient faible et mauvais;
     if (!actif) { flux.getTracks().forEach((t) => t.stop()); return; }
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const source = ctx.createMediaStreamSource(flux);

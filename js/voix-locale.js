@@ -35,7 +35,7 @@ export function preparerVoixLocale() {
 // pause : silence (ms) après lequel on considère la phrase finie ; les morceaux reconnus avant sont mis bout à bout
 export async function ecouterLocal({ onPartiel, dureeMax = 9000, pause = 1200 } = {}) {
   const modele = await preparerVoixLocale();
-  const flux = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 } }) // sans « annulation d'écho » : sinon Android passe en mode appel et le son de la musique devient faible et mauvais;
+  const flux = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true, channelCount: 1 } }) // sans « annulation d'écho » : sinon Android passe en mode appel et le son de la musique devient faible et mauvais;
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const source = ctx.createMediaStreamSource(flux);
   const reco = new modele.KaldiRecognizer(ctx.sampleRate);
