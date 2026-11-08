@@ -252,6 +252,7 @@ export function comprendre(texte, prenoms = []) {
   // Musique : « mets NRJ », « mets la radio France Inter », « joue Indochine », « mets les tubes des années 80 », « pause », « plus fort »…
   {
     let q = n.replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim()
+      .replace(/^(?:ecoutez|ecoutes)\b/, 'ecoute').replace(/^mettez\b/, 'mets').replace(/^jouez\b/, 'joue').replace(/^lancez\b/, 'lance').replace(/^passez\b/, 'passe').replace(/^on mets?\b/, 'mets')
       .replace(/^(s'il te plait|s'il vous plait|stp|svp) /, '').replace(/ (s'il te plait|s'il vous plait|stp|svp)$/, '')
       .replace(/^(?:mets|met|mettre)[- ]moi /, 'mets ').replace(/^(?:est-ce que )?(?:tu peux|peux-tu|pourrais-tu|tu pourrais) (?:me |nous )?(?:mettre|remettre) /, 'mets ')
       .replace(/^(?:tu peux|peux-tu|pourrais-tu|tu pourrais) (?:me |nous )?(?:jouer|lancer|passer) /, 'joue ')
@@ -264,6 +265,7 @@ export function comprendre(texte, prenoms = []) {
       return { type: 'musique', action: 'jouer', radio: false, q: seule[2] ? `musique ${seule[2]}` : 'hits musique 2026', texte: t };
     }
     const RADIOS = /^(france inter|inter|franceinfo|france info|rtl ?2|rtl deux|rtl|nrj|nostalgie|cherie fm|cherie|rfm|europe 1|europe un|fun radio|fun|skyrock|nti|n t i|hit ?west|hit ouest)$/;
+    if (RADIOS.test(q.replace(/^(la |radio )+/, ''))) return { type: 'musique', action: 'jouer', radio: true, q: q.replace(/^(la |radio )+/, ''), texte: t };
     if (/^(pause|mets? (sur )?pause|met en pause|pause (la )?(musique|radio|video))$/.test(q)) return { type: 'musique', action: 'pause', texte: t };
     if (/^(reprends|reprend|continue|relance|play|remets? (la )?(musique|radio))$/.test(q)) return { type: 'musique', action: 'reprendre', texte: t };
     if (/^((stop|arrete|arreter|coupe|couper|eteins|eteindre|ferme) (la |le )?(musique|radio|video|son|youtube)|stop musique|silence)$/.test(q)) return { type: 'musique', action: 'stop', texte: t };
@@ -383,7 +385,7 @@ export function comprendre(texte, prenoms = []) {
   const MOTS_ACTION = /^(note|notes|ajoute|ajouter|rajoute|mets|met|tablette|aide|help|merci|oui|non|ok|okay|stop|annule|rien|bonjour|salut|test|essai|courses?|liste|agenda|rendez[- ]vous|rdv|message|messages|minuteur|meteo|reglages?|parametres)$/;
   if (MOTS_ACTION.test(n.trim())) return { type: 'inconnu', texte: t };
   if (/^(mets|met|mettre|fais|fait|range|ranger|appelle|appeler|va|vas|sors|sortir|ferme|ouvre)\b/.test(n) && !RE_COURSE.test(brut)) return { type: 'inconnu', texte: t };
-  if (t.split(' ').length <= 4) { const nom = t.replace(/\s+pour\s+(demain|apr[eè]s[- ]demain|ce soir|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s*$/i, '').replace(ARTICLES, ''); if (nom.split(' ').length <= 3) return { type: 'course', noms: [majuscule(nom)] }; }
+  if (t.split(' ').length <= 4) { const nom = t.replace(/\s+pour\s+(demain|apr[eè]s[- ]demain|ce soir|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s*$/i, '').replace(ARTICLES, ''); if (nom.split(' ').length <= 3) return { type: 'course', noms: [majuscule(nom)], devine: true }; }
   return { type: 'inconnu', texte: t };
 }
 

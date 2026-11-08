@@ -1085,6 +1085,8 @@ async function traiterDemande(t) {
   }
   // Phrase complète (« ajoute du lait », « note : … », question…)
   const c = comprendre(t, prenoms);
+  // Un ou deux mots sans verbe (« NTI », « musique de… » mal entendu) : pas de course devinée en conversation
+  if (c.type === 'course' && c.devine) return repondreA(`Je n'ai pas compris « ${t} ». Pour les courses, dis : ajoute… ; pour la radio : mets la radio…`);
   if (c.type === 'course') {
     const ch = await choixFinal(`J'ajoute ${enumerer(c.noms)}`);
     return ch === 'valider' ? agir(c, t) : repondreA(ch === 'modifier' ? 'D\'accord. Redis « hé tablette » pour recommencer.' : 'D\'accord, j\'annule.');
