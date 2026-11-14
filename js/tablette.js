@@ -203,7 +203,8 @@ function vueJour(jour, estAujourdhui) {
   const maint = estAujourdhui && n >= t0 && pct(n) < 100 ? `<span class="maint" style="left:${pct(n)}%">MAINTENANT</span>` : '';
   const ligneMaint = estAujourdhui && n >= t0 && pct(n) < 100 ? `<div class="ligne-maint" style="left:calc(132px + (100% - 132px) * ${pct(n) / 100})"></div>` : '';
   const jt = journee.length ? `<div style="display:flex;gap:8px;margin-left:132px;flex-wrap:wrap">${journee.map((o) => `<span class="puce" style="font-size:14px;padding:4px 12px">${esc(o.ev.titre)} · journée</span>`).join('')}</div>` : '';
-  return `${jt}<div class="axe">${labels.join('')}${soleil}${maint}</div><div class="couloirs">${couloirs}${ligneMaint}</div>`;
+  const a0 = debutJour(new Date()); const autreJour = !memeJour(jour, a0) && !memeJour(jour, ajouterJours(a0, 1));
+  return `${jt}<div class="axe">${autreJour ? `<b class="axe-jour">${majuscule(JOURS[jourIso(jour) - 1])}<small>${jour.getDate()} ${MOIS[jour.getMonth()]}</small></b>` : (() => { const nn = new Date(); const ec = estAujourdhui ? occsJour(jour).filter((o) => !o.ev.journee_entiere && o.debut <= nn && o.fin > nn).length : 0; return ec ? `<b class="axe-jour encours"><em><i></i>${ec} en cours</em></b>` : ''; })()}${labels.join('')}${soleil}${maint}</div><div class="couloirs">${couloirs}${ligneMaint}</div>`;
 }
 
 // Anniversaires d'un jour donné (avec l'âge fêté)
@@ -240,14 +241,12 @@ function agendaHtml() {
   const auj = debutJour(new Date()); const n = new Date();
   const enJour = ui.vue === 'jour';
   const jour = ui.ref;
-  const occs = enJour ? occsJour(jour) : [];
-  const enCours = occs.filter((o) => !o.ev.journee_entiere && o.debut <= n && o.fin > n).length;
   const onglet = enJour ? (memeJour(jour, auj) ? 'auj' : memeJour(jour, ajouterJours(auj, 1)) ? 'demain' : '') : ui.vue;
   const vues = [['auj', 'Aujourd\'hui'], ['demain', 'Demain'], ['semaine', 'Semaine'], ['mois', 'Mois']];
   let titre = ''; let periode = '';
-  if (ui.vue === 'mois') periode = `<b class="periode">${majuscule(MOIS[ui.ref.getMonth()])} ${ui.ref.getFullYear()}</b>`;
-  else if (ui.vue === 'semaine') { const l = debutSemaine(ui.ref); const d = ajouterJours(l, 6); periode = `<b class="periode">${memeJour(l, debutSemaine(n)) ? 'Cette semaine' : `Du ${l.getDate()} ${l.getMonth() !== d.getMonth() ? MOIS[l.getMonth()].slice(0, 3) + '.' : ''} au ${d.getDate()} ${MOIS[d.getMonth()].slice(0, 3)}.`}</b>`; }
-  else { if (!onglet) periode = `<b class="periode">${majuscule(JOURS[jourIso(jour) - 1])} ${jour.getDate()} ${MOIS[jour.getMonth()]}</b>`; titre = `<span>${occs.length} rdv</span>${memeJour(jour, auj) && enCours ? `<span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent)"></span>${enCours} en cours</span>` : ''}`; }
+  if (ui.vue === 'mois') vues[3][1] = ui.ref.getFullYear() === n.getFullYear() ? majuscule(MOIS[ui.ref.getMonth()]) : `${majuscule(MOIS[ui.ref.getMonth()].length > 4 ? MOIS[ui.ref.getMonth()].slice(0, 4) + '.' : MOIS[ui.ref.getMonth()])} ${ui.ref.getFullYear()}`;
+  else if (ui.vue === 'semaine') { const l = debutSemaine(ui.ref); const d = ajouterJours(l, 6); vues[2][1] = `${memeJour(l, debutSemaine(n)) ? 'Cette semaine' : `${l.getDate()}${l.getMonth() !== d.getMonth() ? ' ' + MOIS[l.getMonth()].slice(0, 3) + '.' : ''} – ${d.getDate()} ${MOIS[d.getMonth()].slice(0, 3)}.`}`; }
+  else { titre = ''; }
   const corps = ui.vue === 'semaine' ? vueSemaine() : ui.vue === 'mois' ? vueMois() : vueJour(jour, memeJour(jour, auj));
   const nom = ui.vue === 'semaine' ? 'semaine' : ui.vue === 'mois' ? 'mois' : 'jour';
   return `<section class="agenda" aria-label="Agenda de la famille">

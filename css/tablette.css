@@ -10,35 +10,36 @@ button { cursor: pointer; }
 #cadre { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; transition: background 2s; }
 #scene { width: 1280px; height: 800px; transform-origin: center center; position: relative; flex-shrink: 0; }
 
-.ecran { position: absolute; inset: 0; padding: 30px 44px; display: flex; flex-direction: column; gap: 20px; }
-header.haut { display: flex; align-items: flex-end; justify-content: space-between; }
-.horloge { display: flex; align-items: flex-end; gap: 28px; }
-.heure { font-size: 104px; line-height: .8; font-weight: 200; letter-spacing: -4px; }
+.ecran { position: absolute; inset: 0; padding: 30px 44px 24px; display: flex; flex-direction: column; gap: 14px; }
+header.haut { display: flex; align-items: center; justify-content: space-between; }
+.horloge { display: flex; align-items: center; gap: 22px; }
+.heure { font-size: 64px; line-height: 1; font-weight: 200; letter-spacing: -2px; }
 .heure .dp { color: var(--accent); font-weight: 400; }
-.date { display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; }
-.date b { font-size: 30px; font-weight: 500; }
-.date > span { font-size: 22px; font-weight: 300; color: var(--doux); }
-.pastilles { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; max-width: 480px; }
+.date { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 6px; max-width: 620px; }
+.date b { font-size: 24px; font-weight: 500; }
+.date > span { font-size: 20px; font-weight: 300; color: var(--doux); }
+.pastilles { display: flex; gap: 6px; flex-wrap: wrap; flex-basis: 100%; }
 .pp { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--trait); font-size: 13px; white-space: nowrap; }
 .pp.ajd { background: var(--accent); color: #fff; box-shadow: none; }
 .pp .pt { width: 8px; height: 8px; border-radius: 50%; }
 
-.meteo { display: flex; align-items: stretch; background: #fff; border-radius: 24px; padding: 14px 8px; box-shadow: 0 1px 0 var(--trait); }
+.meteo { display: flex; align-items: stretch; background: #fff; border-radius: 20px; padding: 8px 6px; box-shadow: 0 1px 0 var(--trait); }
 .meteo > div { display: flex; align-items: center; gap: 10px; padding: 0 14px; }
 .meteo small, .meteo strong { white-space: nowrap; }
+.meteo svg { width: 30px; height: 30px; }
 .meteo .desc { max-width: 150px; overflow: hidden; text-overflow: ellipsis; display: block; }
 .meteo .sep { width: 1px; padding: 0; background: var(--trait); }
 .meteo .col { display: flex; flex-direction: column; }
 .meteo small { font-size: 13px; color: var(--pale); }
-.meteo strong { font-size: 22px; font-weight: 500; line-height: 1.1; }
-.meteo .temp { font-size: 34px; font-weight: 300; line-height: 1; }
+.meteo strong { font-size: 18px; font-weight: 500; line-height: 1.1; }
+.meteo .temp { font-size: 26px; font-weight: 300; line-height: 1; }
 
-.agenda { background: #fff; border-radius: 28px; padding: 18px 26px 20px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 0 var(--trait); height: 370px; flex-shrink: 0; }
+.agenda { background: #fff; border-radius: 28px; padding: 18px 26px 20px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 0 var(--trait); height: 448px; flex-shrink: 0; }
 .barre-outils { display: flex; align-items: center; justify-content: space-between; }
 .vues { display: flex; gap: 4px; background: var(--creux); border-radius: 14px; padding: 4px; }
-.vues button { height: 40px; padding: 0 18px; border: none; border-radius: 11px; background: transparent; color: var(--doux); font-size: 15px; font-weight: 500; }
+.vues button { height: 40px; padding: 0 14px; white-space: nowrap; border: none; border-radius: 11px; background: transparent; color: var(--doux); font-size: 15px; font-weight: 500; }
 .vues button[aria-selected="true"] { background: #EEEBFC; color: var(--accent-texte); font-weight: 600; box-shadow: 0 1px 2px rgba(60, 40, 10, .12); }
-.outils { display: flex; align-items: center; gap: 14px; font-size: 15px; color: var(--doux); }
+.outils { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--doux); }
 .btn { height: 44px; padding: 0 16px; border: none; border-radius: 14px; background: var(--accent-doux); color: var(--accent-texte); font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
 .btn.fort { background: var(--accent); color: #fff; }
 .btn.ecoute { animation: pulse 1.2s infinite; }
@@ -46,11 +47,16 @@ header.haut { display: flex; align-items: flex-end; justify-content: space-betwe
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent); } 100% { box-shadow: 0 0 0 14px transparent; } }
 
 .axe { position: relative; height: 40px; margin-left: 132px; }
+.axe-jour { position: absolute; left: -132px; top: -4px; width: 124px; display: flex; flex-direction: column; font-size: 17px; font-weight: 600; color: #1F4E79; line-height: 1.15; }
+.axe-jour.encours { top: 6px; font-size: 14px; font-weight: 500; color: var(--accent-texte); }
+.axe-jour.encours em { font-style: normal; display: flex; align-items: center; gap: 6px; }
+.axe-jour.encours i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.axe-jour small { font-size: 13px; font-weight: 500; }
 .axe span { position: absolute; top: 0; font-size: 13px; color: var(--pale); transform: translateX(-50%); white-space: nowrap; }
 .axe .soleil { top: 18px; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #A8481F; }
 .axe .maint { top: 16px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .6px; padding: 3px 10px; border-radius: 999px; }
 .couloirs { position: relative; display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
-.couloir { display: flex; align-items: center; flex: 1; min-height: 0; max-height: 62px; }
+.couloir { display: flex; align-items: center; flex: 1; min-height: 0; max-height: 84px; }
 .nom { width: 132px; display: flex; flex-direction: column; }
 .nom b { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 17px; }
 .nom b i { width: 12px; height: 12px; border-radius: 50%; }
