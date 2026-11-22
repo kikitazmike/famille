@@ -385,6 +385,9 @@ header.haut { display: flex; align-items: center; justify-content: space-between
 .eff-espace { background: #07060F; }
 .eff-plan { background-color: #0E2A47; background-image: linear-gradient(rgba(120,190,255,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(120,190,255,.16) 1px, transparent 1px), linear-gradient(rgba(120,190,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(120,190,255,.07) 1px, transparent 1px); background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px; }
 .eff-grande { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; color: #fff; text-shadow: 0 4px 30px rgba(0,0,0,.45); white-space: nowrap; pointer-events: none; }
+.eff-calme { position: absolute; inset: 0; background: #000; }
+.eff-calme .eff-grande { color: #8A8A8A; text-shadow: none; }
+.eff-calme + .eff-toucher { background: #1A1A1A; color: #777; }
 .eff-grande.haut { top: 27%; } .eff-grande.devant { z-index: 5; }
 .eff-grande .h { font-size: 200px; font-weight: 200; line-height: 1; letter-spacing: -6px; }
 .eff-grande .d { font-size: 30px; font-weight: 300; margin-top: 6px; }

@@ -35,9 +35,19 @@ export function demarrerEffet(conteneur, n, { infos = () => ({}), noms = [], pag
   conteneur.innerHTML = '<div class="eff-voile"></div><div class="eff-zone"></div><div class="eff-toucher">Touchez l\'écran pour revenir</div>';
   const zone = conteneur.querySelector('.eff-zone');
   const f = n === 'confettis' ? confettis : [null, bulles, liquide, hud, hexagones, vent, gravite, ondulation, cartes, trouNoir, construction][n] || bulles;
-  const arret = f(zone, { infos, noms, page });
-  enCours = { stop: () => { arret(); conteneur.innerHTML = ''; } };
+  let arret = f(zone, { infos, noms, page });
+  // Après 5 min, l'animation s'arrête : écran noir avec l'heure en gris, mis à jour chaque minute (économie de batterie)
+  let tm = 0;
+  const calme = setTimeout(() => {
+    try { arret(); } catch (e) { /* ignore */ } arret = () => {};
+    conteneur.innerHTML = '<div class="eff-calme"><div class="eff-grande"></div></div><div class="eff-toucher">Touchez l\'écran pour revenir</div>';
+    const g = conteneur.querySelector('.eff-grande');
+    const maj = () => { const i = infos() || {}; g.innerHTML = `<div class="h">${esc(i.heure || '')}</div><div class="d">${esc(i.date || '')}${i.temp ? ' · ' + esc(i.temp) : ''}</div>`; };
+    maj(); tm = setInterval(maj, 20000);
+  }, DUREE_ANIMATION);
+  enCours = { stop: () => { clearTimeout(calme); clearInterval(tm); arret(); conteneur.innerHTML = ''; } };
 }
+export const DUREE_ANIMATION = 5 * 60000;
 
 // Boucle d'animation (30 images/s suffisent, et ça économise la batterie)
 function boucle(dessiner) {
